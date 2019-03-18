@@ -41,7 +41,7 @@ setup(
     keywords="models tools",
     url="https://github.com/ryanhausen/ryanml",
     packages=find_packages(),
-    long_description=read('README.md'),
+    long_description=read("README.md"),
     # https://pypi.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
