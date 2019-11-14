@@ -53,7 +53,7 @@ def _get_new_coords(y, x):
 
 
 def _get_depth(shape, tile_size):
-    return int(np.log2(shape[0] / tile_size[0]))
+    return int(np.log2(shape[0]))
 
 
 def _build_path(depth, y, x, out_dir):
@@ -73,7 +73,7 @@ def _build_path(depth, y, x, out_dir):
     return img_path
 
 
-def _convert_and_save(array, depth, y, x, out_dir, tile_size, image_engine, vmax):
+def _convert_and_save(array, depth, y, x, out_dir, tile_size, image_engine, vmin, vmax):
     path = _build_path(depth, y, x, out_dir)
 
     if image_engine == "PIL":
@@ -87,10 +87,11 @@ def _convert_and_save(array, depth, y, x, out_dir, tile_size, image_engine, vmax
     else:
         f = plt.figure(dpi=100)
         f.set_size_inches([tile_size[0] / 100, tile_size[1] / 100])
-        plt.imshow(array, origin="lower", cmap="gray", vmin=0, vmax=vmax)
+        plt.imshow(array, origin="lower", cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
+        #plt.text(array.shape[0]//2, array.shape[1]//2, f"{depth},{y},{x}")
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
-        plt.savefig(path, dpi=100, bbox_inches=0)
+        plt.savefig(path, dpi=100, bbox_inches=0, interpolation="nearest")
         plt.close(f)
 
 
@@ -106,36 +107,37 @@ def array(
         if depth is None:
             depth = _get_depth(array.shape, tile_size)
 
-        if method == "recursive":
+    if method == "recursive":
 
-            total_tiles = (1 - (4 ** (depth + 1))) // (1 - 4)
-            pbar = tqdm(total=total_tiles)
+        total_tiles = (1 - (4 ** (depth + 1))) // (1 - 4)
+        pbar = tqdm(total=total_tiles)
 
-            _build_recursively(
-                array,
-                (0, 0),
-                0,
-                depth,
-                out_dir,
-                tile_size,
-                image_engine,
-                array.max(),
-                pbar,
-            )
+        _build_recursively(
+            array,
+            (0, 0),
+            0,
+            depth,
+            out_dir,
+            tile_size,
+            image_engine,
+            array.min(),
+            array.max(),
+            pbar,
+        )
 
-            pbar.close()
-        elif method == "iterative":
-            raise NotImplementedError("iterative not supported")
-        else:
-            raise ValueError("{} invalid. Please use recursive".format(method))
+        pbar.close()
+    elif method == "iterative":
+        raise NotImplementedError("iterative not supported")
+    else:
+        raise ValueError("{} invalid. Please use recursive".format(method))
 
 
 def _build_recursively(
-    array, coords, depth, goal, out_dir, tile_size, image_engine, vmax, pbar
+    array, coords, depth, goal, out_dir, tile_size, image_engine, vmin, vmax, pbar
 ):
     y, x = coords
 
-    _convert_and_save(array, depth, y, x, out_dir, tile_size, image_engine, vmax)
+    _convert_and_save(array, depth, y, x, out_dir, tile_size, image_engine, vmin, vmax)
     pbar.update()
 
     if depth < goal:
@@ -154,6 +156,6 @@ def _build_recursively(
         for (_ys, _xs), crds in zip(slices, _get_new_coords(y, x)):
             arr = array[_ys, _xs]
             _build_recursively(
-                arr, crds, depth + 1, goal, out_dir, tile_size, image_engine, vmax, pbar
+                arr, crds, depth + 1, goal, out_dir, tile_size, image_engine, vmin, vmax, pbar
             )
             del arr

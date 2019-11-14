@@ -4,3 +4,5 @@
 data/**
 
 fitsmap/__pycache__/
+
+tmp/
