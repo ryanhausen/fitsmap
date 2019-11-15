@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2018 Ryan Hausen
+# Copyright 2019 Ryan Hausen
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -95,7 +95,7 @@ def img_to_layer(
     image_engine: str = convert.IMG_ENGINE_MPL,
 ) -> Tuple[str, str, int]:
 
-    path, fname = os.path.split(file_location)
+    _, fname = os.path.split(file_location)
     name = os.path.splitext(fname)[0].replace(".", "_").replace("-", "_")
 
     pbar = tqdm(position=pbar_loc, desc="Converting " + name, unit="tile")
@@ -139,21 +139,17 @@ def dir_to_map(
         )
     )
 
-    def dir_entry_to_pbar(args: Tuple[int, str]) -> tqdm:
-        loc, file_location = args
-        _, name = os.path.split(file_location)
-        return tqdm(position=loc, desc="Converting " + name, unit="tile")
-
     kwargs = dict(
         tile_size=tile_size, depth=depth, method=method, image_engine=image_engine
     )
     layer_func = partial(img_to_layer, **kwargs)
 
+    pbar_loc_generator = count(0)
     if multiprocessing_processes > 0:
-        with Pool(2) as p:
-            built_layers = p.starmap(layer_func, zip(dir_entries, count(0)))
+        with Pool(multiprocessing_processes) as p:
+            built_layers = p.starmap(layer_func, zip(dir_entries, pbar_loc_generator))
     else:
-        built_layers = map(layer_func, dir_entries, count(0))
+        built_layers = map(layer_func, dir_entries, pbar_loc_generator)
 
     def update_map(z1: int, layer: Tuple[str, str, int]) -> int:
         p, n, z2 = layer
@@ -167,29 +163,7 @@ def dir_to_map(
 
     _map.build_map()
 
-    # # 18 is the default max zoom for leaflet
-    # max_zoom = 1000
-    # for f in os.listdir(directory):
-    #     fs = f.split(".")
-    #     name, ext = ".".join(fs[:-1]), fs[-1]
-    #     name = name.replace(".", "_").replace("-", "_")
 
-    #     if ext in ACCECPTABLE_FORMATS:
-    #         print(f"Converting:{f}")
-
-    #         mz = tile_img(
-    #             os.path.join(directory, f),
-    #             tile_size=tile_size,
-    #             depth=depth,
-    #             method=method,
-    #             image_engine=image_engine,
-    #         )
-    #         img_directory = name + "/{z}/{y}/{x}.png"
-    #         _map.add_tile_layer(img_directory, name)
-    #         max_zoom = min(max_zoom, mz)
-
-    # _map.max_zoom = max_zoom
-    # _map.build_map()
 
 
 class _Map:

@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2018 Ryan Hausen
+# Copyright 2019 Ryan Hausen
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -27,20 +27,6 @@ import matplotlib.pyplot as plt
 
 IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
-
-
-def _dynamically_range(array):
-    pcmin = 1e-4
-    dynrange = 1000
-    arr = np.clip(array, pcmin, pcmin * dynrange)
-
-    num = np.log10(arr) - np.log10(pcmin)
-    denom = np.log10(pcmin * dynrange) - np.log10(pcmin)
-    arr = num / denom
-    arr = 0.5 * arr + 0.5
-
-    return arr
-
 
 # TODO: Try to understand why leaflet prefers the coords like this
 def _get_new_coords(y, x):
