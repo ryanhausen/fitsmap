@@ -19,6 +19,7 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import json
 import os
+from functools import partial
 from typing import List, Tuple, Union
 
 
@@ -172,73 +173,81 @@ def _build_recursively(
             )
             del arr
 
-def line_to_cols(raw_line:str):
+
+def line_to_cols(raw_line: str):
 
     change_case = ["RA", "DEC", "Ra", "Dec"]
 
     # make ra and dec lowercase for ease of access
-    raw_cols = map(
-        lambda s: s.lower() if s in change_case else s,
-        raw_line.strip().split()
+    raw_cols = list(
+        map(lambda s: s.lower() if s in change_case else s, raw_line.strip().split())
     )
 
     # if header line starts with a '#' exclude it
-    if raw_cols[0]=="#":
+    if raw_cols[0] == "#":
         return raw_cols[1:]
     else:
         return raw_cols
 
-def cols_vals_to_html_row(col_val:Tuple[str, str]):
-    html = [
-        "<tr>",
-        "<td>{}</td>".format(col_val[0])
 
-    ]
-
-    return html
-
-def line_to_json(wcs:WCS, columns:List[str], max_xy:Tuple[int,int], src_line:str):
+def line_to_json(wcs: WCS, columns: List[str], max_xy: Tuple[int, int], src_line: str):
     max_x, max_y = max_xy
 
     src_vals = src_line.strip().split()
 
     ra = float(src_vals[columns.index("ra")])
     dec = float(src_vals[columns.index("dec")])
+    src_id = int(src_vals[columns.index("id")])
 
     [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
     x = img_x / max_x * 256
     y = img_y / max_y * 256
 
-    col_vals = zip(columns, src_vals)
+    html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
+    src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
+
+    src_desc = "".join(
+        [
+            "<span style='text-decoration:underline; font-weight:bold'>Catalog Information/span>",
+            "<br>",
+            "<table>",
+            *src_rows,
+            "</table>",
+        ]
+    )
+
+    return dict(x=x, y=y, catalog_id=src_id, desc=src_desc)
 
 
-
-
-def catalog(wcs_file: str, pbar_loc:int, catalog_file: str):
+def catalog(
+    wcs_file: str,
+    out_dir: str,
+    max_xy: Tuple[int, int],
+    catalog_file: str,
+    pbar_loc: int,
+):
     wcs = WCS(wcs_file)
 
     f = open(catalog_file, "r")
 
     columns = line_to_cols(next(f))
 
-    if "ra" not in columns or "dec" not in columns:
-        err_msg = catalog_file + " is missing an 'ra' column, a 'dec' column, or both"
+    if "ra" not in columns or "dec" not in columns or "id" not in columns:
+        err_msg = " ".join(
+            [
+                catalog_file + " is missing an 'ra' column, a 'dec' column,",
+                "an 'id' column, or all of the above",
+            ]
+        )
         raise ValueError(err_msg)
 
+    line_func = partial(line_to_json, wcs, columns, max_xy)
 
-
-
+    cat_file = os.path.split(catalog_file)[1] + ".json"
+    with open(os.path.join(out_dir, cat_file), "w") as j:
+        json.dump(list(map(line_func, tqdm(f, desc="Making " + cat_file))), j)
 
     f.close()
 
-
-
-
-
-
-
-
-
-
-
+    return cat_file

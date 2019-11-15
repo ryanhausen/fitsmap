@@ -52,7 +52,7 @@ def tile_img(
     pbar: tqdm,
     tile_size: Shape = [256, 256],
     depth: int = None,
-    method: str = mapmaker.METHOD_RECURSIVE,
+    method: str = METHOD_RECURSIVE,
     image_engine: str = convert.IMG_ENGINE_MPL,
 ):
     file_dir, file_name = os.path.split(file_path)
@@ -72,8 +72,6 @@ def tile_img(
     if depth is None:
         depth = convert._get_depth(array.shape, tile_size)
 
-    max_zoom = depth
-
     convert.array(
         array,
         pbar,
@@ -84,7 +82,7 @@ def tile_img(
         image_engine=image_engine,
     )
 
-    return max_zoom
+    return array.shape
 
 
 def img_to_layer(
@@ -101,7 +99,7 @@ def img_to_layer(
 
     pbar = tqdm(position=pbar_loc, desc="Converting " + name, unit="tile")
 
-    out_zoom = tile_img(
+    img_shape = tile_img(
         file_location,
         name,
         pbar,
@@ -112,14 +110,14 @@ def img_to_layer(
     )
 
     layer_dir = name + "/{z}/{y}/{x}.png"
-    return (layer_dir, name, out_zoom)
+    return (layer_dir, name, img_shape)
 
 
 def dir_to_map(
     directory: str,
     tile_size: Shape = [256, 256],
     depth: int = None,
-    method: str = mapmaker.METHOD_RECURSIVE,
+    method: str = METHOD_RECURSIVE,
     image_engine: str = convert.IMG_ENGINE_MPL,
     title: str = "FitsMap",
     multiprocessing_processes: int = 0,
@@ -149,12 +147,13 @@ def dir_to_map(
     else:
         built_layers = map(layer_func, dir_entries, pbar_loc_generator)
 
-    def update_map(z1: int, layer: Tuple[str, str, int]) -> int:
-        p, n, z2 = layer
+    def update_map(shp1: Shape, layer: Tuple[str, str, Shape]) -> np.ndarray:
+        p, n, shp2 = layer
         _map.add_tile_layer(p, n)
-        return min(z1, z2)
+        return np.maximum(shp1, shp2)
 
-    _map.max_zoom = reduce(update_map, built_layers, 18)
+    max_xy = reduce(update_map, built_layers, 18)
+    # set max zoom
 
     catalogs = list(filter(lambda d: d.endswith(".cat"), os.list(directory)))
 
@@ -166,17 +165,17 @@ def dir_to_map(
             ]
             print(" ".join(err_msg))
         else:
-            cat_func = partial(convert.catalog, cat_wcs_fits_file)
+            cat_func = partial(convert.catalog, cat_wcs_fits_file, out_dir, max_xy)
 
             if multiprocessing_processes > 0:
                 with Pool(multiprocessing_processes) as p:
-                    p.starmap(cat_func, zip(catalogs, pbar_loc_generator))
+                    catalog_js_files = p.starmap(
+                        cat_func, zip(catalogs, pbar_loc_generator)
+                    )
             else:
                 catalog_js_files = map(cat_func, catalogs, pbar_loc_generator)
 
     _map.build_map()
-
-
 
 
 class _Map:
