@@ -3,4 +3,4 @@ from astropy.io import fits
 
 from fitsmap import mapmaker
 
-mapmaker.MapMaker.dir_to_map("./tmp", depth=6)
+mapmaker.dir_to_map("./tmp", depth=6)

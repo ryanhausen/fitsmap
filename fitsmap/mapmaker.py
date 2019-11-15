@@ -20,6 +20,9 @@
 
 import os
 import sys
+from functools import partial, reduce
+from itertools import count
+from typing import List, Tuple, Union
 
 import numpy as np
 from astropy.io import fits
@@ -32,85 +35,134 @@ from PIL import Image
 
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
+Shape = Union[List[int], Tuple[int, int]]
 
-class MapMaker:
-    ACCECPTABLE_FORMATS = ["fits", "jpg", "png"]
+IMG_FORMATS = ["fits", "jpg", "png"]
+CAT_FORMAT = ["cat"]
+METHOD_RECURSIVE = "recursive"
+METHOD_ITERATIVE = "iterative"
 
-    @staticmethod
-    def _create_map(
-        file_path,
-        tile_size=[256, 256],
-        depth=None,
-        method="recursive",
-        image_engine="mpl",
-        pixel_match=False,
-    ):
-        file_dir, file_name = os.path.split(file_path)
 
-        fs = file_name.split(".")
-        name, ext = "_".join(fs[:-1]), fs[-1]
+def tile_img(
+    file_path,
+    layer_name:str,
+    tile_size=[256, 256],
+    depth=None,
+    method="recursive",
+    image_engine="mpl",
+):
+    file_dir, file_name = os.path.split(file_path)
 
-        out_dir = os.path.join(file_dir, name)
-        if name not in os.listdir(file_dir):
-            os.mkdir(out_dir)
+    fs = file_name.split(".")
+    name, ext = "_".join(fs[:-1]), fs[-1]
 
-        if ext == "fits":
-            array = fits.getdata(file_path)
-        else:
-            array = np.flipud(imread(file_path))
+    out_dir = os.path.join(file_dir, name)
+    if name not in os.listdir(file_dir):
+        os.mkdir(out_dir)
 
-        if depth is None:
-            depth = convert._get_depth(array.shape, tile_size)
+    if ext == "fits":
+        array = fits.getdata(file_path)
+    else:
+        array = np.flipud(imread(file_path))
 
-        max_zoom = depth
+    if depth is None:
+        depth = convert._get_depth(array.shape, tile_size)
 
-        convert.array(
-            array,
-            tile_size=tile_size,
-            depth=depth,
-            out_dir=out_dir,
-            method=method,
-            image_engine=image_engine,
-        )
+    max_zoom = depth
 
-        return max_zoom
+    convert.array(
+        array,
+        tile_size=tile_size,
+        depth=depth,
+        out_dir=out_dir,
+        method=method,
+        image_engine=image_engine,
+    )
 
-    @staticmethod
-    def dir_to_map(
-        directory,
-        tile_size=[256, 256],
-        depth=None,
-        method="recursive",
-        image_engine="mpl",
-        title="FitsMap",
-        pixel_match=False,
-    ):
+    return max_zoom
 
-        _map = _Map(directory, title)
+def img_to_layer(dir_entry:os.DirEntry, pbar_position:int, tile_size:Shape, depth:int=None, method:str=METHOD_RECURSIVE, image_engine:str=convert.IMG_ENGINE_MPL) -> Tuple[str, str, int]:
+    print("Converting " + dir_entry.name)
 
-        # 18 is the default max zoom for leaflet
-        max_zoom = 1000
-        for f in os.listdir(directory):
-            fs = f.split(".")
-            name, ext = ".".join(fs[:-1]), fs[-1]
-            name = name.replace(".", "_").replace("-", "_")
+    name = os.path.splitext(dir_entry.name)[0].replace(".", "_").replace("-", "_")
 
-            if ext in MapMaker.ACCECPTABLE_FORMATS:
-                print(f"Converting:{f}")
+    out_zoom = tile_img(dir_entry.path,
+                        name,
+                        tile_size=tile_size,
+                        depth = depth,
+                        method=method,
+                        image_engine=image_engine)
 
-                mz = MapMaker._create_map(
-                    os.path.join(directory, f),
-                    tile_size=tile_size,
-                    depth=depth,
-                    method=method,
-                    image_engine=image_engine,
-                )
-                img_directory = name + "/{z}/{y}/{x}.png"
-                _map.add_tile_layer(img_directory, name)
-                max_zoom = min(max_zoom, mz)
+    layer_dir = name + "/{z}/{y}/{x}.png"
+    return (layer_dir, name, out_zoom)
 
-        _map.max_zoom = max_zoom
-        _map.build_map()
+def convert_catalog_to_js(f_name:str):
+    return None
+
+
+
+
+def dir_to_map(
+    directory:str,
+    tile_size:Shape=[256, 256],
+    depth:int=None,
+    method:str="recursive",
+    image_engine:str="mpl",
+    title:str="FitsMap",
+):
+    _map = _Map(directory, title)
+
+    dir_entries = filter(
+        lambda d: os.path.splitext(d.name)[1][1:] in IMG_FORMATS,
+        os.scandir(directory)
+    )
+
+    kwargs = dict(
+        tile_size=tile_size,
+        depth=depth,
+        method=method,
+        image_engine=image_engine
+    )
+    layer_func = partial(img_to_layer, **kwargs)
+
+    built_layers = map(layer_func, dir_entries, count(0))
+
+    def update_map(z1:int, layer:Tuple[str, str, int]) -> int:
+        p, n, z2 = layer
+        _map.add_tile_layer(p, n)
+        return min(z1, z2)
+
+    _map.max_zoom = reduce(update_map, built_layers, 18)
+
+    catalogs = filter(lambda d: d.name.endswith(".cat"), os.scandir(directory))
+    catalog_js_files = map(convert_catalog_to_js, catalogs)
+
+    _map.build_map()
+
+
+    # # 18 is the default max zoom for leaflet
+    # max_zoom = 1000
+    # for f in os.listdir(directory):
+    #     fs = f.split(".")
+    #     name, ext = ".".join(fs[:-1]), fs[-1]
+    #     name = name.replace(".", "_").replace("-", "_")
+
+    #     if ext in ACCECPTABLE_FORMATS:
+    #         print(f"Converting:{f}")
+
+    #         mz = tile_img(
+    #             os.path.join(directory, f),
+    #             tile_size=tile_size,
+    #             depth=depth,
+    #             method=method,
+    #             image_engine=image_engine,
+    #         )
+    #         img_directory = name + "/{z}/{y}/{x}.png"
+    #         _map.add_tile_layer(img_directory, name)
+    #         max_zoom = min(max_zoom, mz)
+
+    # _map.max_zoom = max_zoom
+    # _map.build_map()
 
 
 class _Map:

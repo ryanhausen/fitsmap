@@ -25,6 +25,9 @@ from PIL import Image
 import matplotlib.pyplot as plt
 
 
+IMG_ENGINE_PIL = "PIL"
+IMG_ENGINE_MPL = "MPL"
+
 def _dynamically_range(array):
     pcmin = 1e-4
     dynrange = 1000
@@ -87,8 +90,15 @@ def _convert_and_save(array, depth, y, x, out_dir, tile_size, image_engine, vmin
     else:
         f = plt.figure(dpi=100)
         f.set_size_inches([tile_size[0] / 100, tile_size[1] / 100])
-        plt.imshow(array, origin="lower", cmap="gray", vmin=vmin, vmax=vmax, interpolation="nearest")
-        #plt.text(array.shape[0]//2, array.shape[1]//2, f"{depth},{y},{x}")
+        plt.imshow(
+            array,
+            origin="lower",
+            cmap="gray",
+            vmin=vmin,
+            vmax=vmax,
+            interpolation="nearest",
+        )
+        # plt.text(array.shape[0]//2, array.shape[1]//2, f"{depth},{y},{x}")
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
         plt.savefig(path, dpi=100, bbox_inches=0, interpolation="nearest")
@@ -156,6 +166,15 @@ def _build_recursively(
         for (_ys, _xs), crds in zip(slices, _get_new_coords(y, x)):
             arr = array[_ys, _xs]
             _build_recursively(
-                arr, crds, depth + 1, goal, out_dir, tile_size, image_engine, vmin, vmax, pbar
+                arr,
+                crds,
+                depth + 1,
+                goal,
+                out_dir,
+                tile_size,
+                image_engine,
+                vmin,
+                vmax,
+                pbar,
             )
             del arr
