@@ -22,11 +22,13 @@ import os
 import sys
 from functools import partial, reduce
 from itertools import count
+from multiprocessing import Pool
 from typing import List, Tuple, Union
 
 import numpy as np
 from astropy.io import fits
 from imageio import imread
+from tqdm import tqdm
 
 import fitsmap.convert as convert
 
@@ -45,7 +47,8 @@ METHOD_ITERATIVE = "iterative"
 
 def tile_img(
     file_path,
-    layer_name:str,
+    layer_name: str,
+    pbar: tqdm,
     tile_size=[256, 256],
     depth=None,
     method="recursive",
@@ -72,6 +75,7 @@ def tile_img(
 
     convert.array(
         array,
+        pbar,
         tile_size=tile_size,
         depth=depth,
         out_dir=out_dir,
@@ -81,53 +85,77 @@ def tile_img(
 
     return max_zoom
 
-def img_to_layer(dir_entry:os.DirEntry, pbar_position:int, tile_size:Shape, depth:int=None, method:str=METHOD_RECURSIVE, image_engine:str=convert.IMG_ENGINE_MPL) -> Tuple[str, str, int]:
-    print("Converting " + dir_entry.name)
 
-    name = os.path.splitext(dir_entry.name)[0].replace(".", "_").replace("-", "_")
+def img_to_layer(
+    file_location: str,
+    pbar_loc: int,
+    tile_size: Shape,
+    depth: int = None,
+    method: str = METHOD_RECURSIVE,
+    image_engine: str = convert.IMG_ENGINE_MPL,
+) -> Tuple[str, str, int]:
 
-    out_zoom = tile_img(dir_entry.path,
-                        name,
-                        tile_size=tile_size,
-                        depth = depth,
-                        method=method,
-                        image_engine=image_engine)
+    path, fname = os.path.split(file_location)
+    name = os.path.splitext(fname)[0].replace(".", "_").replace("-", "_")
+
+    pbar = tqdm(position=pbar_loc, desc="Converting " + name, unit="tile")
+
+    out_zoom = tile_img(
+        file_location,
+        name,
+        pbar,
+        tile_size=tile_size,
+        depth=depth,
+        method=method,
+        image_engine=image_engine,
+    )
 
     layer_dir = name + "/{z}/{y}/{x}.png"
     return (layer_dir, name, out_zoom)
 
-def convert_catalog_to_js(f_name:str):
+
+def convert_catalog_to_js(f_name: str):
     return None
 
 
-
-
 def dir_to_map(
-    directory:str,
-    tile_size:Shape=[256, 256],
-    depth:int=None,
-    method:str="recursive",
-    image_engine:str="mpl",
-    title:str="FitsMap",
+    directory: str,
+    tile_size: Shape = [256, 256],
+    depth: int = None,
+    method: str = "recursive",
+    image_engine: str = "mpl",
+    title: str = "FitsMap",
+    multiprocessing_processes: int = 0,
 ):
     _map = _Map(directory, title)
 
-    dir_entries = filter(
-        lambda d: os.path.splitext(d.name)[1][1:] in IMG_FORMATS,
-        os.scandir(directory)
+    dir_entries = list(
+        map(
+            lambda d: os.path.join(directory, d),
+            filter(
+                lambda d: os.path.splitext(d)[1][1:] in IMG_FORMATS,
+                os.listdir(directory),
+            ),
+        )
     )
 
+    def dir_entry_to_pbar(args: Tuple[int, str]) -> tqdm:
+        loc, file_location = args
+        _, name = os.path.split(file_location)
+        return tqdm(position=loc, desc="Converting " + name, unit="tile")
+
     kwargs = dict(
-        tile_size=tile_size,
-        depth=depth,
-        method=method,
-        image_engine=image_engine
+        tile_size=tile_size, depth=depth, method=method, image_engine=image_engine
     )
     layer_func = partial(img_to_layer, **kwargs)
 
-    built_layers = map(layer_func, dir_entries, count(0))
+    if multiprocessing_processes > 0:
+        with Pool(2) as p:
+            built_layers = p.starmap(layer_func, zip(dir_entries, count(0)))
+    else:
+        built_layers = map(layer_func, dir_entries, count(0))
 
-    def update_map(z1:int, layer:Tuple[str, str, int]) -> int:
+    def update_map(z1: int, layer: Tuple[str, str, int]) -> int:
         p, n, z2 = layer
         _map.add_tile_layer(p, n)
         return min(z1, z2)
@@ -138,7 +166,6 @@ def dir_to_map(
     catalog_js_files = map(convert_catalog_to_js, catalogs)
 
     _map.build_map()
-
 
     # # 18 is the default max zoom for leaflet
     # max_zoom = 1000

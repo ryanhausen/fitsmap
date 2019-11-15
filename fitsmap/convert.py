@@ -28,6 +28,7 @@ import matplotlib.pyplot as plt
 IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
 
+
 def _dynamically_range(array):
     pcmin = 1e-4
     dynrange = 1000
@@ -107,6 +108,7 @@ def _convert_and_save(array, depth, y, x, out_dir, tile_size, image_engine, vmin
 
 def array(
     array,
+    pbar,
     tile_size=[256, 256],
     depth=None,
     out_dir=".",
@@ -120,7 +122,8 @@ def array(
     if method == "recursive":
 
         total_tiles = (1 - (4 ** (depth + 1))) // (1 - 4)
-        pbar = tqdm(total=total_tiles)
+
+        pbar.total = total_tiles
 
         _build_recursively(
             array,
