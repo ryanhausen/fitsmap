@@ -27,6 +27,7 @@ from typing import List, Tuple, Union
 
 import numpy as np
 from astropy.io import fits
+from astropy.wcs import WCS
 from imageio import imread
 from tqdm import tqdm
 
@@ -46,13 +47,13 @@ METHOD_ITERATIVE = "iterative"
 
 
 def tile_img(
-    file_path,
+    file_path: str,
     layer_name: str,
     pbar: tqdm,
-    tile_size=[256, 256],
-    depth=None,
-    method="recursive",
-    image_engine="mpl",
+    tile_size: Shape = [256, 256],
+    depth: int = None,
+    method: str = mapmaker.METHOD_RECURSIVE,
+    image_engine: str = convert.IMG_ENGINE_MPL,
 ):
     file_dir, file_name = os.path.split(file_path)
 
@@ -114,18 +115,15 @@ def img_to_layer(
     return (layer_dir, name, out_zoom)
 
 
-def convert_catalog_to_js(f_name: str):
-    return None
-
-
 def dir_to_map(
     directory: str,
     tile_size: Shape = [256, 256],
     depth: int = None,
-    method: str = "recursive",
-    image_engine: str = "mpl",
+    method: str = mapmaker.METHOD_RECURSIVE,
+    image_engine: str = convert.IMG_ENGINE_MPL,
     title: str = "FitsMap",
     multiprocessing_processes: int = 0,
+    cat_wcs_fits_file: str = None,
 ):
     _map = _Map(directory, title)
 
@@ -158,8 +156,23 @@ def dir_to_map(
 
     _map.max_zoom = reduce(update_map, built_layers, 18)
 
-    catalogs = filter(lambda d: d.name.endswith(".cat"), os.scandir(directory))
-    catalog_js_files = map(convert_catalog_to_js, catalogs)
+    catalogs = list(filter(lambda d: d.endswith(".cat"), os.list(directory)))
+
+    if len(catalogs) > 0:
+        if cat_wcs_fits_file is None:
+            err_msg = [
+                "There are catalog(.cat) in files in " + directory + ", but no",
+                "value was given for 'cat_wcs_fits_file' skipping catalog coversion",
+            ]
+            print(" ".join(err_msg))
+        else:
+            cat_func = partial(convert.catalog, cat_wcs_fits_file)
+
+            if multiprocessing_processes > 0:
+                with Pool(multiprocessing_processes) as p:
+                    p.starmap(cat_func, zip(catalogs, pbar_loc_generator))
+            else:
+                catalog_js_files = map(cat_func, catalogs, pbar_loc_generator)
 
     _map.build_map()
 

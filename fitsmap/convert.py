@@ -17,13 +17,17 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+import json
 import os
+from typing import List, Tuple, Union
 
-import numpy as np
-from tqdm import tqdm
-from PIL import Image
+
 import matplotlib.pyplot as plt
-
+import numpy as np
+from astropy.io import fits
+from astropy.wcs import WCS
+from PIL import Image
+from tqdm import tqdm
 
 IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
@@ -167,3 +171,74 @@ def _build_recursively(
                 pbar,
             )
             del arr
+
+def line_to_cols(raw_line:str):
+
+    change_case = ["RA", "DEC", "Ra", "Dec"]
+
+    # make ra and dec lowercase for ease of access
+    raw_cols = map(
+        lambda s: s.lower() if s in change_case else s,
+        raw_line.strip().split()
+    )
+
+    # if header line starts with a '#' exclude it
+    if raw_cols[0]=="#":
+        return raw_cols[1:]
+    else:
+        return raw_cols
+
+def cols_vals_to_html_row(col_val:Tuple[str, str]):
+    html = [
+        "<tr>",
+        "<td>{}</td>".format(col_val[0])
+
+    ]
+
+    return html
+
+def line_to_json(wcs:WCS, columns:List[str], max_xy:Tuple[int,int], src_line:str):
+    max_x, max_y = max_xy
+
+    src_vals = src_line.strip().split()
+
+    ra = float(src_vals[columns.index("ra")])
+    dec = float(src_vals[columns.index("dec")])
+
+    [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
+
+    x = img_x / max_x * 256
+    y = img_y / max_y * 256
+
+    col_vals = zip(columns, src_vals)
+
+
+
+
+def catalog(wcs_file: str, pbar_loc:int, catalog_file: str):
+    wcs = WCS(wcs_file)
+
+    f = open(catalog_file, "r")
+
+    columns = line_to_cols(next(f))
+
+    if "ra" not in columns or "dec" not in columns:
+        err_msg = catalog_file + " is missing an 'ra' column, a 'dec' column, or both"
+        raise ValueError(err_msg)
+
+
+
+
+
+    f.close()
+
+
+
+
+
+
+
+
+
+
+
