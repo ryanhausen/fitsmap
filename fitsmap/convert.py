@@ -245,8 +245,23 @@ def catalog(
     line_func = partial(line_to_json, wcs, columns, max_xy)
 
     cat_file = os.path.split(catalog_file)[1] + ".json"
-    with open(os.path.join(out_dir, cat_file), "w") as j:
-        json.dump(list(map(line_func, tqdm(f, desc="Making " + cat_file))), j)
+
+    if "js" not in os.listdir(out_dir):
+        os.mkdir(os.path.join(out_dir, "js"))
+
+    if "css" not in os.listdir(out_dir):
+        os.mkdir(os.path.join(out_dir, "css"))
+
+    with open(os.path.join(out_dir, "js", cat_file), "w") as j:
+        json.dump(
+            list(
+                map(
+                    line_func, tqdm(f, position=pbar_loc, desc="Converting " + cat_file)
+                )
+            ),
+            j,
+            indent=2,
+        )
 
     f.close()
 
