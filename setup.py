@@ -32,7 +32,7 @@ def read(fname):
 
 REQUIRES = [
     "astropy",
-    "imageio"
+    "imageio",
     "numpy",
     "matplotlib",
     "pillow",
@@ -42,8 +42,8 @@ REQUIRES = [
 
 
 setup(
-    name="fitmap",
-    version="0.0.1",
+    name="fitsmap",
+    version="0.0.2",
     author="Ryan Hausen",
     author_email="ryan.hausen@gmail.com",
     description=("Turn fits files/catalogs into a leafletjs map"),
