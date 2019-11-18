@@ -22,7 +22,7 @@ import os
 import shutil
 import sys
 from functools import partial, reduce
-from itertools import count
+from itertools import count, repeat
 from multiprocessing import Pool
 from typing import List, Tuple, Union
 
@@ -194,9 +194,10 @@ def dir_to_map(
 
             if multiprocessing_processes > 0:
                 with Pool(multiprocessing_processes) as p:
-                    catalog_js_files = p.starmap(
+                    list(map(_map.add_marker_catalog,
+                        list(p.starmap(
                         cat_func, zip(catalogs, pbar_loc_generator)
-                    )
+                    ))))
             else:
                 # unlist this maybe?
                 list(map(_map.add_marker_catalog,
@@ -273,9 +274,18 @@ class _Map:
         for tile_layer in self.tile_layers:
             script_text.append(_Map.js_tile_layer(tile_layer, self.max_zoom))
 
+        if self.marker_files:
+            script_text.append("\n")
+            script_text.append(_Map.js_markers(self.marker_files))
+
         script_text.append("\n")
 
         script_text.append(_Map.js_map(self.max_zoom, self.tile_layers))
+
+        if self.marker_files:
+            script_text.append("\n")
+            script_text.append() #marker searcch
+
 
         script_text.append("\n")
 
@@ -289,6 +299,50 @@ class _Map:
 
         with open(os.path.join(self.out_dir, "index.html"), "w") as f:
             f.write(BeautifulSoup(html, "html.parser").prettify())
+
+    @staticmethod
+    def js_markers(marker_collections:List[str]):
+
+
+
+        cluster_text = "      L.markerClusterGroup({ chunkedLoading: false, chunkProgress: updateProgressBar }),"
+        marker_list_text = "      []"
+
+
+        js = [
+            "   var markers = [",
+            *list(repeat(cluster_text, len(marker_collections))),
+            "   ];",
+            "",
+            "   var markerList = [",
+            *list(repeat(marker_list_text, len(marker_collections))),
+            "   ];",
+            "",
+            "   var collections = [",
+            *list(map(lambda s: s.replace(".cat.json", ""))),
+            "   ];"
+            "",
+            "   for (i = 0; i < collections.length; i++){",
+            "      collection = collections[i];",
+            "",
+            "      for (j = 0; j < collection.length; j++){",
+            "         src = collection[j];",
+            "",
+            "         markerList[i].push(L.circleMarker([src.y, src.x], {",
+            "            color: colors[i],"
+            "            id_3dhst: src.id_3dhst",
+            "         }).bindPopup(src.desc))"
+            "      }",
+            "   }",
+            "",
+            "   for (i = 0; i < collections.length; i++){",
+            "      markers[i].addLayers(markerList[i]);",
+            "   }",
+        ]
+
+
+
+        return "\n".join(js)
 
     @staticmethod
     def js_map(max_zoom, tile_layers):
