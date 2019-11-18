@@ -20,6 +20,7 @@
 import json
 import os
 from functools import partial
+import shutil
 from typing import List, Tuple, Union
 
 
@@ -202,14 +203,14 @@ def line_to_json(wcs: WCS, columns: List[str], max_xy: Tuple[int, int], src_line
     [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
     x = img_x / max_x * 256
-    y = img_y / max_y * 256
+    y = img_y / max_y * 256 - 256
 
     html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
     src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
 
     src_desc = "".join(
         [
-            "<span style='text-decoration:underline; font-weight:bold'>Catalog Information/span>",
+            "<span style='text-decoration:underline; font-weight:bold'>Catalog Information</span>",
             "<br>",
             "<table>",
             *src_rows,
@@ -244,7 +245,7 @@ def catalog(
 
     line_func = partial(line_to_json, wcs, columns, max_xy)
 
-    cat_file = os.path.split(catalog_file)[1] + ".json"
+    cat_file = os.path.split(catalog_file)[1] + ".js"
 
     if "js" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "js"))
@@ -252,7 +253,9 @@ def catalog(
     if "css" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "css"))
 
-    with open(os.path.join(out_dir, "js", cat_file), "w") as j:
+    json_markers_file = os.path.join(out_dir, "js", cat_file)
+    with open(json_markers_file, "w") as j:
+        j.write("var " + cat_file.replace(".cat.js", "") + " = ")
         json.dump(
             list(
                 map(
@@ -262,7 +265,7 @@ def catalog(
             j,
             indent=2,
         )
-
+        j.write(";")
     f.close()
 
     return cat_file

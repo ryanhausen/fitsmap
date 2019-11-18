@@ -29,7 +29,6 @@ from typing import List, Tuple, Union
 import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
-from bs4 import BeautifulSoup
 from imageio import imread
 from tqdm import tqdm
 
@@ -75,7 +74,14 @@ def tile_img(
             raise ValueError("FITS files with greater than 2 dims are not supported")
     else:
         array = np.flipud(imread(file_path))
-        shape = array.shape[:-1]
+
+        if len(array.shape) ==3:
+            shape = array.shape[:-1]
+        elif len(array.shape) == 2:
+            shape = array.shape
+        else:
+            raise ValueError("FitsMap only supports 2D and 3D images.")
+
 
     if shape[0] != shape[1]:
         raise ValueError("Only square images are currently supported")
@@ -194,16 +200,22 @@ def dir_to_map(
 
             if multiprocessing_processes > 0:
                 with Pool(multiprocessing_processes) as p:
-                    list(map(_map.add_marker_catalog,
-                        list(p.starmap(
-                        cat_func, zip(catalogs, pbar_loc_generator)
-                    ))))
+                    list(
+                        map(
+                            _map.add_marker_catalog,
+                            list(
+                                p.starmap(cat_func, zip(catalogs, pbar_loc_generator))
+                            ),
+                        )
+                    )
             else:
                 # unlist this maybe?
-                list(map(_map.add_marker_catalog,
-                    list(map(cat_func, catalogs, pbar_loc_generator))))
-
-
+                list(
+                    map(
+                        _map.add_marker_catalog,
+                        list(map(cat_func, catalogs, pbar_loc_generator)),
+                    )
+                )
 
     _map.build_map()
 
@@ -225,7 +237,7 @@ class _Map:
     def add_tile_layer(self, directory, name):
         self.tile_layers.append({"directory": directory, "name": name})
 
-    def add_marker_catalog(self, json_file:str):
+    def add_marker_catalog(self, json_file: str):
         self.marker_files.append(json_file)
 
     def get_conditional_css(self):
@@ -233,10 +245,12 @@ class _Map:
         if self.marker_files:
             support_dir = os.path.join(os.path.dirname(__file__), "support")
 
-            css_files.append("https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css")
+            css_files.append(
+                "https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css"
+            )
             for f in os.listdir(support_dir):
                 _, ext = os.path.splitext(f)
-                if ext!=".css":
+                if ext != ".css":
                     continue
 
                 src = os.path.join(support_dir, f)
@@ -259,14 +273,15 @@ class _Map:
         if self.marker_files:
             search_and_cluster_js = [
                 "   <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
-                "   <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin='></script>"
+                "   <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
             ]
 
             js_string = "   <script src='js/{}'></script>"
-            return search_and_cluster_js +  list(map(lambda x: js_string.format(x), self.marker_files))
+            return search_and_cluster_js + list(
+                map(lambda x: js_string.format(x), self.marker_files)
+            )
         else:
             return [""]
-
 
     def build_map(self):
         script_text = []
@@ -284,30 +299,58 @@ class _Map:
 
         if self.marker_files:
             script_text.append("\n")
-            script_text.append() #marker searcch
-
+            script_text.append(_Map.js_marker_search())  # marker searcch
 
         script_text.append("\n")
 
         script_text.append(_Map.js_base_layers(self.tile_layers))
 
-        script_text.append(_Map.js_layer_control())
+        script_text.append(_Map.js_layer_control(self.marker_files))
 
         script_text = "\n".join(script_text)
 
         html = self.html_wrapper().replace(_Map.SCRIPT_MARK, script_text)
 
         with open(os.path.join(self.out_dir, "index.html"), "w") as f:
-            f.write(BeautifulSoup(html, "html.parser").prettify())
+            f.write(html)
 
     @staticmethod
-    def js_markers(marker_collections:List[str]):
+    def js_marker_search():
+        js = [
+            "   var marker_layers = L.layerGroup(markers);",
+            "",
+            "   function searchHelp(e) {",
+            "      map.setView(e.latlng, 8);",
+            "      console.log(e.layer)",
+            "      e.layer.addTo(map);",
+            "   };",
+            "",
+            "   var searchBar = L.control.search({",
+            "      layer: marker_layers,",
+            "      initial: false,",
+            "      propertyName: 'catalog_id',",
+            "      textPlaceholder: 'Enter catalog_id ID',",
+            "      hideMarkerOnCollapse: true,",
+            "   });",
+            "",
+            "   searchBar.on('search:locationfound', searchHelp);",
+            "",
+            "   searchBar.addTo(map);",
+            "",
+            "   // hack for turning off markers at start. Throws exception but doesn't",
+            "   // crash page. This should be updated when I understand this library better",
+            "   for (l of markers){",
+            "      l.remove()",
+            "   }",
+        ]
 
+        return "\n".join(js)
 
+    @staticmethod
+    def js_markers(marker_collections: List[str]):
 
-        cluster_text = "      L.markerClusterGroup({ chunkedLoading: false, chunkProgress: updateProgressBar }),"
+        cluster_text = "      L.markerClusterGroup({ chunkedLoading: true }),"
         marker_list_text = "      []"
-
 
         js = [
             "   var markers = [",
@@ -319,8 +362,16 @@ class _Map:
             "   ];",
             "",
             "   var collections = [",
-            *list(map(lambda s: s.replace(".cat.json", ""))),
-            "   ];"
+            *list(
+                map(lambda s: "      " + s.replace(".cat.js", "") + ",", marker_collections)
+            ),
+            "   ];",
+            "",
+            "   var labels = [",
+            *list(
+                map(lambda s: "      '" + s.replace(".cat.js", "") + "',", marker_collections)
+            ),
+            "   ];",
             "",
             "   for (i = 0; i < collections.length; i++){",
             "      collection = collections[i];",
@@ -329,9 +380,8 @@ class _Map:
             "         src = collection[j];",
             "",
             "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-            "            color: colors[i],"
-            "            id_3dhst: src.id_3dhst",
-            "         }).bindPopup(src.desc))"
+            "            catalog_id: src.catalog_id",
+            "         }).bindPopup(src.desc))",
             "      }",
             "   }",
             "",
@@ -339,8 +389,6 @@ class _Map:
             "      markers[i].addLayers(markerList[i]);",
             "   }",
         ]
-
-
 
         return "\n".join(js)
 
@@ -362,11 +410,7 @@ class _Map:
     def js_tile_layer(tile_layer, max_zoom):
         js = "   var " + tile_layer["name"]
         js += ' = L.tileLayer("' + tile_layer["directory"] + '"'
-        js += (
-            ', {attribution:"'
-            + _Map.ATTR
-            + '"});'
-        )
+        js += ', {attribution:"' + _Map.ATTR + '"});'
 
         return js
 
@@ -379,8 +423,22 @@ class _Map:
         return "\n".join(js)
 
     @staticmethod
-    def js_layer_control():
-        return "   L.control.layers(baseLayers, {}).addTo(map);"
+    def js_layer_control(markers_files: List[str]):
+        if markers_files:
+            js = [
+                "   var overlays = {}",
+                "",
+                "   for(i = 0; i < markers.length; i++) {",
+                "      overlays[labels[i]] = markers[i];",
+                "   }",
+                "",
+                "   var layerControl = L.control.layers(baseLayers, overlays);",
+                "   layerControl.addTo(map);",
+            ]
+
+            return "\n".join(js)
+        else:
+            return "   L.control.layers(baseLayers, {}).addTo(map);"
 
     def html_wrapper(self):
         text = [
