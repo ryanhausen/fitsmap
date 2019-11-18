@@ -30,19 +30,30 @@ def read(fname):
     """Helper for README file."""
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+REQUIRES = [
+    "astropy",
+    "imageio"
+    "numpy",
+    "matplotlib",
+    "pillow",
+    "scikit-image",
+    "tqdm",
+]
+
 
 setup(
     name="fitmap",
     version="0.0.1",
     author="Ryan Hausen",
     author_email="ryan.hausen@gmail.com",
-    description=("Turn fits files into a leafletjs map"),
+    description=("Turn fits files/catalogs into a leafletjs map"),
     license="MIT",
     keywords="models tools",
-    url="https://github.com/ryanhausen/ryanml",
+    url="https://github.com/ryanhausen/fitsmap",
     packages=find_packages(),
+    include_package_data=True,
+    install_requires=REQUIRES,
     long_description=read("README.md"),
-    # https://pypi.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "License :: OSI Approved :: MIT License",
