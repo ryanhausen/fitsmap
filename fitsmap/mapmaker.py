@@ -18,6 +18,8 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+"""Converts img files and catalogs into a leafletJS map."""
+
 import json
 import os
 import shutil
@@ -52,7 +54,17 @@ IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
 
 
-def build_path(z, y, x, out_dir):
+def build_path(z, y, x, out_dir) -> str:
+    """Maps zoom and coordinate location to a subdir in 'out_dir'
+
+    Args:
+        z (int): The zoom level for the tiles
+        y (int): The zoom level for the tiles
+        x (int): The zoom level for the tiles
+        out_dir (str): The root directory the tiles are saved in
+    Returns:
+        The str path to save the tile in
+    """
     z, y, x = str(z), str(y), str(x)
     z_dir = os.path.join(out_dir, z)
     y_dir = os.path.join(z_dir, y)
@@ -65,6 +77,16 @@ def build_path(z, y, x, out_dir):
 def slice_idx_generator(
     shape: Tuple[int, int], zoom: int
 ) -> Iterable[Tuple[int, int, int, slice, slice]]:
+    """Generates the tile coordinates and respective slices given a shape and zoom
+
+    Args:
+        shape (Tuple[int, int]): The shape of the array being tiled
+        zoom (int): The zoom level for the tiles
+    Returns:
+        An iterable of tuples containing the following:
+        (zoom, y_coordinate, x_coordinate, dim0_slice, dim1_slice)
+    """
+
     num_splits = int((4 ** zoom) ** 0.5)
     start, end = 0, shape[0]
     splits = range(start, end + 1, end // num_splits)
@@ -80,6 +102,14 @@ def slice_idx_generator(
 
 
 def get_array(file_location: str) -> np.ndarray:
+    """Opens the array at ``file_location`` can be an image or a fits file
+
+    Args:
+        file_location (str): the path to the image
+    Returns:
+        A numpy array representing the image.
+    """
+
     _, ext = os.path.splitext(file_location)
 
     if ext == "fits":
@@ -106,6 +136,20 @@ def get_array(file_location: str) -> np.ndarray:
 def filter_on_extension(
     files: List[str], extensions: List[str], exclude_predicate: Callable = None
 ) -> List[str]:
+    """Filters out files from ``files`` based on ``extensions`` and ``exclude_predicate``
+
+    Args:
+        files (List[str]): A list of file paths to be filtered
+        extensions (List[str]): List of extensions to filter ``files`` on
+        exclude_predicate (Callable): A function that accepts a single str as
+                                      input and returns a True if the file
+                                      should be excluded, and False if it should
+                                      be included
+    Returns:
+        A list of files which have an extension thats in ``extensions`` and
+        for which `exclude_predicate(file)==False``
+    """
+
     neg_predicate = exclude_predicate if exclude_predicate else lambda x: False
 
     return list(
@@ -117,7 +161,16 @@ def filter_on_extension(
     )
 
 
-def make_dirs(out_dir, zoom):
+def make_dirs(out_dir: str, zoom: int) -> None:
+    """Builds the directory tree for storing image tiles.
+
+    Args:
+        out_dir (str): The root directory to generate the tree in
+        zoom (int): The maximum zoom level te image will be tiled at
+    Returns:
+        None
+    """
+
     def sub_dir(f):
         try:
             os.makedirs(os.path.join(out_dir, f))
@@ -142,12 +195,37 @@ def make_tile(
     out_dir: str,
     img_engine: str,
     job: Tuple[int, int, int, slice, slice],
-):
+) -> None:
+    """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir``.
+
+    Args:
+        array (np.ndarray): Array to extract a slice from
+        vmin (float): The global minimum used to scale local values when
+                      using the ``IMAGE_ENGINE_MPL`` image_engine.
+        vmax (float): The global maximum used to scale local values when
+                      using the ``IMAGE_ENGINE_MPL`` image_engine.
+        out_dir (str): The directory to save tile in
+        img_engine (str): Method to convert array tile to an image. Can be one
+                          of mapmaker.IMAGE_ENGINE_PIL (using pillow(PIL)) or
+                          of mapmaker.IMAGE_ENGINE_MPL (using matplotlib)
+        job (Tuple[int, int, int, slice, slice]): A tuple containing z, y, x,
+                                                  dim0_slices, dim1_slices. Where
+                                                  (z, y, x) define the zoom and
+                                                  the coordinates, and (dim0_slices,
+                                                  and dim1_slices) are slice
+                                                  objects that extract the tile.
+
+    Returns:
+        None
+    """
     z, y, x, slice_ys, slice_xs = job
 
     img_path = build_path(z, y, x, out_dir)
 
     if img_engine == IMG_ENGINE_MPL:
+        # TODO: implement figure as singleton, and use https://stackoverflow.com/a/17837600
+        #       to update the data and render. also, provide an interface for
+        #       passing arbitrary kwargs to imshow?
         f = plt.figure(dpi=100)
         f.set_size_inches([256 / 100, 256 / 100])
         plt.imshow(
@@ -181,6 +259,25 @@ def tile_img(
     out_dir: str = ".",
     mp_procs: int = 0,
 ) -> None:
+    """Extracts tiles from the array at ``file_location``.
+
+    Args:
+        file_location (str): The file location of the image to tile
+        pbar_loc (int): The index of the location of to print the tqdm bar
+        tile_size (Tuple[int, int]): The pixel size of the tiles in the map
+        zoom (int): The maximum zoom to create tiles for. If not provided the
+                    value will be set to floor(log_2(img_height / tile_height))
+        img_engine (str): Method to convert array tile to an image. Can be one
+                          of mapmaker.IMAGE_ENGINE_PIL (using pillow(PIL)) or
+                          of mapmaker.IMAGE_ENGINE_MPL (using matplotlib)
+        out_dir (str): The root directory to save the tiles in
+        mp_procs (int): The number of multiprocessing processes to use for
+                        generating tiles.
+
+    Returns:
+        None
+    """
+
     # get image
     array = get_array(file_location)
     arr_min, arr_max = array.min(), array.max()
@@ -235,17 +332,41 @@ def tile_img(
         )
 
 
-def get_map_layer_name(file_location: str):
+def get_map_layer_name(file_location: str) -> str:
+    """Tranforms a ``file_location`` into the javascript layer name.
+
+    Args:
+        file_location (str): The file location to convert
+
+    Returns:
+        The javascript name that will be used in the HTML map
+    """
     _, fname = os.path.split(file_location)
     name = os.path.splitext(fname)[0].replace(".", "_").replace("-", "_")
     return name
 
 
 def get_marker_file_names(file_location: str):
+    """Tranforms a ``file_location`` into the javascript marker file name.
+
+    Args:
+        file_location (str): The file location to convert
+
+    Returns:
+        The javascript name that will be used in the HTML map
+    """
     return os.path.split(file_location)[1] + ".js"
 
 
 def line_to_cols(raw_line: str):
+    """Transform a raw text line of column names into a list of column names
+
+    Args:
+        raw_line (str): String from textfile
+
+    Returns:
+        A list of the column names in order
+    """
 
     change_case = ["RA", "DEC", "Ra", "Dec"]
 
@@ -262,6 +383,14 @@ def line_to_cols(raw_line: str):
 
 
 def line_to_json(wcs: WCS, columns: List[str], max_dim: int, src_line: str):
+    """Transform a raw text line attribute values into a JSON marker
+
+    Args:
+        raw_line (str): String from the marker file
+
+    Returns:
+        A list of the column names in order
+    """
     src_vals = src_line.strip().split()
 
     ra = float(src_vals[columns.index("ra")])
