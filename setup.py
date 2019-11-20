@@ -30,6 +30,7 @@ def read(fname):
     """Helper for README file."""
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+
 REQUIRES = [
     "astropy",
     "imageio",
@@ -37,13 +38,14 @@ REQUIRES = [
     "matplotlib",
     "pillow",
     "scikit-image",
+    "sharedmem",
     "tqdm",
 ]
 
 
 setup(
     name="fitsmap",
-    version="0.0.2",
+    version="0.0.3",
     author="Ryan Hausen",
     author_email="ryan.hausen@gmail.com",
     description=("Turn fits files/catalogs into a leafletjs map"),
@@ -53,7 +55,7 @@ setup(
     packages=find_packages(),
     include_package_data=True,
     install_requires=REQUIRES,
-    long_description=read("README.md"),
+    long_description=read("README.rst"),
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "License :: OSI Approved :: MIT License",
