@@ -164,7 +164,7 @@ def make_tile(
         plt.savefig(img_path, dpi=100, bbox_inches=0, interpolation="nearest")
         plt.close(f)
     else:
-        img = Image.fromarray(array[slice_ys, slice_xs])
+        img = Image.fromarray(np.flipud(array[slice_ys, slice_xs]))
         img.thumbnail([256, 256], Image.LANCZOS)
         if img.mode != "RGB":
             img = img.convert("RGB")
@@ -204,12 +204,19 @@ def tile_img(
 
     if mp_procs:
         mp_array = sharedmem.empty_like(array)
-        mp_array[...] = array[...]
-        work = partial(make_tile, array, arr_min, arr_max, tile_dir, image_engine)
+        mp_array[:] = array[:]
+        work = partial(make_tile, mp_array, arr_min, arr_max, tile_dir, image_engine)
         with Pool(mp_procs) as p:
             any(
                 p.imap_unordered(
-                    work, tqdm(tile_params, desc="Converting " + name, position=pbar_loc, total=total_tiles, unit="tile")
+                    work,
+                    tqdm(
+                        tile_params,
+                        desc="Converting " + name,
+                        position=pbar_loc,
+                        total=total_tiles,
+                        unit="tile",
+                    ),
                 )
             )
     else:
@@ -222,7 +229,7 @@ def tile_img(
                     desc="Converting " + name,
                     total=total_tiles,
                     unit="tile",
-                    position=pbar_loc
+                    position=pbar_loc,
                 ),
             )
         )
@@ -353,7 +360,7 @@ def files_to_map(
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
 ):
-    if len(files)==0:
+    if len(files) == 0:
         raise ValueError("No files provided `files` is an empty list")
 
     img_f_kwargs = dict(
@@ -361,7 +368,7 @@ def files_to_map(
         zoom=zoom,
         image_engine=image_engine,
         out_dir=out_dir,
-        mp_procs=procs_per_task
+        mp_procs=procs_per_task,
     )
 
     img_files = filter_on_extension(files, IMG_FORMATS)
@@ -429,9 +436,10 @@ def dir_to_map(
         )
     )
 
-    if len(dir_files)==0:
-        raise ValueError("No files in `directory` or `exlcude_predicate exlucdes everything")
-
+    if len(dir_files) == 0:
+        raise ValueError(
+            "No files in `directory` or `exlcude_predicate exlucdes everything"
+        )
 
     files_to_map(
         dir_files,

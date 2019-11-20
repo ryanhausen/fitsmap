@@ -19,7 +19,7 @@ class Map:
         self.var_overlays = {}
 
     def add_tile_layer(self, name):
-        self.tile_layers.append({"directory": name + "/{z}{y}/{x}", "name": name})
+        self.tile_layers.append({"directory": name + "/{z}/{y}/{x}.png", "name": name})
 
     def add_marker_catalog(self, json_file: str):
         self.marker_files.append(json_file)
