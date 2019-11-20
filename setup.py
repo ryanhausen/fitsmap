@@ -30,6 +30,7 @@ def read(fname):
     """Helper for README file."""
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+
 REQUIRES = [
     "astropy",
     "imageio",
@@ -37,6 +38,7 @@ REQUIRES = [
     "matplotlib",
     "pillow",
     "scikit-image",
+    "sharedmem",
     "tqdm",
 ]
 
