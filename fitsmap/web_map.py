@@ -1,6 +1,7 @@
 import os
 import shutil
 from itertools import repeat
+from typing import List
 
 
 class Map:
@@ -17,8 +18,8 @@ class Map:
         self.var_map = {"center": None, "zoom": 0, "layers": []}
         self.var_overlays = {}
 
-    def add_tile_layer(self, directory, name):
-        self.tile_layers.append({"directory": directory, "name": name})
+    def add_tile_layer(self, name):
+        self.tile_layers.append({"directory": name + "/{z}{y}/{x}", "name": name})
 
     def add_marker_catalog(self, json_file: str):
         self.marker_files.append(json_file)
@@ -78,7 +79,7 @@ class Map:
 
         script_text.append("\n")
 
-        script_text.append(Map.jsMap(self.max_zoom, self.tile_layers))
+        script_text.append(Map.js_map(self.max_zoom, self.tile_layers))
 
         if self.marker_files:
             script_text.append("\n")
