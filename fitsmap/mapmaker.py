@@ -101,17 +101,35 @@ def slice_idx_generator(
     return map(transform_iteration, rows_cols)
 
 
-def square_array(array:np.ndarray) -> np.ndarray:
+# def square_array(array:np.ndarray) -> np.ndarray:
+#     dim0, dim = array.shape
+
+#     pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
+#     pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
+
+#     padding = [
+#         [0, pad_dim0],
+#         [0, pad_dim1]
+#     ]
+#     return np.pad(array, padding, mode='constant', constant_values=0)
+
+
+def square_array(array: np.ndarray):
     shape = array.shape
 
     pad_dim0 = max(shape[1] - shape[0], 0)
     pad_dim1 = max(shape[0] - shape[1], 0)
 
-    padding = [
-        [0, pad_dim0],
-        [0, pad_dim1]
-    ]
-    return np.pad(array, padding, mode='constant', constant_values=0)
+    if len(shape) == 3:
+        padding = [[0, pad_dim0], [0, pad_dim1], [0, 0]]
+    else:
+        padding = [
+            [0, pad_dim0],
+            [0, pad_dim1],
+        ]
+
+    return np.pad(array, padding, mode="constant", constant_values=0)
+
 
 def get_array(file_location: str) -> np.ndarray:
     """Opens the array at ``file_location`` can be an image or a fits file

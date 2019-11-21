@@ -1,6 +1,6 @@
 """
 MIT License
-Copyright 2018 Ryan Hausen
+Copyright 2019 Ryan Hausen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -45,7 +45,7 @@ REQUIRES = [
 
 setup(
     name="fitsmap",
-    version="0.0.4",
+    version="0.0.5",
     author="Ryan Hausen",
     author_email="ryan.hausen@gmail.com",
     description=("Turn fits files/catalogs into a leafletjs map"),
