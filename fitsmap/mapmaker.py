@@ -197,7 +197,7 @@ def filter_on_extension(
     )
 
 
-def make_dirs(out_dir: str, zoom: int) -> None:
+def make_dirs(out_dir: str, min_zoom: int, max_zoom:int, shape:Tuple[int, int]) -> None:
     """Builds the directory tree for storing image tiles.
 
     Args:
@@ -372,7 +372,7 @@ def tile_img(
     if name not in os.listdir(out_dir):
         os.mkdir(tile_dir)
 
-    make_dirs(tile_dir, max_zoom)
+    make_dirs(tile_dir, min_zoom, max_zoom, array.shape)
 
     tile_params = chain.from_iterable(
         [slice_idx_generator(array.shape, i) for i in range(min_zoom, max_zoom + 1)]
