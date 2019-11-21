@@ -101,6 +101,18 @@ def slice_idx_generator(
     return map(transform_iteration, rows_cols)
 
 
+def square_array(array:np.ndarray) -> np.ndarray:
+    shape = array.shape
+
+    pad_dim0 = max(shape[1] - shape[0], 0)
+    pad_dim1 = max(shape[0] - shape[1], 0)
+
+    padding = [
+        [0, pad_dim0],
+        [0, pad_dim1]
+    ]
+    return np.pad(array, padding, mode='constant', constant_values=0)
+
 def get_array(file_location: str) -> np.ndarray:
     """Opens the array at ``file_location`` can be an image or a fits file
 
@@ -128,9 +140,10 @@ def get_array(file_location: str) -> np.ndarray:
             raise ValueError("FitsMap only supports 2D and 3D images.")
 
     if shape[0] != shape[1]:
-        raise ValueError("Only square images are currently supported")
-
-    return array
+        print(file_location + " isn't square, padding with zeros")
+        return square_array(array)
+    else:
+        return array
 
 
 def filter_on_extension(
