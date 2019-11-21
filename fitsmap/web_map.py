@@ -18,6 +18,8 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
+"""Helper class for generating a web page with all the JS needed to present the map."""
+
 import os
 import shutil
 from itertools import repeat
@@ -25,6 +27,12 @@ from typing import List
 
 
 class Map:
+    """A helper class for tracking map elements and support file locations.
+
+    Designed for internal use. Any method/variable can be deprecated or changed
+    without consideration.
+    """
+
     SCRIPT_MARK = "!!!FITSMAP!!!"
     ATTR = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
 
@@ -38,8 +46,17 @@ class Map:
         self.var_map = {"center": None, "zoom": 0, "layers": []}
         self.var_overlays = {}
 
-    def add_tile_layer(self, name):
-        self.tile_layers.append({"directory": name + "/{z}/{y}/{x}.png", "name": name})
+    def add_tile_layer(self, name: str):
+        zooms = list(map(int, os.listdir(os.path.join(self.out_dir, name))))
+
+        self.tile_layers.append(
+            dict(
+                directory=name + "/{z}/{y}/{x}.png",
+                name=name,
+                min_zoom=min(zooms),
+                max_native_zoom=max(zooms),
+            )
+        )
 
     def add_marker_catalog(self, json_file: str):
         self.marker_files.append(json_file)
@@ -87,11 +104,18 @@ class Map:
         else:
             return [""]
 
+    def finalize_max_zoom(self):
+        deepest_zoom = max(t["max_native_zoom"] for t in self.tile_layers)
+
+        any(map(lambda t: t.update(dict(max_zoom=deepest_zoom + 5)), self.tile_layers))
+
     def build_map(self):
+
         script_text = []
 
+        self.finalize_max_zoom()
         for tile_layer in self.tile_layers:
-            script_text.append(Map.js_tile_layer(tile_layer, self.max_zoom))
+            script_text.append(Map.js_tile_layer(tile_layer))
 
         if self.marker_files:
             script_text.append("\n")
@@ -125,7 +149,6 @@ class Map:
             "",
             "   function searchHelp(e) {",
             "      map.setView(e.latlng, 8);",
-            "      console.log(e.layer)",
             "      e.layer.addTo(map);",
             "   };",
             "",
@@ -207,9 +230,11 @@ class Map:
         js = [
             '   var map = L.map("map", {',
             "      crs: L.CRS.Simple,",
+            "      zoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
+            "      minZoom: "
+            + str(max(map(lambda t: t["min_zoom"], tile_layers)))
+            + ",",
             "      center:[-126, 126],",
-            "      zoom:0,",
-            "      maxNativeZoom:{},".format(max_zoom),
             "      layers:[{}]".format(",".join([t["name"] for t in tile_layers])),
             "   });",
         ]
@@ -217,10 +242,15 @@ class Map:
         return "\n".join(js)
 
     @staticmethod
-    def js_tile_layer(tile_layer, max_zoom):
+    def js_tile_layer(tile_layer):
         js = "   var " + tile_layer["name"]
         js += ' = L.tileLayer("' + tile_layer["directory"] + '"'
-        js += ', {attribution:"' + Map.ATTR + '"});'
+        js += ", { "
+        js += 'attribution:"' + Map.ATTR + '",'
+        js += "minZoom: " + str(tile_layer["min_zoom"]) + ","
+        js += "maxZoom: " + str(tile_layer["max_zoom"]) + ","
+        js += "maxNativeZoom: " + str(tile_layer["max_native_zoom"]) + ","
+        js += "});"
 
         return js
 

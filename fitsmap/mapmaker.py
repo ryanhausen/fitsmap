@@ -18,7 +18,7 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-"""Converts img files and catalogs into a leafletJS map."""
+"""Converts image files and catalogs into a leafletJS map."""
 
 import json
 import os
@@ -55,7 +55,7 @@ IMG_ENGINE_MPL = "MPL"
 
 
 def build_path(z, y, x, out_dir) -> str:
-    """Maps zoom and coordinate location to a subdir in 'out_dir'
+    """Maps zoom and coordinate location to a subdir in ``out_dir``
 
     Args:
         z (int): The zoom level for the tiles
@@ -102,8 +102,8 @@ def slice_idx_generator(
             short_splits if num_rows > num_cols else img_ratio * short_splits
         )
 
-    row_splits = range(0, shape[0]+1, shape[0] // num_splits_rows)
-    col_splits = range(0, shape[1]+1, shape[1] // num_splits_cols)
+    row_splits = range(0, shape[0] + 1, shape[0] // num_splits_rows)
+    col_splits = range(0, shape[1] + 1, shape[1] // num_splits_cols)
 
     rows = zip(range(num_splits_rows - 1, -1, -1), zip(row_splits[:-1], row_splits[1:]))
     cols = enumerate(zip(col_splits[:-1], col_splits[1:]))
@@ -197,15 +197,27 @@ def filter_on_extension(
     )
 
 
-def make_dirs(out_dir: str, min_zoom: int, max_zoom:int, shape:Tuple[int, int]) -> None:
+def make_dirs(
+    out_dir: str, min_zoom: int, max_zoom: int, shape: Tuple[int, int]
+) -> None:
     """Builds the directory tree for storing image tiles.
 
     Args:
         out_dir (str): The root directory to generate the tree in
-        zoom (int): The maximum zoom level te image will be tiled at
+        min_zoom (int): The minimum zoom level the image will be tiled at
+        max_zoom (int): The maximum zoom level the image will be tiled at
     Returns:
         None
     """
+
+    num_rows, num_cols = shape[:2]
+    img_ratio = int(max(shape[:2]) / min(shape[:2]))
+
+    if img_ratio == 1:
+        row_count = lambda z: int(np.sqrt(4 ** z))
+    else:
+        coefficient = 1 if (num_rows < num_cols) else img_ratio
+        row_count = lambda z: int(2 ** (z - 1)) * coefficient
 
     def sub_dir(f):
         try:
@@ -217,10 +229,10 @@ def make_dirs(out_dir: str, min_zoom: int, max_zoom:int, shape:Tuple[int, int]) 
         list(map(lambda y: sub_dir(f"{z}/{y}"), ys))
 
     def build_zs(z):
-        ys = range(int(np.sqrt(4 ** z)))
+        ys = range(row_count(z))
         build_z_ys(z, ys)
 
-    zs = range(zoom + 1)
+    zs = range(min_zoom, max_zoom + 1)
     list(map(build_zs, zs))
 
 
@@ -503,6 +515,17 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
 def catalog_to_markers(
     wcs_file: str, out_dir: str, catalog_file: str, pbar_loc: int,
 ) -> None:
+    """Transform ``catalog_file`` into a json collection for mapping
+
+    Args:
+        wcs_file (str): path to a FITS file to covert (ra, dec) to (x, y)
+        out_dir (str): path to save the json collection in
+        catalog_file (str): path to catalog file
+        pbar_loc (int): the index to draw the tqdm bar in
+
+    Returns:
+        None
+    """
     wcs = WCS(wcs_file)
 
     f = open(catalog_file, "r")
@@ -525,7 +548,7 @@ def catalog_to_markers(
     pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
     pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
 
-    line_func = partial(line_to_json, wcs, columns, [dim0+pad_dim0, dim1+pad_dim1])
+    line_func = partial(line_to_json, wcs, columns, [dim0 + pad_dim0, dim1 + pad_dim1])
 
     cat_file = os.path.split(catalog_file)[1] + ".js"
 
@@ -552,6 +575,14 @@ def catalog_to_markers(
 
 
 def async_worker(q: JoinableQueue):
+    """Function for async task processesing.
+
+    Args:
+        q (JoinableQueue): Queue to retrieve tasks (func, args) from
+
+    Returns:
+        None
+    """
     BLOCK = True
     TIMEOUT = 5
 
@@ -572,9 +603,36 @@ def files_to_map(
     task_procs: int = 0,
     procs_per_task: int = 0,
     cat_wcs_fits_file: str = None,
-    tile_size: Shape = [256, 256],
+    tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
 ):
+    """Converts a list of files into a LeafletJS map.
+
+    Args:
+        files (List[str]): List of files to convert into a map, can include image
+                           files (.fits, .png, .jpg) and catalog files (.cat)
+        out_dir (str): Directory to place the genreated web page and associated
+                       subdirectories
+        zoom (int): The maximum zoom to tile images to. This generally doesn't
+                    need to be set unless you have very very large images
+        title (str): The title to placed on the webpage
+        task_procs (int): The number of tasks to run in parallel
+        procs_per_task (int): The number of tiles to process in parallel
+        cat_wcs_fits_file (str): A fits file that has the WCS that will be used
+                                 to map ra and dec coordinates from the catalog
+                                 files to x and y coordinates in the map
+        tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
+                                     only [256, 256] is supported.
+        image_engine (str): The method to convert array segments into png images
+                            the IMG_ENGINE_PIL uses PIL and is much much faster,
+                            but requires that the array be scaled before hand.
+                            IMG_ENGINE_MPL uses matplotlib and is slower but can
+                            scales the tiles according to the min/max of the
+                            overall array.
+    Returns:
+        None
+    """
+
     if len(files) == 0:
         raise ValueError("No files provided `files` is an empty list")
 
@@ -624,7 +682,8 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
-    print("Building index.html")
+    ns = "\n" * next(pbar_locations)
+    print(ns + "Building index.html")
     web_map = Map(out_dir, title)
     any(map(web_map.add_tile_layer, map_layer_names))
     any(map(web_map.add_marker_catalog, marker_file_names))
@@ -644,6 +703,45 @@ def dir_to_map(
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
 ):
+    """Converts a list of files into a LeafletJS map.
+
+    Args:
+        directory (str): Path to directory containing the files to be converted
+        out_dir (str): Directory to place the genreated web page and associated
+                       subdirectories
+        exclude_predicate (Callable): A function that is applied to every file
+                                      in ``directory`` and returns True if the
+                                      file should not be processed as a part of
+                                      the map, and False if it should be
+                                      processed
+        zoom (int): The maximum zoom to tile images to. This generally doesn't
+                    need to be set unless you have very very large images
+        title (str): The title to placed on the webpage
+        task_procs (int): The number of tasks to run in parallel
+        procs_per_task (int): The number of tiles to process in parallel
+        cat_wcs_fits_file (str): A fits file that has the WCS that will be used
+                                 to map ra and dec coordinates from the catalog
+                                 files to x and y coordinates in the map. Note,
+                                 that this file isn't subject to the
+                                 ``exlclude_predicate``, so you can exclude a
+                                 fits file from being tiled, but still use its
+                                 header for WCS.
+        tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
+                                     only [256, 256] is supported.
+        image_engine (str): The method to convert array segments into png images
+                            the IMG_ENGINE_PIL uses PIL and is much much faster,
+                            but requires that the array be scaled before hand.
+                            IMG_ENGINE_MPL uses matplotlib and is slower but can
+                            scales the tiles according to the min/max of the
+                            overall array.
+    Returns:
+        None
+
+    Raises:
+        ValueError if the dir is empty, there are no convertable files or if
+        ``exclude_predicate`` exlcudes all files
+    """
+
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),

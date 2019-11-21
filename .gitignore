@@ -6,3 +6,5 @@ data/**
 fitsmap/__pycache__/
 
 tmp/
+
+docs/_build/**

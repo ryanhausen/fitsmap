@@ -1,3 +1,8 @@
+.. Variables to ensure the hyperlink gets used
+.. |mapmaker| replace:: `fitsmap.mapmaker <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#module-fitsmap.mapmaker>`__
+.. |files_to_map| replace:: `fitsmap.mapmaker.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.mapmaker.files_to_map>`__
+.. |dir_to_map| replace:: `fitsmap.mapmaker.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/itsmap.html#fitsmap.mapmaker.dir_to_map>`__
+
 FitsMap
 =======
 
@@ -9,14 +14,14 @@ Installation
 
 Requirements:
 
-- `astropy`
-- `imageio`
-- `numpy`
-- `matplotlib`
-- `pillow`
-- `scikit-image`
-- `sharedmem`
-- `tqdm`
+- ``astropy``
+- ``imageio``
+- ``numpy``
+- ``matplotlib``
+- ``pillow``
+- ``scikit-image``
+- ``sharedmem``
+- ``tqdm``
 
 Use ``pip`` to install
 
@@ -27,14 +32,13 @@ Use ``pip`` to install
 Usuage
 ------
 
-Import the ``mapmaker`` module
+Import the |mapmaker| module
 
 .. code-block:: python
 
     from fitsmap import mapmaker
 
-
-Pass a list of files to ``files_to_map``:
+Pass a list of files to |files_to_map|:
 
 .. code-block:: python
 
@@ -42,10 +46,12 @@ Pass a list of files to ``files_to_map``:
 
     mapmaker.files_to_map(some_files)
 
-OR, pass a directory to ``dir_to_map``:
+OR, pass a directory to |dir_to_map|:
 
 .. code-block:: python
 
-    mammaker.dir_to_map("path/to/files/")
+    mapmaker.dir_to_map("path/to/files/")
 
+For more informatio see the `docs <https://fitsmap.readthedocs.io>`__
+or the `code <https://github.com/ryanhausen/fitsmap>`__.
 
