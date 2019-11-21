@@ -8,3 +8,9 @@ fitsmap/__pycache__/
 tmp/
 
 docs/_build/**
+
+build/**
+
+dist/**
+
+fitsmap.egg-info/**
