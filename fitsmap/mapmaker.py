@@ -37,12 +37,12 @@ from astropy.io import fits
 from astropy.wcs import WCS
 from imageio import imread
 
-# https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 from PIL import Image
 from tqdm import tqdm
 
 from fitsmap.web_map import Map
 
+# https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
 
@@ -86,12 +86,27 @@ def slice_idx_generator(
         An iterable of tuples containing the following:
         (zoom, y_coordinate, x_coordinate, dim0_slice, dim1_slice)
     """
+    default_splits = int((4 ** zoom) ** 0.5)
 
-    num_splits = int((4 ** zoom) ** 0.5)
-    start, end = 0, shape[0]
-    splits = range(start, end + 1, end // num_splits)
-    rows = zip(range(num_splits - 1, -1, -1), zip(splits[:-1], splits[1:]))
-    cols = enumerate(zip(splits[:-1], splits[1:]))
+    num_rows, num_cols = shape[:2]
+    img_ratio = int(max(shape[:2]) / min(shape[:2]))
+
+    if img_ratio == 1:  # square
+        num_splits_rows = num_splits_cols = default_splits
+    else:  # rectangular
+        short_splits = int(2 ** (zoom - 1))
+        num_splits_rows = (
+            short_splits if num_rows < num_cols else img_ratio * short_splits
+        )
+        num_splits_cols = (
+            short_splits if num_rows > num_cols else img_ratio * short_splits
+        )
+
+    row_splits = range(0, shape[0]+1, shape[0] // num_splits_rows)
+    col_splits = range(0, shape[1]+1, shape[1] // num_splits_cols)
+
+    rows = zip(range(num_splits_rows - 1, -1, -1), zip(row_splits[:-1], row_splits[1:]))
+    cols = enumerate(zip(col_splits[:-1], col_splits[1:]))
     rows_cols = product(rows, cols)
 
     def transform_iteration(row_col):
@@ -101,33 +116,24 @@ def slice_idx_generator(
     return map(transform_iteration, rows_cols)
 
 
-# def square_array(array:np.ndarray) -> np.ndarray:
-#     dim0, dim = array.shape
+def balance_array(array: np.ndarray) -> np.ndarray:
+    """Pads input array with zeros so that the long side is a multiple of the short side.
 
-#     pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
-#     pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
+    Args:
+        array (np.ndarray): array to balance
+    Returns:
+        a balanced version of ``array``
+    """
 
-#     padding = [
-#         [0, pad_dim0],
-#         [0, pad_dim1]
-#     ]
-#     return np.pad(array, padding, mode='constant', constant_values=0)
+    dim0, dim1 = array.shape[0], array.shape[1]
 
+    pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
+    pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
 
-def square_array(array: np.ndarray):
-    shape = array.shape
-
-    pad_dim0 = max(shape[1] - shape[0], 0)
-    pad_dim1 = max(shape[0] - shape[1], 0)
-
-    if len(shape) == 3:
+    if len(array.shape) == 3:
         padding = [[0, pad_dim0], [0, pad_dim1], [0, 0]]
     else:
-        padding = [
-            [0, pad_dim0],
-            [0, pad_dim1],
-        ]
-
+        padding = [[0, pad_dim0], [0, pad_dim1]]
     return np.pad(array, padding, mode="constant", constant_values=0)
 
 
@@ -158,8 +164,7 @@ def get_array(file_location: str) -> np.ndarray:
             raise ValueError("FitsMap only supports 2D and 3D images.")
 
     if shape[0] != shape[1]:
-        print(file_location + " isn't square, padding with zeros")
-        return square_array(array)
+        return balance_array(array)
     else:
         return array
 
@@ -219,6 +224,51 @@ def make_dirs(out_dir: str, zoom: int) -> None:
     list(map(build_zs, zs))
 
 
+def get_zoom_range(
+    shape: Tuple[int, int], tile_size: Tuple[int, int]
+) -> Tuple[int, int]:
+    """Returns the supported native zoom range for an give image size and tile size.
+
+    Args:
+        shape (Tuple[int, int]): The shape that is going to be tiled
+        tile_size (Tuple[int, int]): The size of the image tiles
+    Returns:
+        A tuple containing the (minimum zoom level, maximum zoom level)
+    """
+    long_side = max(shape[:2])
+    short_side = min(shape[:2])
+
+    max_zoom = int(np.log2(long_side / tile_size[0]))
+    min_zoom = int(np.ceil(np.log2(long_side / short_side)))
+
+    return min_zoom, max_zoom
+
+
+def get_total_tiles(shape: Tuple[int, int], min_zoom: int, max_zoom: int) -> int:
+    """Returns the total number of tiles that will be generated from an image.
+
+    Args:
+        shape (Tuple[int, int]): The shape that is going to be tiled
+        min_zoom (int): The minimum zoom level te image will be tiled at
+        max_zoom (int): The maximum zoom level te image will be tiled at
+    Returns:
+        The total number of tiles that will be generated
+    """
+    img_ratio = int(max(shape[:2]) / min(shape[:2]))
+
+    if img_ratio == 1:
+        return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
+    else:
+        return int(
+            sum(
+                [
+                    (4 ** i) / 2 + ((4 ** i) / 4 * (img_ratio - 2))
+                    for i in range(min_zoom, max_zoom + 1)
+                ]
+            )
+        )
+
+
 def make_tile(
     array: np.ndarray,
     vmin: float,
@@ -257,8 +307,8 @@ def make_tile(
         # TODO: implement figure as singleton, and use https://stackoverflow.com/a/17837600
         #       to update the data and render. also, provide an interface for
         #       passing arbitrary kwargs to imshow?
-        f = plt.figure(dpi=100)
-        f.set_size_inches([256 / 100, 256 / 100])
+        f = plt.figure(dpi=256)
+        f.set_size_inches([256 / 256, 256 / 256])
         plt.imshow(
             array[slice_ys, slice_xs],
             origin="lower",
@@ -270,7 +320,7 @@ def make_tile(
         # plt.text(array.shape[0]//2, array.shape[1]//2, f"{depth},{y},{x}")
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
-        plt.savefig(img_path, dpi=100, bbox_inches=0, interpolation="nearest")
+        plt.savefig(img_path, dpi=256, bbox_inches=0, interpolation="nearest")
         plt.close(f)
     else:
         img = Image.fromarray(np.flipud(array[slice_ys, slice_xs]))
@@ -313,7 +363,8 @@ def tile_img(
     array = get_array(file_location)
     arr_min, arr_max = array.min(), array.max()
 
-    z = zoom if zoom else int(np.log2(array.shape[0] / tile_size[0]))
+    min_zoom, max_zoom = get_zoom_range(array.shape, tile_size)
+    max_zoom = zoom if zoom else max_zoom
 
     # build directory structure
     name = get_map_layer_name(file_location)
@@ -321,14 +372,14 @@ def tile_img(
     if name not in os.listdir(out_dir):
         os.mkdir(tile_dir)
 
-    make_dirs(tile_dir, z)
-
-    # tile the image
-    total_tiles = sum([4 ** i for i in range(z + 1)])
+    make_dirs(tile_dir, max_zoom)
 
     tile_params = chain.from_iterable(
-        [slice_idx_generator(array.shape, i) for i in range(z + 1)]
+        [slice_idx_generator(array.shape, i) for i in range(min_zoom, max_zoom + 1)]
     )
+
+    # tile the image
+    total_tiles = get_total_tiles(array.shape, min_zoom, max_zoom)
 
     if mp_procs:
         mp_array = sharedmem.empty_like(array)
@@ -413,7 +464,7 @@ def line_to_cols(raw_line: str):
         return raw_cols
 
 
-def line_to_json(wcs: WCS, columns: List[str], max_dim: int, src_line: str):
+def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_line: str):
     """Transform a raw text line attribute values into a JSON marker
 
     Args:
@@ -430,8 +481,8 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: int, src_line: str):
 
     [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
-    x = img_x / max_dim * 256
-    y = img_y / max_dim * 256 - 256
+    x = img_x / max_dim[1] * 256
+    y = img_y / max_dim[0] * 256 - 256
 
     html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
     src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
@@ -468,9 +519,13 @@ def catalog_to_markers(
         raise ValueError(err_msg)
 
     header = fits.getheader(wcs_file)
-    max_dim = max(header["NAXIS1"], header["NAXIS2"])
 
-    line_func = partial(line_to_json, wcs, columns, max_dim)
+    dim0, dim1 = header["NAXIS2"], header["NAXIS1"]
+
+    pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
+    pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
+
+    line_func = partial(line_to_json, wcs, columns, [dim0+pad_dim0, dim1+pad_dim1])
 
     cat_file = os.path.split(catalog_file)[1] + ".js"
 
