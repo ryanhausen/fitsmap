@@ -3,15 +3,14 @@
 .. |files_to_map| replace:: :py:func:`fitsmap.mapmaker.files_to_map`
 .. |dir_to_map| replace:: :py:func:`fitsmap.mapmaker.dir_to_map`
 
-FitsMap
-=======
+.. image:: logo.svg.png
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
 .. include:: ../README.rst
-   :start-line: 8
+   :start-line: 9
 
 Indices and tables
 ==================

@@ -3,6 +3,10 @@
 .. |files_to_map| replace:: `fitsmap.mapmaker.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.mapmaker.files_to_map>`__
 .. |dir_to_map| replace:: `fitsmap.mapmaker.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/itsmap.html#fitsmap.mapmaker.dir_to_map>`__
 
+.. image:: docs/logo.svg.png
+    :alt: FitsMap
+    :align: center
+
 FitsMap
 =======
 
