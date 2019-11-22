@@ -636,6 +636,9 @@ def files_to_map(
     if len(files) == 0:
         raise ValueError("No files provided `files` is an empty list")
 
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+
     img_f_kwargs = dict(
         tile_size=tile_size,
         zoom=zoom,
