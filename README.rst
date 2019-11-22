@@ -13,6 +13,17 @@ FitsMap
 FitsMap is a tool for displaying astronomical images and their associated
 catalogs, powered by `LeafletJS <https://leafletjs.com>`_.
 
+Survey images can have dimensions in the tens of thousands pixels in multiple
+bands. Examining images of this size can be difficult especially in multiple
+bands. Memory constraints and highly specialized tools like DS9 make analysis
+infeasible or cumbersome. FitsMap addresses these two issues by converting
+large fits files and images into tiles that can be presented using
+`LeafletJS <https://leafletjs.com>`_. Another issue in examining survey images
+is examining a catalog of sources in the context of the images. FitsMap
+addresses this by converting a catalog of sources into JSON map markers, which
+can be viewed in the webpage. Additionally these sources are searchable using
+by the web interface by the column ``id``.
+
 Installation
 ------------
 
