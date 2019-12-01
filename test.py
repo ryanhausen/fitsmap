@@ -6,7 +6,9 @@ from fitsmap import mapmaker
 if __name__ == "__main__":
     mapmaker.dir_to_map(
         "./tmp",
-        depth=4,
         out_dir="./tmp/web",
-        cat_wcs_fits_file="./tmp/test_mosaic_F200W_2019_05_28.fits",
+        zoom=None,
+        exclude_predicate=lambda f: f.endswith(".fits"),
+        task_procs=0,
+        procs_per_task=0,
     )

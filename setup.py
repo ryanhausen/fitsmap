@@ -1,6 +1,6 @@
 """
 MIT License
-Copyright 2018 Ryan Hausen
+Copyright 2019 Ryan Hausen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -31,18 +31,31 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
+REQUIRES = [
+    "astropy",
+    "imageio",
+    "numpy",
+    "matplotlib",
+    "pillow",
+    "scikit-image",
+    "sharedmem",
+    "tqdm",
+]
+
+
 setup(
-    name="fitmap",
-    version="0.0.1",
+    name="fitsmap",
+    version="0.1.1",
     author="Ryan Hausen",
-    author_email="ryan.hausen@gmail.com",
-    description=("Turn fits files into a leafletjs map"),
+    author_email="rhausen@ucsc.edu",
+    description=("Turn fits files/catalogs into a leafletjs map"),
     license="MIT",
     keywords="models tools",
-    url="https://github.com/ryanhausen/ryanml",
+    url="https://github.com/ryanhausen/fitsmap",
     packages=find_packages(),
-    long_description=read("README.md"),
-    # https://pypi.org/pypi?%3Aaction=list_classifiers
+    include_package_data=True,
+    install_requires=REQUIRES,
+    long_description=read("README.rst"),
     classifiers=[
         "Development Status :: 2 - Pre-Alpha",
         "License :: OSI Approved :: MIT License",
