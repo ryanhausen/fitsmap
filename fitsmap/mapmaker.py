@@ -53,6 +53,10 @@ CAT_FORMAT = ["cat"]
 IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
 
+# MPL SINGLETON ENGINE =========================================================
+mpl_f, mpl_img = None, None
+#===============================================================================
+
 
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
@@ -148,7 +152,7 @@ def get_array(file_location: str) -> np.ndarray:
 
     _, ext = os.path.splitext(file_location)
 
-    if ext == "fits":
+    if ext == ".fits":
         array = fits.getdata(file_location)
         shape = array.shape
         if len(shape) > 2:
@@ -319,21 +323,33 @@ def make_tile(
         # TODO: implement figure as singleton, and use https://stackoverflow.com/a/17837600
         #       to update the data and render. also, provide an interface for
         #       passing arbitrary kwargs to imshow?
-        f = plt.figure(dpi=256)
-        f.set_size_inches([256 / 256, 256 / 256])
-        plt.imshow(
-            array[slice_ys, slice_xs],
-            origin="lower",
-            cmap="gray",
-            vmin=vmin,
-            vmax=vmax,
-            interpolation="nearest",
-        )
-        # plt.text(array.shape[0]//2, array.shape[1]//2, f"{depth},{y},{x}")
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        plt.axis("off")
-        plt.savefig(img_path, dpi=256, bbox_inches=0, interpolation="nearest")
-        plt.close(f)
+        global mpl_f
+        global mpl_img
+        if mpl_f:
+            mpl_img.set_data(array[slice_ys, slice_xs])
+            mpl_f.savefig(img_path, dpi=256, bbox_inches=0, interpolation="nearest")
+        else:
+
+            if len(array.shape)==2:
+                img_kwargs = dict(
+                    origin="lower",
+                    cmap="gray",
+                    vmin=vmin,
+                    vmax=vmax,
+                    interpolation="nearest",
+                )
+            else:
+                img_kwargs = dict(
+                    interpolation="nearest",
+                )
+
+            mpl_f = plt.figure(dpi=256)
+            mpl_f.set_size_inches([256 / 256, 256 / 256])
+            mpl_img = plt.imshow( array[slice_ys, slice_xs], **img_kwargs)
+            # plt.text(array.shape[0]//2, array.shape[1]//2, f"{depth},{y},{x}")
+            plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+            plt.axis("off")
+            mpl_f.savefig(img_path, dpi=256, bbox_inches=0, interpolation="nearest")
     else:
         img = Image.fromarray(np.flipud(array[slice_ys, slice_xs]))
         img.thumbnail([256, 256], Image.LANCZOS)
@@ -370,6 +386,12 @@ def tile_img(
     Returns:
         None
     """
+    # reset mpl vars just in case they have been set by another img
+    global mpl_f
+    global mpl_img
+    if mpl_f:
+        mpl_f = None
+        mpl_img = None
 
     # get image
     array = get_array(file_location)
