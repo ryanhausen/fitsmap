@@ -1,16 +1,5 @@
-fitsmap package
-===============
-
-Submodules
-----------
-
-fitsmap.convert module
-----------------------
-
-.. automodule:: fitsmap.convert
-   :members:
-   :undoc-members:
-   :show-inheritance:
+Module Documentation
+==============================
 
 fitsmap.mapmaker module
 -----------------------
@@ -24,15 +13,6 @@ fitsmap.web\_map module
 -----------------------
 
 .. automodule:: fitsmap.web_map
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: fitsmap
    :members:
    :undoc-members:
    :show-inheritance:

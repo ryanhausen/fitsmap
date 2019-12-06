@@ -1,6 +1,3 @@
-fitsmap
-=======
-
 .. toctree::
    :maxdepth: 4
 
