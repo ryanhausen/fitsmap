@@ -30,13 +30,13 @@ from multiprocessing import JoinableQueue, Pool, Process
 from queue import Empty
 from typing import Callable, Iterable, List, Tuple, Union
 
-import sharedmem
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
 from imageio import imread
-
 from PIL import Image
 from tqdm import tqdm
 
@@ -52,10 +52,11 @@ IMG_FORMATS = ["fits", "jpg", "png"]
 CAT_FORMAT = ["cat"]
 IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
+MPL_CMAP = "gray"
 
 # MPL SINGLETON ENGINE =========================================================
-mpl_f, mpl_img = None, None
-#===============================================================================
+mpl_f, mpl_img, mpl_alpha_f = None, None, None
+# ===============================================================================
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -141,7 +142,9 @@ def balance_array(array: np.ndarray) -> np.ndarray:
     else:
         padding = [[0, pad_dim0], [0, pad_dim1]]
 
-    return np.pad(array.astype(np.float32), padding, mode="constant", constant_values=np.nan)
+    return np.pad(
+        array.astype(np.float32), padding, mode="constant", constant_values=np.nan
+    )
 
 
 def get_array(file_location: str) -> np.ndarray:
@@ -162,7 +165,7 @@ def get_array(file_location: str) -> np.ndarray:
             raise ValueError("FitsMap only supports 2D FITS files.")
     else:
         array = np.flipud(imread(file_location))
-        #array = imread(file_location)
+        # array = imread(file_location)
 
         if len(array.shape) == 3:
             shape = array.shape[:-1]
@@ -324,48 +327,80 @@ def make_tile(
     img_path = build_path(z, y, x, out_dir)
 
     if img_engine == IMG_ENGINE_MPL:
-        # TODO: implement figure as singleton, and use https://stackoverflow.com/a/17837600
-        #       to update the data and render. also, provide an interface for
-        #       passing arbitrary kwargs to imshow?
         global mpl_f
         global mpl_img
+        global mpl_alpha_f
         if mpl_f:
-            mpl_img.set_data(array[slice_ys, slice_xs])
-            mpl_f.savefig(img_path, dpi=256, bbox_inches=0, interpolation="nearest")
+            mpl_img.set_data(mpl_alpha_f(array[slice_ys, slice_xs]))
+            mpl_f.savefig(
+                img_path,
+                dpi=256,
+                bbox_inches=0,
+                interpolation="nearest",
+                facecolor=(0, 0, 0, 0),
+            )
         else:
+            if len(array.shape) == 2:
+                cmap = mpl.cm.get_cmap(MPL_CMAP)
+                cmap.set_bad(color=(0, 0, 0, 0))
 
-            if len(array.shape)==2:
                 img_kwargs = dict(
                     origin="lower",
-                    cmap="gray",
+                    cmap=cmap,
                     vmin=vmin,
                     vmax=vmax,
                     interpolation="nearest",
                 )
+                mpl_alpha_f = lambda arr: arr
             else:
-                img_kwargs = dict(
-                    interpolation="nearest",
-                )
+                img_kwargs = dict(interpolation="nearest", origin="lower")
+
+                def adjust_pixels(arr):
+                    img = arr.copy()
+                    if img.shape[2] == 3:
+                        img = np.concatenate(
+                            (
+                                img,
+                                np.ones(list(img.shape[:-1]) + [1], dtype=np.float32)
+                                * 255,
+                            ),
+                            axis=2,
+                        )
+
+                    ys, xs = np.where(np.isnan(img[:, :, 0]))
+                    img[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+
+                    return img.astype(np.uint8)
+
+                mpl_alpha_f = lambda arr: adjust_pixels(arr)
 
             mpl_f = plt.figure(dpi=256)
             mpl_f.set_size_inches([256 / 256, 256 / 256])
-            mpl_img = plt.imshow( array[slice_ys, slice_xs], **img_kwargs)
-            # plt.text(array.shape[0]//2, array.shape[1]//2, f"{depth},{y},{x}")
+            mpl_img = plt.imshow(mpl_alpha_f(array[slice_ys, slice_xs]), **img_kwargs)
             plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
             plt.axis("off")
-            mpl_f.savefig(img_path, dpi=256, bbox_inches=0, interpolation="nearest")
+            mpl_f.savefig(
+                img_path,
+                dpi=256,
+                bbox_inches=0,
+                interpolation="nearest",
+                facecolor=(0, 0, 0, 0),
+            )
     else:
         arr = array[slice_ys, slice_xs].copy()
-        if len(arr.shape)<3:
-            arr = np.dstack([arr, arr, arr, np.ones_like(arr)*255])
-        elif arr.shape[2]==3:
-            arr = np.concatenate((arr, np.ones(list(arr.shape[:-1])+[1], dtype=np.float32)*255), axis=2)
+        if len(arr.shape) < 3:
+            arr = np.dstack([arr, arr, arr, np.ones_like(arr) * 255])
+        elif arr.shape[2] == 3:
+            arr = np.concatenate(
+                (arr, np.ones(list(arr.shape[:-1]) + [1], dtype=np.float32) * 255),
+                axis=2,
+            )
 
         ys, xs = np.where(np.isnan(arr[:, :, 0]))
         arr[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
         img = Image.fromarray(np.flipud(arr).astype(np.uint8))
         del arr
-        #img = Image.fromarray(arr.astype(np.uint8))
+        # img = Image.fromarray(arr.astype(np.uint8))
 
         img.thumbnail([256, 256], Image.LANCZOS)
         if img.mode != "RGBA":
@@ -410,7 +445,7 @@ def tile_img(
 
     # get image
     array = get_array(file_location)
-    arr_min, arr_max = array.min(), array.max()
+    arr_min, arr_max = np.nanmin(array), np.nanmax(array)
 
     min_zoom, max_zoom = get_zoom_range(array.shape, tile_size)
     max_zoom = zoom if zoom else max_zoom
@@ -499,7 +534,7 @@ def line_to_cols(raw_line: str):
         A list of the column names in order
     """
 
-    change_case = ["RA", "DEC", "Ra", "Dec"]
+    change_case = ["RA", "DEC", "Ra", "Dec", "X", "Y"]
 
     # make ra and dec lowercase for ease of access
     raw_cols = list(
@@ -524,11 +559,15 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
     """
     src_vals = src_line.strip().split()
 
-    ra = float(src_vals[columns.index("ra")])
-    dec = float(src_vals[columns.index("dec")])
-    src_id = str(src_vals[columns.index("id")])
+    if "x" in columns and "y" in columns:
+        img_x = int(src_vals[columns.index("x")])
+        img_y = int(src_vals[columns.index("y")])
+    else:
+        ra = float(src_vals[columns.index("ra")])
+        dec = float(src_vals[columns.index("dec")])
+        src_id = str(src_vals[columns.index("id")])
 
-    [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
+        [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
     x = img_x / max_dim[1] * 256
     y = img_y / max_dim[0] * 256 - 256
@@ -569,10 +608,13 @@ def catalog_to_markers(
 
     columns = line_to_cols(next(f))
 
-    if "ra" not in columns or "dec" not in columns or "id" not in columns:
+    ra_dec_coords = "ra" in columns and "dec" in columns
+    x_y_coords = "x" in columns and "y" in columns
+
+    if (not ra_dec_coords and not x_y_coords) or "id" not in columns:
         err_msg = " ".join(
             [
-                catalog_file + " is missing an 'ra' column, a 'dec' column,",
+                catalog_file + " is missing coordinate columns (ra/dec, xy),",
                 "an 'id' column, or all of the above",
             ]
         )
@@ -663,7 +705,7 @@ def files_to_map(
         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
                                      only [256, 256] is supported.
         image_engine (str): The method to convert array segments into png images
-                            the IMG_ENGINE_PIL uses PIL and is much much faster,
+                            the IMG_ENGINE_PIL uses PIL and is faster,
                             but requires that the array be scaled before hand.
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
@@ -771,7 +813,7 @@ def dir_to_map(
         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
                                      only [256, 256] is supported.
         image_engine (str): The method to convert array segments into png images
-                            the IMG_ENGINE_PIL uses PIL and is much much faster,
+                            the IMG_ENGINE_PIL uses PIL and is faster,
                             but requires that the array be scaled before hand.
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the

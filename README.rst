@@ -15,17 +15,17 @@ catalogs, powered by `LeafletJS <https://leafletjs.com>`_.
 
 Survey images can have dimensions in the tens of thousands pixels in multiple
 bands. Examining images of this size can be difficult especially in multiple
-bands. Memory constraints and highly specialized tools like DS9 make analysis
-infeasible or cumbersome. FitsMap addresses these two issues by converting
-large fits files and images into tiles that can be presented using
-`LeafletJS <https://leafletjs.com>`_. Another issue in examining survey images
-is examining a catalog of sources in the context of the images. FitsMap
-addresses this by converting a catalog of sources into JSON map markers, which
-can be viewed in the webpage. Additionally these sources are searchable using
-by the web interface by the column ``id``.
+bands. Memory constraints and highly specialized tools like DS9 can make simple
+high level analysis infeasible or cumbersome. FitsMap addresses these two
+issues by converting large fits files and images into tiles that can be
+presented using `LeafletJS <https://leafletjs.com>`_. Another issue in
+examining survey images is examining a catalog of sources in the context of the
+images. FitsMap addresses this by converting a catalog of sources into JSON map
+markers, which can be viewed in the webpage. Additionally these sources are
+searchable using by the web interface by the column ``id``.
 
 Installation
-------------
+************
 
 Requirements:
 
@@ -45,28 +45,97 @@ Use ``pip`` to install
     pip install fitsmap
 
 Usuage
-------
+******
 
-Import the |mapmaker| module
+FitsMap is designed to address the following example. A user has multiple FITS
+files or PNG files that represent multiple bands of the same area of the sky
+along with a catalog of sources within that area. For example directory might
+look like:
+
+::
+
+  - path/to/data/
+    - F125W.fits
+    - F160W.fits
+    - catalog.cat
+
+To convert this diretory into a map is as simple as using |dir_to_map|:
 
 .. code-block:: python
 
     from fitsmap import mapmaker
 
-Pass a list of files to |files_to_map|:
+    mapmaker.dir_to_map.(
+        "path/to/data",
+        out_dir="/path/to/data/map",
+        cat_wcs_fits_file="path/to/data/F160W.fits",
+    )
 
-.. code-block:: python
+The first argument is which directory contains the files that we would like to
+convert into a map. In our case this is ``path/to/dir``.  The next argument is
+the ``out_dir`` keyword argument that tells FitsMap where to put the generated
+webpage and supporting directories. In this example, the website will be built
+in a new sub directory called ``web`` within ``path/to/data``. Finally, the
+last argument is the ``cat_wcs_fits_file`` keyword argument. This tells FitsMap
+which header to use to parse any catalog files and convert them into map
+markers. In this example, one of the FITS files in the directory is used.
 
-    some_files = ...
+Once FitsMap is finished the following will have been generated:
 
-    mapmaker.files_to_map(some_files)
+::
 
-OR, pass a directory to |dir_to_map|:
+  - path/to/data/map/
+    - css/
+    - F125W/
+    - F160W/
+    - js/
+    - index.html
 
-.. code-block:: python
+The directories ``F125W`` and ``F160W`` contain tiled versions of the input
+fits files. The ``css`` directory contains some supporting css files for
+clustering the markers. The ``js`` directory contains the json converted
+catalog sources. Finally, ``index.html`` is the webpage that contains the map.
+To use the map, simply open ``index.html`` with your favorite browser.
 
-    mapmaker.dir_to_map("path/to/files/")
+Notes on Image Conversion
++++++++++++++++++++++++++
 
-For more informatio see the `docs <https://fitsmap.readthedocs.io>`__
+FitsMap has two "image engines" that you can choose from for converting
+arrays into PNGS: PIL and Matplotlib.imshow. The default is to use PIL(pillow),
+which seems to be faster, but expects all files to already to be normalized and
+image ready. If your images are already normalized or are already PNGS, then
+this will work fine. Matplotlib although a little slower can accept FITS files
+without normalizing them. However the default scaling is Linear and changing
+it isn't currently supported. So you should compress the dynamic range of the
+FITS file before using FitsMap. Additionally, the default colomap passed to
+imshow is "gray", but you can change this by changing the variable
+``mapmaker.MPL_CMAP`` to the string name of a
+`Matplotlib colormap <https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html>`_.
+
+To ensure that that pixels are rendered correctly and that map markers are
+placed correctly any image that is not square is squared by padding the array
+with NaN values that are converted into transparent pixels in the PNG. As a
+consequnce if a FITS file contains NaNs when it is converted, those pixels will
+be converted into transparent pixels.
+
+Notes on Catalog Conversion
++++++++++++++++++++++++++++
+
+Catalogs should be whitespace delimited text files with the first line
+containing the column names, and the following lines containing values.
+Catalogs need to have an ``id`` column with a unique value for each row. It
+also needs to have coordinates for each source which can be one of the
+following pairs of columns (``ra``/``dec``) or (``x``/``y``).
+
+All of the columns/values for each source will be stored in the description for
+for object and will show up when the marker is clicked. As a consequence,
+having a lot of columns will cause the following:
+
+- Very large pop-up descriptions when you click on a marker.
+- Slower web page loading times due to the json marker file being larger.
+
+----
+
+For more information see the `docs <https://fitsmap.readthedocs.io>`__
 or the `code <https://github.com/ryanhausen/fitsmap>`__.
 

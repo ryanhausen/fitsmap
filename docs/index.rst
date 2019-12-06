@@ -4,17 +4,19 @@
 .. |dir_to_map| replace:: :py:func:`fitsmap.mapmaker.dir_to_map`
 
 .. image:: logo.svg.png
+   :target: https://github.com/ryanhausen/fitsmap
 
 .. toctree::
+   :hidden:
    :maxdepth: 2
-   :caption: Contents:
+
+   index
 
 .. include:: ../README.rst
-   :start-line: 9
+   :start-line: 10
+   :end-before: For more information
 
-Indices and tables
-==================
+.. toctree::
+   :maxdepth: 3
 
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   source/modules
