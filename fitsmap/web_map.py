@@ -177,7 +177,7 @@ class Map:
     def js_markers(marker_collections: List[str]):
 
         cluster_text = "      L.markerClusterGroup({ }),"
-        marker_list_text = "      []"
+        marker_list_text = "      [],"
 
         js = [
             "   var markers = [",

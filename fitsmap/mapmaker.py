@@ -131,14 +131,17 @@ def balance_array(array: np.ndarray) -> np.ndarray:
 
     dim0, dim1 = array.shape[0], array.shape[1]
 
-    pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
-    pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
+    # pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
+    # pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
+    pad_dim0 = max(dim1 - dim0, 0)
+    pad_dim1 = max(dim0 - dim1, 0)
 
     if len(array.shape) == 3:
         padding = [[0, pad_dim0], [0, pad_dim1], [0, 0]]
     else:
         padding = [[0, pad_dim0], [0, pad_dim1]]
-    return np.pad(array, padding, mode="constant", constant_values=0)
+
+    return np.pad(array.astype(np.float32), padding, mode="constant", constant_values=np.nan)
 
 
 def get_array(file_location: str) -> np.ndarray:
@@ -159,6 +162,7 @@ def get_array(file_location: str) -> np.ndarray:
             raise ValueError("FitsMap only supports 2D FITS files.")
     else:
         array = np.flipud(imread(file_location))
+        #array = imread(file_location)
 
         if len(array.shape) == 3:
             shape = array.shape[:-1]
@@ -351,10 +355,21 @@ def make_tile(
             plt.axis("off")
             mpl_f.savefig(img_path, dpi=256, bbox_inches=0, interpolation="nearest")
     else:
-        img = Image.fromarray(np.flipud(array[slice_ys, slice_xs]))
+        arr = array[slice_ys, slice_xs].copy()
+        if len(arr.shape)<3:
+            arr = np.dstack([arr, arr, arr, np.ones_like(arr)*255])
+        elif arr.shape[2]==3:
+            arr = np.concatenate((arr, np.ones(list(arr.shape[:-1])+[1], dtype=np.float32)*255), axis=2)
+
+        ys, xs = np.where(np.isnan(arr[:, :, 0]))
+        arr[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+        img = Image.fromarray(np.flipud(arr).astype(np.uint8))
+        del arr
+        #img = Image.fromarray(arr.astype(np.uint8))
+
         img.thumbnail([256, 256], Image.LANCZOS)
-        if img.mode != "RGB":
-            img = img.convert("RGB")
+        if img.mode != "RGBA":
+            img = img.convert("RGBA")
         img.save(img_path, "PNG")
         del img
 
@@ -511,7 +526,7 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
 
     ra = float(src_vals[columns.index("ra")])
     dec = float(src_vals[columns.index("dec")])
-    src_id = int(src_vals[columns.index("id")])
+    src_id = str(src_vals[columns.index("id")])
 
     [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
@@ -567,8 +582,10 @@ def catalog_to_markers(
 
     dim0, dim1 = header["NAXIS2"], header["NAXIS1"]
 
-    pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
-    pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
+    # pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
+    # pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
+    pad_dim0 = max(dim1 - dim0, 0)
+    pad_dim1 = max(dim0 - dim1, 0)
 
     line_func = partial(line_to_json, wcs, columns, [dim0 + pad_dim0, dim1 + pad_dim1])
 
