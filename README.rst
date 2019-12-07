@@ -45,7 +45,7 @@ Use ``pip`` to install
     pip install fitsmap
 
 Usage
-******
+*****
 
 FitsMap is designed to address the following example. A user has multiple FITS
 files or PNG files that represent multiple bands of the same area of the sky,
@@ -97,6 +97,33 @@ clustering the markers. The ``js`` directory contains the json converted
 catalog sources. Finally, ``index.html`` is the webpage that contains the map.
 To use the map, simply open ``index.html`` with your favorite browser.
 
+Parallelization *(Linux/Mac Only)*
+**********************************
+
+FitsMap supports the parallelization(via Multiprocessing/``sharedmem``) of map
+creation in two ways:
+
+- splitting images/catalogs into parallel tasks
+- parallel tiling of an image
+
+The settings for parallelization are set using the following keyword arguments:
+
+- ``procs_per_task``: Sets how many layers/catalogs to convert in parallel at a
+  time.
+- ``task_procs``: How many tiles to generate in parallel
+
+You can use both keyword arguments at the same time, but keep in mind the
+number of cpus available. For example, if ``procs_per_task=2`` amd
+``task_procs=2`` then that will generate 6 new processes, 2 new processes for
+each task, and each of those will generate 2 new processes to tile an image in
+parallel.
+
+Parallelization offers a significant speed up, so if there are cores available
+it makes sense to use them.
+
+Notes
+*****
+
 Notes on Image Conversion
 +++++++++++++++++++++++++
 
@@ -104,11 +131,11 @@ FitsMap has two "image engines" that you can choose from for converting
 arrays into PNGS: PIL and Matplotlib.imshow. The default is to use PIL(pillow),
 which seems to be faster but expects all files to be already normalized and
 image ready. If the images are already normalized or are already PNGS, then
-this will work fine. Matplotlib, although a little slower, can accept FITS files
-without normalizing them. However, the default scaling is Linear and changing
-it isn't currently supported. So images should  have their dynamic range
-compressed before using FitsMap. Additionally, the default colomap passed to
-imshow is "gray", but you can change this by changing the variable
+this will work fine. Matplotlib, although a little slower, can accept FITS
+files without normalizing them. However, the default scaling is Linear and
+changing it isn't currently supported. So images should  have their dynamic
+range compressed before using FitsMap. Additionally, the default colomap passed
+to imshow is "gray", but you can change this by changing the variable
 ``mapmaker.MPL_CMAP`` to the string name of a
 `Matplotlib colormap <https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html>`_.
 
