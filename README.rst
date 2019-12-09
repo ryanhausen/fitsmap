@@ -75,7 +75,7 @@ The first argument is which directory contains the files that we would like to
 convert into a map. In our case, this is ``path/to/dir``.  The next argument is
 the ``out_dir`` keyword argument that tells FitsMap where to put the generated
 webpage and supporting directories. In this example, the website will be built
-in a new subdirectory called ``web`` within ``path/to/data``. Finally, the
+in a new subdirectory called ``map`` within ``path/to/data``. Finally, the
 last argument is the ``cat_wcs_fits_file`` keyword argument. This tells FitsMap
 which header to use to parse any catalog files and convert them into map
 markers. In this example, one of the FITS files in the directory is used.
