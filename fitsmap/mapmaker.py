@@ -107,11 +107,21 @@ def slice_idx_generator(
             short_splits if num_rows > num_cols else img_ratio * short_splits
         )
 
-    row_splits = range(0, shape[0] + 1, shape[0] // num_splits_rows)
-    col_splits = range(0, shape[1] + 1, shape[1] // num_splits_cols)
+    def split(vals):
+        x0, x2 = vals
+        x1 = x0 + ((x2-x0) // 2)
+        return [(x0, x1), (x1, x2)]
 
-    rows = zip(range(num_splits_rows - 1, -1, -1), zip(row_splits[:-1], row_splits[1:]))
-    cols = enumerate(zip(col_splits[:-1], col_splits[1:]))
+    # split = lambda vals: [(vals[0], vals[1]//2), (vals[1]//2, vals[1])]
+    split_collection = lambda collection: map(split, collection)
+    split_reduce = lambda x, y: split_collection(chain.from_iterable(x))
+
+    rows_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[0])]]))
+    columns_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[1])]]))
+
+    rows = zip(range(num_splits_rows - 1, -1, -1),  chain.from_iterable(rows_split))
+    cols = enumerate(chain.from_iterable(columns_split))
+
     rows_cols = product(rows, cols)
 
     def transform_iteration(row_col):
@@ -559,13 +569,13 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
     """
     src_vals = src_line.strip().split()
 
+    src_id = str(src_vals[columns.index("id")])
     if "x" in columns and "y" in columns:
-        img_x = int(src_vals[columns.index("x")])
-        img_y = int(src_vals[columns.index("y")])
+        img_x = float(src_vals[columns.index("x")])
+        img_y = float(src_vals[columns.index("y")])
     else:
         ra = float(src_vals[columns.index("ra")])
         dec = float(src_vals[columns.index("dec")])
-        src_id = str(src_vals[columns.index("id")])
 
         [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
