@@ -109,7 +109,7 @@ def slice_idx_generator(
 
     def split(vals):
         x0, x2 = vals
-        x1 = x0 + ((x2-x0) // 2)
+        x1 = x0 + ((x2 - x0) // 2)
         return [(x0, x1), (x1, x2)]
 
     # split = lambda vals: [(vals[0], vals[1]//2), (vals[1]//2, vals[1])]
@@ -119,7 +119,7 @@ def slice_idx_generator(
     rows_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[0])]]))
     columns_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[1])]]))
 
-    rows = zip(range(num_splits_rows - 1, -1, -1),  chain.from_iterable(rows_split))
+    rows = zip(range(num_splits_rows - 1, -1, -1), chain.from_iterable(rows_split))
     cols = enumerate(chain.from_iterable(columns_split))
 
     rows_cols = product(rows, cols)
