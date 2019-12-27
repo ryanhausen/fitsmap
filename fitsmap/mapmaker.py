@@ -91,35 +91,20 @@ def slice_idx_generator(
         An iterable of tuples containing the following:
         (zoom, y_coordinate, x_coordinate, dim0_slice, dim1_slice)
     """
-    default_splits = int((4 ** zoom) ** 0.5)
-
-    num_rows, num_cols = shape[:2]
-    img_ratio = int(max(shape[:2]) / min(shape[:2]))
-
-    if img_ratio == 1:  # square
-        num_splits_rows = num_splits_cols = default_splits
-    else:  # rectangular
-        short_splits = int(2 ** (zoom - 1))
-        num_splits_rows = (
-            short_splits if num_rows < num_cols else img_ratio * short_splits
-        )
-        num_splits_cols = (
-            short_splits if num_rows > num_cols else img_ratio * short_splits
-        )
+    num_splits = int((4 ** zoom) ** 0.5)
 
     def split(vals):
         x0, x2 = vals
         x1 = x0 + ((x2 - x0) // 2)
         return [(x0, x1), (x1, x2)]
 
-    # split = lambda vals: [(vals[0], vals[1]//2), (vals[1]//2, vals[1])]
     split_collection = lambda collection: map(split, collection)
     split_reduce = lambda x, y: split_collection(chain.from_iterable(x))
 
     rows_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[0])]]))
     columns_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[1])]]))
 
-    rows = zip(range(num_splits_rows - 1, -1, -1), chain.from_iterable(rows_split))
+    rows = zip(range(num_splits - 1, -1, -1), chain.from_iterable(rows_split))
     cols = enumerate(chain.from_iterable(columns_split))
 
     rows_cols = product(rows, cols)
