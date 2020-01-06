@@ -127,8 +127,6 @@ def balance_array(array: np.ndarray) -> np.ndarray:
 
     dim0, dim1 = array.shape[0], array.shape[1]
 
-    # pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
-    # pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
     pad_dim0 = max(dim1 - dim0, 0)
     pad_dim1 = max(dim0 - dim1, 0)
 
@@ -203,9 +201,7 @@ def filter_on_extension(
     )
 
 
-def make_dirs(
-    out_dir: str, min_zoom: int, max_zoom: int, shape: Tuple[int, int]
-) -> None:
+def make_dirs(out_dir: str, min_zoom: int, max_zoom: int) -> None:
     """Builds the directory tree for storing image tiles.
 
     Args:
@@ -216,14 +212,7 @@ def make_dirs(
         None
     """
 
-    num_rows, num_cols = shape[:2]
-    img_ratio = int(max(shape[:2]) / min(shape[:2]))
-
-    if img_ratio == 1:
-        row_count = lambda z: int(np.sqrt(4 ** z))
-    else:
-        coefficient = 1 if (num_rows < num_cols) else img_ratio
-        row_count = lambda z: int(2 ** (z - 1)) * coefficient
+    row_count = lambda z: int(np.sqrt(4 ** z))
 
     def sub_dir(f):
         try:
@@ -262,29 +251,17 @@ def get_zoom_range(
     return min_zoom, max_zoom
 
 
-def get_total_tiles(shape: Tuple[int, int], min_zoom: int, max_zoom: int) -> int:
+def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
     """Returns the total number of tiles that will be generated from an image.
 
     Args:
-        shape (Tuple[int, int]): The shape that is going to be tiled
         min_zoom (int): The minimum zoom level te image will be tiled at
         max_zoom (int): The maximum zoom level te image will be tiled at
     Returns:
         The total number of tiles that will be generated
     """
-    img_ratio = int(max(shape[:2]) / min(shape[:2]))
 
-    if img_ratio == 1:
-        return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
-    else:
-        return int(
-            sum(
-                [
-                    (4 ** i) / 2 + ((4 ** i) / 4 * (img_ratio - 2))
-                    for i in range(min_zoom, max_zoom + 1)
-                ]
-            )
-        )
+    return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
 
 
 def make_tile(
@@ -451,14 +428,14 @@ def tile_img(
     if name not in os.listdir(out_dir):
         os.mkdir(tile_dir)
 
-    make_dirs(tile_dir, min_zoom, max_zoom, array.shape)
+    make_dirs(tile_dir, min_zoom, max_zoom)
 
     tile_params = chain.from_iterable(
         [slice_idx_generator(array.shape, i) for i in range(min_zoom, max_zoom + 1)]
     )
 
     # tile the image
-    total_tiles = get_total_tiles(array.shape, min_zoom, max_zoom)
+    total_tiles = get_total_tiles(min_zoom, max_zoom)
 
     if mp_procs:
         mp_array = sharedmem.empty_like(array)
