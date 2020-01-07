@@ -264,26 +264,20 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
     return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
 
 
-def make_tile(
-    array: np.ndarray,
+def make_tile_mpl(
     vmin: float,
     vmax: float,
     out_dir: str,
-    img_engine: str,
+    array: np.ndarray,
     job: Tuple[int, int, int, slice, slice],
 ) -> None:
-    """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir``.
+    """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using Matplotlib.
 
     Args:
-        array (np.ndarray): Array to extract a slice from
         vmin (float): The global minimum used to scale local values when
-                      using the ``IMAGE_ENGINE_MPL`` image_engine.
         vmax (float): The global maximum used to scale local values when
-                      using the ``IMAGE_ENGINE_MPL`` image_engine.
         out_dir (str): The directory to save tile in
-        img_engine (str): Method to convert array tile to an image. Can be one
-                          of mapmaker.IMAGE_ENGINE_PIL (using pillow(PIL)) or
-                          of mapmaker.IMAGE_ENGINE_MPL (using matplotlib)
+        array (np.ndarray): Array to extract a slice from
         job (Tuple[int, int, int, slice, slice]): A tuple containing z, y, x,
                                                   dim0_slices, dim1_slices. Where
                                                   (z, y, x) define the zoom and
@@ -298,87 +292,106 @@ def make_tile(
 
     img_path = build_path(z, y, x, out_dir)
 
-    if img_engine == IMG_ENGINE_MPL:
-        global mpl_f
-        global mpl_img
-        global mpl_alpha_f
-        if mpl_f:
-            mpl_img.set_data(mpl_alpha_f(array[slice_ys, slice_xs]))
-            mpl_f.savefig(
-                img_path,
-                dpi=256,
-                bbox_inches=0,
-                interpolation="nearest",
-                facecolor=(0, 0, 0, 0),
-            )
-        else:
-            if len(array.shape) == 2:
-                cmap = mpl.cm.get_cmap(MPL_CMAP)
-                cmap.set_bad(color=(0, 0, 0, 0))
-
-                img_kwargs = dict(
-                    origin="lower",
-                    cmap=cmap,
-                    vmin=vmin,
-                    vmax=vmax,
-                    interpolation="nearest",
-                )
-                mpl_alpha_f = lambda arr: arr
-            else:
-                img_kwargs = dict(interpolation="nearest", origin="lower")
-
-                def adjust_pixels(arr):
-                    img = arr.copy()
-                    if img.shape[2] == 3:
-                        img = np.concatenate(
-                            (
-                                img,
-                                np.ones(list(img.shape[:-1]) + [1], dtype=np.float32)
-                                * 255,
-                            ),
-                            axis=2,
-                        )
-
-                    ys, xs = np.where(np.isnan(img[:, :, 0]))
-                    img[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
-
-                    return img.astype(np.uint8)
-
-                mpl_alpha_f = lambda arr: adjust_pixels(arr)
-
-            mpl_f = plt.figure(dpi=256)
-            mpl_f.set_size_inches([256 / 256, 256 / 256])
-            mpl_img = plt.imshow(mpl_alpha_f(array[slice_ys, slice_xs]), **img_kwargs)
-            plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-            plt.axis("off")
-            mpl_f.savefig(
-                img_path,
-                dpi=256,
-                bbox_inches=0,
-                interpolation="nearest",
-                facecolor=(0, 0, 0, 0),
-            )
+    global mpl_f
+    global mpl_img
+    global mpl_alpha_f
+    if mpl_f:
+        mpl_img.set_data(mpl_alpha_f(array[slice_ys, slice_xs]))
+        mpl_f.savefig(
+            img_path,
+            dpi=256,
+            bbox_inches=0,
+            interpolation="nearest",
+            facecolor=(0, 0, 0, 0),
+        )
     else:
-        arr = array[slice_ys, slice_xs].copy()
-        if len(arr.shape) < 3:
-            arr = np.dstack([arr, arr, arr, np.ones_like(arr) * 255])
-        elif arr.shape[2] == 3:
-            arr = np.concatenate(
-                (arr, np.ones(list(arr.shape[:-1]) + [1], dtype=np.float32) * 255),
-                axis=2,
+        if len(array.shape) == 2:
+            cmap = mpl.cm.get_cmap(MPL_CMAP)
+            cmap.set_bad(color=(0, 0, 0, 0))
+
+            img_kwargs = dict(
+                origin="lower",
+                cmap=cmap,
+                vmin=vmin,
+                vmax=vmax,
+                interpolation="nearest",
             )
+            mpl_alpha_f = lambda arr: arr
+        else:
+            img_kwargs = dict(interpolation="nearest", origin="lower")
 
-        ys, xs = np.where(np.isnan(arr[:, :, 0]))
-        arr[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
-        img = Image.fromarray(np.flipud(arr).astype(np.uint8))
-        del arr
-        # img = Image.fromarray(arr.astype(np.uint8))
+            def adjust_pixels(arr):
+                img = arr.copy()
+                if img.shape[2] == 3:
+                    img = np.concatenate(
+                        (
+                            img,
+                            np.ones(list(img.shape[:-1]) + [1], dtype=np.float32) * 255,
+                        ),
+                        axis=2,
+                    )
 
-        img.thumbnail([256, 256], Image.LANCZOS)
-        if img.mode != "RGBA":
-            img = img.convert("RGBA")
-        img.save(img_path, "PNG")
-        del img
+                ys, xs = np.where(np.isnan(img[:, :, 0]))
+                img[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+
+                return img.astype(np.uint8)
+
+            mpl_alpha_f = lambda arr: adjust_pixels(arr)
+
+        mpl_f = plt.figure(dpi=256)
+        mpl_f.set_size_inches([256 / 256, 256 / 256])
+        mpl_img = plt.imshow(mpl_alpha_f(array[slice_ys, slice_xs]), **img_kwargs)
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
+        plt.axis("off")
+        mpl_f.savefig(
+            img_path,
+            dpi=256,
+            bbox_inches=0,
+            interpolation="nearest",
+            facecolor=(0, 0, 0, 0),
+        )
+
+
+def make_tile_pil(
+    out_dir: str, array: np.ndarray, job: Tuple[int, int, int, slice, slice]
+) -> None:
+    """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using PIL.
+
+    Args:
+        out_dir (str): The directory to save tile in
+        array (np.ndarray): Array to extract a slice from
+        job (Tuple[int, int, int, slice, slice]): A tuple containing z, y, x,
+                                                  dim0_slices, dim1_slices. Where
+                                                  (z, y, x) define the zoom and
+                                                  the coordinates, and (dim0_slices,
+                                                  and dim1_slices) are slice
+                                                  objects that extract the tile.
+
+    Returns:
+        None
+    """
+    z, y, x, slice_ys, slice_xs = job
+
+    img_path = build_path(z, y, x, out_dir)
+
+    arr = array[slice_ys, slice_xs].copy()
+    if len(arr.shape) < 3:
+        arr = np.dstack([arr, arr, arr, np.ones_like(arr) * 255])
+    elif arr.shape[2] == 3:
+        arr = np.concatenate(
+            (arr, np.ones(list(arr.shape[:-1]) + [1], dtype=np.float32) * 255), axis=2,
+        )
+
+    ys, xs = np.where(np.isnan(arr[:, :, 0]))
+    arr[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+    img = Image.fromarray(np.flipud(arr).astype(np.uint8))
+    del arr
+
+    img.thumbnail([256, 256], Image.LANCZOS)
+    if img.mode != "RGBA":
+        img = img.convert("RGBA")
+    img.save(img_path, "PNG")
+    del img
 
 
 def tile_img(
@@ -437,10 +450,15 @@ def tile_img(
     # tile the image
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
+    if image_engine == IMG_ENGINE_MPL:
+        make_tile = partial(make_tile_mpl, arr_min, arr_max, tile_dir)
+    else:
+        make_tile = partial(make_tile_pil, tile_dir)
+
     if mp_procs:
         mp_array = sharedmem.empty_like(array)
         mp_array[:] = array[:]
-        work = partial(make_tile, mp_array, arr_min, arr_max, tile_dir, image_engine)
+        work = partial(make_tile, mp_array)
         with Pool(mp_procs) as p:
             any(
                 p.imap_unordered(
@@ -451,11 +469,12 @@ def tile_img(
                         position=pbar_loc,
                         total=total_tiles,
                         unit="tile",
+                        disable=bool(os.getenv("DISBALE_TQDM", False)),
                     ),
                 )
             )
     else:
-        work = partial(make_tile, array, arr_min, arr_max, tile_dir, image_engine)
+        work = partial(make_tile, array)
         any(
             map(
                 work,
@@ -465,6 +484,7 @@ def tile_img(
                     total=total_tiles,
                     unit="tile",
                     position=pbar_loc,
+                    disable=bool(os.getenv("DISBALE_TQDM", False)),
                 ),
             )
         )
@@ -484,7 +504,7 @@ def get_map_layer_name(file_location: str) -> str:
     return name
 
 
-def get_marker_file_names(file_location: str):
+def get_marker_file_name(file_location: str):
     """Tranforms a ``file_location`` into the javascript marker file name.
 
     Args:
@@ -566,7 +586,7 @@ def catalog_to_markers(
     """Transform ``catalog_file`` into a json collection for mapping
 
     Args:
-        wcs_file (str): path to a FITS file to covert (ra, dec) to (x, y)
+        wcs_file (str): path to fits file used to interpret catalog
         out_dir (str): path to save the json collection in
         catalog_file (str): path to catalog file
         pbar_loc (int): the index to draw the tqdm bar in
@@ -596,8 +616,6 @@ def catalog_to_markers(
 
     dim0, dim1 = header["NAXIS2"], header["NAXIS1"]
 
-    # pad_dim0 = (dim1 - (dim0 % dim1 % dim0)) % dim1
-    # pad_dim1 = (dim0 - (dim1 % dim0 % dim1)) % dim0
     pad_dim0 = max(dim1 - dim0, 0)
     pad_dim1 = max(dim0 - dim1, 0)
 
@@ -617,7 +635,13 @@ def catalog_to_markers(
         json.dump(
             list(
                 map(
-                    line_func, tqdm(f, position=pbar_loc, desc="Converting " + cat_file)
+                    line_func,
+                    tqdm(
+                        f,
+                        position=pbar_loc,
+                        desc="Converting " + cat_file,
+                        disable=bool(os.getenv("DISBALE_TQDM", False)),
+                    ),
                 )
             ),
             j,
@@ -705,7 +729,7 @@ def files_to_map(
     img_job_f = partial(tile_img, **img_f_kwargs)
 
     cat_files = filter_on_extension(files, CAT_FORMAT)
-    marker_file_names = list(map(get_marker_file_names, cat_files))
+    marker_file_names = list(map(get_marker_file_name, cat_files))
 
     if len(cat_files) > 0:
         if cat_wcs_fits_file is None:

@@ -20,16 +20,17 @@
 """Tests mapmaker.py"""
 
 import os
+import warnings
 
 import numpy as np
 import pytest
 from astropy.io import fits
 from PIL import Image
+from multiprocessing import JoinableQueue
 from skimage.data import camera
 
 import fitsmap.mapmaker as mm
 import fitsmap.tests.helpers as helpers
-
 
 @pytest.mark.unit
 def test_build_path():
@@ -293,6 +294,7 @@ def test_get_zoom_range():
     assert expected_min == actual_min
     assert expected_max == acutal_max
 
+
 @pytest.mark.unit
 def test_get_total_tiles():
     """Test mapmaker.get_total_tiles"""
@@ -302,3 +304,202 @@ def test_get_total_tiles():
 
     actual_number = mm.get_total_tiles(min_zoom, max_zoom)
     assert expected_number == actual_number
+
+
+@pytest.mark.unit
+def test_get_map_layer_name():
+    """Test mapmaker.get_map_layer_name"""
+
+    test_file_name = "./test/test_file.png"
+    expected_layer_name = "test_file"
+
+    actual_layer_name = mm.get_map_layer_name(test_file_name)
+
+    assert expected_layer_name == actual_layer_name
+
+
+@pytest.mark.unit
+def test_get_marker_file_name():
+    """Test mapmaker.get_marker_file_names"""
+
+    test_file_name = "./test/test_file.cat"
+    expected_marker_file_name = "test_file.cat.js"
+
+    actual_marker_file_name = mm.get_marker_file_name(test_file_name)
+
+    assert expected_marker_file_name == actual_marker_file_name
+
+
+@pytest.mark.unit
+def test_line_to_cols():
+    """Test mapmaker.line_to_cols"""
+
+    line = "id ra dec test1 test2"
+    expected_cols = line.split()
+
+    actual_cols = mm.line_to_cols(line)
+
+    assert expected_cols == actual_cols
+
+
+@pytest.mark.unit
+def test_line_to_cols_with_hash():
+    """Test mapmaker.line_to_cols"""
+
+    line = "# id ra dec test1 test2"
+    expected_cols = line.split()[1:]
+
+    actual_cols = mm.line_to_cols(line)
+
+    assert expected_cols == actual_cols
+
+
+@pytest.mark.unit
+def test_line_to_json_xy():
+    """Test mapmaker.line_to_json with x/y"""
+    in_wcs = None
+    columns = ["id", "x", "y", "col1", "col2"]
+    dims = [1000, 1000]
+    in_line = "1 10 20 abc 123"
+
+    html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
+    src_rows = list(
+        map(lambda z: html_row.format(*z), zip(columns, in_line.strip().split()))
+    )
+
+    src_desc = "".join(
+        [
+            "<span style='text-decoration:underline; font-weight:bold'>Catalog Information</span>",
+            "<br>",
+            "<table>",
+            *src_rows,
+            "</table>",
+        ]
+    )
+
+    expected_json = dict(
+        x=10 / 1000 * 256, y=20 / 1000 * 256 - 256, catalog_id="1", desc=src_desc
+    )
+
+    actual_json = mm.line_to_json(None, columns, dims, in_line)
+
+    assert expected_json == actual_json
+
+
+@pytest.mark.unit
+def test_line_to_json_ra_dec():
+    """Test mapmaker.line_to_json with ra/dec"""
+    # TODO: fill in
+
+
+@pytest.mark.unit
+def test_async_worker_completes():
+    """Test mapmaker.async_worker"""
+
+    q = JoinableQueue()
+    q.put((lambda v1, v2: None, ["v1", "v2"]))
+
+    mm.async_worker(q)
+
+    assert True  # if we make it here it works
+
+
+@pytest.mark.unit
+def test_make_tile_mpl():
+    """Test mapmaker.make_tile_mpl"""
+    helpers.setup()
+
+    out_dir = helpers.TEST_PATH
+    test_arr = np.arange(100 * 100).reshape([100, 100])
+    test_job = (0, 0, 0, slice(0, 100), slice(0, 100))
+    vmin = test_arr.min()
+    vmax = test_arr.max()
+
+    os.makedirs(os.path.join(out_dir, "0/0/"))
+
+    mm.make_tile_mpl(vmin, vmax, out_dir, test_arr, test_job)
+
+    actual_img = np.array(Image.open(os.path.join(out_dir, "0/0/0.png")))
+
+    expected_img = test_arr // 256
+
+    np.array_equal(expected_img, actual_img)
+
+    helpers.tear_down()
+
+
+@pytest.mark.unit
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_catalog_to_markers_xy():
+    """Test mapmaker.catalog_to_markers using xy coords"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    wcs_file = os.path.join(out_dir, "test_image.fits")
+    catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
+    pbar_loc = 0
+
+    mm.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+
+    expected_json, expcted_name = helpers.cat_to_json(
+        os.path.join(out_dir, "expected_test_catalog_xy.cat.js")
+    )
+    actual_json, actual_name = helpers.cat_to_json(
+        os.path.join(out_dir, "js", "test_catalog_xy.cat.js")
+    )
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert expected_json == actual_json
+    assert expcted_name == actual_name
+
+
+@pytest.mark.unit
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_catalog_to_markers_xy():
+    """Test mapmaker.catalog_to_markers using xy coords"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    wcs_file = os.path.join(out_dir, "test_image.fits")
+    catalog_file = os.path.join(out_dir, "test_catalog_radec.cat")
+    pbar_loc = 0
+
+    mm.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+
+    expected_json, expcted_name = helpers.cat_to_json(
+        os.path.join(out_dir, "expected_test_catalog_radec.cat.js")
+    )
+    actual_json, actual_name = helpers.cat_to_json(
+        os.path.join(out_dir, "js", "test_catalog_radec.cat.js")
+    )
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert expected_json == actual_json
+    assert expcted_name == actual_name
+
+
+@pytest.mark.unit
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_catalog_to_markers_fails():
+    """Test mapmaker.catalog_to_markers using xy coords"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    wcs_file = os.path.join(out_dir, "test_image.fits")
+    catalog_file = os.path.join(out_dir, "test_catalog_fails.cat")
+    pbar_loc = 0
+
+    with pytest.raises(ValueError) as excinfo:
+        mm.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert "is missing coordinate columns" in str(excinfo.value)

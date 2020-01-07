@@ -19,19 +19,29 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Helpers for testing"""
 
+import json
 import os
 import shutil
 from functools import reduce
 from itertools import chain, product, repeat
 
 TEST_PATH = "./testing_tmp"
+DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+TQDM_ENV_VAR = "DISBALE_TQDM"
 
 
-def setup():
+def setup(with_data=False):
     """Builds testing structure"""
 
     if not os.path.exists(TEST_PATH):
         os.mkdir(TEST_PATH)
+
+    if with_data:
+        with_data_path = lambda f: os.path.join(DATA_DIR, f)
+        with_test_path = lambda f: os.path.join(TEST_PATH, f)
+
+        copy_file = lambda f: shutil.copy(with_data_path(f), with_test_path(f))
+        list(map(copy_file, os.listdir(DATA_DIR)))
 
 
 def tear_down():
@@ -39,6 +49,23 @@ def tear_down():
 
     if os.path.exists(TEST_PATH):
         shutil.rmtree(TEST_PATH)
+
+
+def disbale_tqdm():
+    os.environ[TQDM_ENV_VAR] = "True"
+
+
+def enable_tqdm():
+    os.environ[TQDM_ENV_VAR] = "False"
+
+
+def cat_to_json(fname):
+    with open(fname, "r") as f:
+        lines = f.readlines()
+
+    data = json.loads("[" + "".join([l.strip() for l in lines[1:-1]]) + "]")
+
+    return data, lines[0]
 
 
 def __stable_idx_answer(shape, zoom):
