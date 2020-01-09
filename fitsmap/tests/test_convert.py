@@ -522,7 +522,98 @@ def test_tile_img_pil_serial():
         test_image, pbar_loc, zoom=zoom, image_engine=image_engine, out_dir=out_dir
     )
 
-    expected_dir = os.path.join(out_dir, "expected_test_tiling_image")
+    expected_dir = os.path.join(out_dir, "expected_test_tiling_image_pil")
+    actual_dir = os.path.join(out_dir, "test_tiling_image")
+
+    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+@pytest.mark.unit
+def test_tile_img_mpl_serial():
+    """Test convert.tile_img"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    pbar_loc = 0
+    zoom = 1
+    image_engine = convert.IMG_ENGINE_MPL
+
+    convert.tile_img(
+        test_image, pbar_loc, zoom=zoom, image_engine=image_engine, out_dir=out_dir
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
+    actual_dir = os.path.join(out_dir, "test_tiling_image")
+
+    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+@pytest.mark.unit
+def test_tile_img_pil_parallel():
+    """Test convert.tile_img"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    pbar_loc = 0
+    zoom = 1
+    image_engine = convert.IMG_ENGINE_PIL
+
+    convert.tile_img(
+        test_image,
+        pbar_loc,
+        zoom=zoom,
+        image_engine=image_engine,
+        out_dir=out_dir,
+        mp_procs=2,
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_tiling_image_pil")
+    actual_dir = os.path.join(out_dir, "test_tiling_image")
+
+    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+@pytest.mark.unit
+def test_tile_img_mpl_parallel():
+    """Test convert.tile_img"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    pbar_loc = 0
+    zoom = 1
+    image_engine = convert.IMG_ENGINE_MPL
+
+    convert.tile_img(
+        test_image,
+        pbar_loc,
+        zoom=zoom,
+        image_engine=image_engine,
+        out_dir=out_dir,
+        mp_procs=2,
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
     actual_dir = os.path.join(out_dir, "test_tiling_image")
 
     dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
