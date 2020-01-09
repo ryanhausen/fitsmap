@@ -40,7 +40,7 @@ from imageio import imread
 from PIL import Image
 from tqdm import tqdm
 
-from fitsmap.web_map import Map
+import fitsmap.cartographer as cartographer
 
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
@@ -764,11 +764,8 @@ def files_to_map(
 
     ns = "\n" * next(pbar_locations)
     print(ns + "Building index.html")
-    web_map = Map(out_dir, title)
-    any(map(web_map.add_tile_layer, map_layer_names))
-    any(map(web_map.add_marker_catalog, marker_file_names))
-    web_map.build_map()
-    print("Done")
+    cartographer.chart(out_dir, title, map_layer_names, marker_file_names)
+    print("Done.")
 
 
 def dir_to_map(
