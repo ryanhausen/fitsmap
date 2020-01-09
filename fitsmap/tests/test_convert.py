@@ -17,7 +17,7 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-"""Tests mapmaker.py"""
+"""Tests convert.py"""
 
 import os
 import warnings
@@ -29,15 +29,16 @@ from PIL import Image
 from multiprocessing import JoinableQueue
 from skimage.data import camera
 
-import fitsmap.mapmaker as mm
+import fitsmap.convert as convert
 import fitsmap.tests.helpers as helpers
+
 
 @pytest.mark.unit
 def test_build_path():
-    """Test the mapmaker.build_path function"""
+    """Test the convert.build_path function"""
     z, y, x = 1, 2, 3
     out_dir = helpers.TEST_PATH
-    img_name = mm.build_path(z, y, x, out_dir)
+    img_name = convert.build_path(z, y, x, out_dir)
 
     expected_img_name = os.path.join(out_dir, str(z), str(y), f"{x}.png")
 
@@ -48,14 +49,14 @@ def test_build_path():
 
 @pytest.mark.unit
 def test_slice_idx_generator_z0():
-    """Test mapmaker.slice_idx_generator at zoom level 0.
+    """Test convert.slice_idx_generator at zoom level 0.
 
     The given shape (4305, 9791) breaks iterative schemes that don't properly
     seperate tiles. Was a bug.
     """
     shape = (4305, 9791)
     zoom = 0
-    given = mm.slice_idx_generator(shape, zoom)
+    given = convert.slice_idx_generator(shape, zoom)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -66,14 +67,14 @@ def test_slice_idx_generator_z0():
 
 @pytest.mark.unit
 def test_slice_idx_generator_z1():
-    """Test mapmaker.slice_idx_generator at zoom level 1.
+    """Test convert.slice_idx_generator at zoom level 1.
 
     The given shape (4305, 9791) breaks iterative schemes that don't properly
     seperate tiles. Was a bug.
     """
     shape = (4305, 9791)
     zoom = 1
-    given = mm.slice_idx_generator(shape, zoom)
+    given = convert.slice_idx_generator(shape, zoom)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -84,14 +85,14 @@ def test_slice_idx_generator_z1():
 
 @pytest.mark.unit
 def test_slice_idx_generator_z2():
-    """Test mapmaker.slice_idx_generator at zoom level 2.
+    """Test convert.slice_idx_generator at zoom level 2.
 
     The given shape (4305, 9791) breaks iterative schemes that don't properly
     seperate tiles. Was a bug.
     """
     shape = (4305, 9791)
     zoom = 2
-    given = mm.slice_idx_generator(shape, zoom)
+    given = convert.slice_idx_generator(shape, zoom)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -102,14 +103,14 @@ def test_slice_idx_generator_z2():
 
 @pytest.mark.unit
 def test_slice_idx_generator_z3():
-    """Test mapmaker.slice_idx_generator at zoom level 3.
+    """Test convert.slice_idx_generator at zoom level 3.
 
     The given shape (4305, 9791) breaks iterative schemes that don't properly
     seperate tiles. Was a bug.
     """
     shape = (4305, 9791)
     zoom = 3
-    given = mm.slice_idx_generator(shape, zoom)
+    given = convert.slice_idx_generator(shape, zoom)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -120,14 +121,14 @@ def test_slice_idx_generator_z3():
 
 @pytest.mark.unit
 def test_slice_idx_generator_z4():
-    """Test mapmaker.slice_idx_generator at zoom level 4.
+    """Test convert.slice_idx_generator at zoom level 4.
 
     The given shape (4305, 9791) breaks iterative schemes that don't properly
     seperate tiles. Was a bug.
     """
     shape = (4305, 9791)
     zoom = 4
-    given = mm.slice_idx_generator(shape, zoom)
+    given = convert.slice_idx_generator(shape, zoom)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -138,14 +139,14 @@ def test_slice_idx_generator_z4():
 
 @pytest.mark.unit
 def test_slice_idx_generator_z5():
-    """Test mapmaker.slice_idx_generator at zoom level 5.
+    """Test convert.slice_idx_generator at zoom level 5.
 
     The given shape (4305, 9791) breaks iterative schemes that don't properly
     seperate tiles. Was a bug.
     """
     shape = (4305, 9791)
     zoom = 5
-    given = mm.slice_idx_generator(shape, zoom)
+    given = convert.slice_idx_generator(shape, zoom)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -156,7 +157,7 @@ def test_slice_idx_generator_z5():
 
 @pytest.mark.unit
 def test_balance_array_2d():
-    """Test mapmaker.balance_array"""
+    """Test convert.balance_array"""
 
     in_shape = (10, 20)
     expected_shape = (20, 20)
@@ -164,7 +165,7 @@ def test_balance_array_2d():
 
     test_array = np.zeros(in_shape)
 
-    out_array = mm.balance_array(test_array)
+    out_array = convert.balance_array(test_array)
 
     assert out_array.shape == expected_shape
     assert np.isnan(out_array).sum() == expected_num_nans
@@ -172,7 +173,7 @@ def test_balance_array_2d():
 
 @pytest.mark.unit
 def test_balance_array_3d():
-    """Test mapmaker.balance_array"""
+    """Test convert.balance_array"""
 
     in_shape = (10, 20, 3)
     expected_shape = (20, 20, 3)
@@ -180,7 +181,7 @@ def test_balance_array_3d():
 
     test_array = np.zeros(in_shape)
 
-    out_array = mm.balance_array(test_array)
+    out_array = convert.balance_array(test_array)
 
     assert out_array.shape == expected_shape
     assert np.isnan(out_array).sum() == expected_num_nans
@@ -188,7 +189,7 @@ def test_balance_array_3d():
 
 @pytest.mark.unit
 def test_get_array_fits():
-    """Test mapmaker.get_array"""
+    """Test convert.get_array"""
 
     helpers.setup()
 
@@ -198,7 +199,7 @@ def test_get_array_fits():
     fits.PrimaryHDU(data=expected_array).writeto(out_path)
 
     # get test array
-    actual_array = mm.get_array(out_path)
+    actual_array = convert.get_array(out_path)
 
     helpers.tear_down()
 
@@ -207,7 +208,7 @@ def test_get_array_fits():
 
 @pytest.mark.unit
 def test_get_array_png():
-    """Test mapmaker.get_array"""
+    """Test convert.get_array"""
 
     helpers.setup()
 
@@ -217,7 +218,7 @@ def test_get_array_png():
     Image.fromarray(expected_array).save(out_path)
 
     # get test array
-    actual_array = mm.get_array(out_path)
+    actual_array = convert.get_array(out_path)
 
     helpers.tear_down()
 
@@ -226,21 +227,21 @@ def test_get_array_png():
 
 @pytest.mark.unit
 def test_filter_on_extension_without_predicate():
-    """Test mapmaker.filter_on_extension without a predicate argument"""
+    """Test convert.filter_on_extension without a predicate argument"""
 
     test_files = ["file_one.fits", "file_two.fits", "file_three.exclude"]
 
     extensions = ["fits"]
     expected_list = test_files[:-1]
 
-    actual_list = mm.filter_on_extension(test_files, extensions)
+    actual_list = convert.filter_on_extension(test_files, extensions)
 
     assert expected_list == actual_list
 
 
 @pytest.mark.unit
 def test_filter_on_extension_with_predicate():
-    """Test mapmaker.filter_on_extension with a predicate argument"""
+    """Test convert.filter_on_extension with a predicate argument"""
 
     test_files = ["file_one.fits", "file_two.fits", "file_three.exclude"]
 
@@ -248,14 +249,14 @@ def test_filter_on_extension_with_predicate():
     expected_list = test_files[:1]
     predicate = lambda f: f == test_files[1]
 
-    actual_list = mm.filter_on_extension(test_files, extensions, predicate)
+    actual_list = convert.filter_on_extension(test_files, extensions, predicate)
 
     assert expected_list == actual_list
 
 
 @pytest.mark.unit
 def test_make_dirs():
-    """Test mapmaker.make_dirs"""
+    """Test convert.make_dirs"""
 
     helpers.setup()
 
@@ -270,7 +271,7 @@ def test_make_dirs():
         )
     )
 
-    mm.make_dirs(out_dir, 0, 2)
+    convert.make_dirs(out_dir, 0, 2)
 
     dirs_exists = all(map(os.path.exists, expected_dirs))
 
@@ -281,7 +282,7 @@ def test_make_dirs():
 
 @pytest.mark.unit
 def test_get_zoom_range():
-    """Test mapmaker.get_zoom_range"""
+    """Test convert.get_zoom_range"""
 
     in_shape = [10000, 10000]
     tile_size = [256, 256]
@@ -289,7 +290,7 @@ def test_get_zoom_range():
     expected_min = 0
     expected_max = 5
 
-    actual_min, acutal_max = mm.get_zoom_range(in_shape, tile_size)
+    actual_min, acutal_max = convert.get_zoom_range(in_shape, tile_size)
 
     assert expected_min == actual_min
     assert expected_max == acutal_max
@@ -297,66 +298,66 @@ def test_get_zoom_range():
 
 @pytest.mark.unit
 def test_get_total_tiles():
-    """Test mapmaker.get_total_tiles"""
+    """Test convert.get_total_tiles"""
 
     min_zoom, max_zoom = 0, 2
     expected_number = 21
 
-    actual_number = mm.get_total_tiles(min_zoom, max_zoom)
+    actual_number = convert.get_total_tiles(min_zoom, max_zoom)
     assert expected_number == actual_number
 
 
 @pytest.mark.unit
 def test_get_map_layer_name():
-    """Test mapmaker.get_map_layer_name"""
+    """Test convert.get_map_layer_name"""
 
     test_file_name = "./test/test_file.png"
     expected_layer_name = "test_file"
 
-    actual_layer_name = mm.get_map_layer_name(test_file_name)
+    actual_layer_name = convert.get_map_layer_name(test_file_name)
 
     assert expected_layer_name == actual_layer_name
 
 
 @pytest.mark.unit
 def test_get_marker_file_name():
-    """Test mapmaker.get_marker_file_names"""
+    """Test convert.get_marker_file_names"""
 
     test_file_name = "./test/test_file.cat"
     expected_marker_file_name = "test_file.cat.js"
 
-    actual_marker_file_name = mm.get_marker_file_name(test_file_name)
+    actual_marker_file_name = convert.get_marker_file_name(test_file_name)
 
     assert expected_marker_file_name == actual_marker_file_name
 
 
 @pytest.mark.unit
 def test_line_to_cols():
-    """Test mapmaker.line_to_cols"""
+    """Test convert.line_to_cols"""
 
     line = "id ra dec test1 test2"
     expected_cols = line.split()
 
-    actual_cols = mm.line_to_cols(line)
+    actual_cols = convert.line_to_cols(line)
 
     assert expected_cols == actual_cols
 
 
 @pytest.mark.unit
 def test_line_to_cols_with_hash():
-    """Test mapmaker.line_to_cols"""
+    """Test convert.line_to_cols"""
 
     line = "# id ra dec test1 test2"
     expected_cols = line.split()[1:]
 
-    actual_cols = mm.line_to_cols(line)
+    actual_cols = convert.line_to_cols(line)
 
     assert expected_cols == actual_cols
 
 
 @pytest.mark.unit
 def test_line_to_json_xy():
-    """Test mapmaker.line_to_json with x/y"""
+    """Test convert.line_to_json with x/y"""
     in_wcs = None
     columns = ["id", "x", "y", "col1", "col2"]
     dims = [1000, 1000]
@@ -381,32 +382,32 @@ def test_line_to_json_xy():
         x=10 / 1000 * 256, y=20 / 1000 * 256 - 256, catalog_id="1", desc=src_desc
     )
 
-    actual_json = mm.line_to_json(None, columns, dims, in_line)
+    actual_json = convert.line_to_json(None, columns, dims, in_line)
 
     assert expected_json == actual_json
 
 
 @pytest.mark.unit
 def test_line_to_json_ra_dec():
-    """Test mapmaker.line_to_json with ra/dec"""
+    """Test convert.line_to_json with ra/dec"""
     # TODO: fill in
 
 
 @pytest.mark.unit
 def test_async_worker_completes():
-    """Test mapmaker.async_worker"""
+    """Test convert.async_worker"""
 
     q = JoinableQueue()
     q.put((lambda v1, v2: None, ["v1", "v2"]))
 
-    mm.async_worker(q)
+    convert.async_worker(q)
 
     assert True  # if we make it here it works
 
 
 @pytest.mark.unit
 def test_make_tile_mpl():
-    """Test mapmaker.make_tile_mpl"""
+    """Test convert.make_tile_mpl"""
     helpers.setup()
 
     out_dir = helpers.TEST_PATH
@@ -417,7 +418,7 @@ def test_make_tile_mpl():
 
     os.makedirs(os.path.join(out_dir, "0/0/"))
 
-    mm.make_tile_mpl(vmin, vmax, out_dir, test_arr, test_job)
+    convert.make_tile_mpl(vmin, vmax, out_dir, test_arr, test_job)
 
     actual_img = np.array(Image.open(os.path.join(out_dir, "0/0/0.png")))
 
@@ -431,7 +432,7 @@ def test_make_tile_mpl():
 @pytest.mark.unit
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_catalog_to_markers_xy():
-    """Test mapmaker.catalog_to_markers using xy coords"""
+    """Test convert.catalog_to_markers using xy coords"""
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
@@ -440,7 +441,7 @@ def test_catalog_to_markers_xy():
     catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
     pbar_loc = 0
 
-    mm.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+    convert.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
 
     expected_json, expcted_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_xy.cat.js")
@@ -458,8 +459,8 @@ def test_catalog_to_markers_xy():
 
 @pytest.mark.unit
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
-def test_catalog_to_markers_xy():
-    """Test mapmaker.catalog_to_markers using xy coords"""
+def test_catalog_to_markers_radec():
+    """Test convert.catalog_to_markers using xy coords"""
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
@@ -468,7 +469,7 @@ def test_catalog_to_markers_xy():
     catalog_file = os.path.join(out_dir, "test_catalog_radec.cat")
     pbar_loc = 0
 
-    mm.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+    convert.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
 
     expected_json, expcted_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_radec.cat.js")
@@ -487,7 +488,7 @@ def test_catalog_to_markers_xy():
 @pytest.mark.unit
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_catalog_to_markers_fails():
-    """Test mapmaker.catalog_to_markers using xy coords"""
+    """Test convert.catalog_to_markers using xy coords"""
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
@@ -497,9 +498,36 @@ def test_catalog_to_markers_fails():
     pbar_loc = 0
 
     with pytest.raises(ValueError) as excinfo:
-        mm.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+        convert.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
 
     helpers.tear_down()
     helpers.enable_tqdm()
 
     assert "is missing coordinate columns" in str(excinfo.value)
+
+
+@pytest.mark.unit
+def test_tile_img_pil_serial():
+    """Test convert.tile_img"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    pbar_loc = 0
+    zoom = 1
+    image_engine = convert.IMG_ENGINE_PIL
+
+    convert.tile_img(
+        test_image, pbar_loc, zoom=zoom, image_engine=image_engine, out_dir=out_dir
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_tiling_image")
+    actual_dir = os.path.join(out_dir, "test_tiling_image")
+
+    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match

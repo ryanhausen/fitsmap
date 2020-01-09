@@ -19,9 +19,11 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Helpers for testing"""
 
+import filecmp
 import json
 import os
 import shutil
+import tarfile
 from functools import reduce
 from itertools import chain, product, repeat
 
@@ -42,6 +44,16 @@ def setup(with_data=False):
 
         copy_file = lambda f: shutil.copy(with_data_path(f), with_test_path(f))
         list(map(copy_file, os.listdir(DATA_DIR)))
+
+        compressed_files = list(
+            filter(lambda f: f.endswith("tar.xz"), os.listdir(TEST_PATH))
+        )
+
+        def extract(f):
+            with tarfile.open(with_test_path(f)) as f:
+                f.extractall(TEST_PATH)
+
+        any(map(extract, compressed_files))
 
 
 def tear_down():
@@ -106,3 +118,16 @@ def get_slice_idx_generator_solution(zoom: int):
     TODO: Find particular cases to test for.
     """
     return list(__stable_idx_answer((4305, 9791), zoom))
+
+
+def compare_tile_directories(dir1, dir2):
+    def recursive_diff(dir_compare):
+        if dir_compare.subdirs:
+            print(dir_compare.subdirs)
+            sub_match = all(map(recursive_diff, dir_compare.subdirs.values()))
+        else:
+            sub_match = True
+
+        return sub_match and len(dir_compare.diff_files) == 0
+
+    return recursive_diff(filecmp.dircmp(dir1, dir2))
