@@ -61,6 +61,8 @@ MARKER_SEARCH_JS = "\n".join(
     ]
 )
 
+LAYER_ATTRIBUTION = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
+
 
 def chart(
     out_dir: str, title: str, map_layer_names: List[str], marker_file_names: List[str],
@@ -91,7 +93,7 @@ def chart(
 
     js_base_layers = layers_dict_to_base_layer_js(layer_dicts)
 
-    js_layer_control = layers_dict_to_layer_control(marker_file_names)
+    js_layer_control = layer_names_to_layer_control(marker_file_names)
 
     js = "\n".join(
         [
@@ -131,7 +133,7 @@ def layer_dict_to_str(layer: dict) -> str:
         "   var " + layer["name"],
         ' = L.tileLayer("' + layer["directory"] + '"',
         ", { ",
-        'attribution:"' + Map.ATTR + '",',
+        'attribution:"' + LAYER_ATTRIBUTION + '",',
         "minZoom: " + str(layer["min_zoom"]) + ",",
         "maxZoom: " + str(layer["max_zoom"]) + ",",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + ",",
@@ -150,7 +152,7 @@ def layers_dict_to_base_layer_js(tile_layers: List[dict]):
     return "\n".join(js)
 
 
-def layers_dict_to_layer_control(marker_file_names: List[str]) -> str:
+def layer_names_to_layer_control(marker_file_names: List[str]) -> str:
     if marker_file_names:
         js = [
             "   var overlays = {}",
