@@ -622,3 +622,4 @@ def test_tile_img_mpl_parallel():
     helpers.enable_tqdm()
 
     assert dirs_match
+
