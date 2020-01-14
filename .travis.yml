@@ -1,0 +1,18 @@
+language: python
+services:
+  - docker
+# branches:
+#   only:
+#     - master
+python:
+  - "3.6"
+install:
+  - pip install .
+  - pip install pytest
+  - pip install pytest-cov
+  - pip install codecov
+  - pip install twine
+script:
+  - pytest --cov=fitsmap
+after_success:
+  - codecov

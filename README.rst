@@ -1,7 +1,7 @@
 .. Variables to ensure the hyperlink gets used
-.. |mapmaker| replace:: `fitsmap.mapmaker <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#module-fitsmap.mapmaker>`__
-.. |files_to_map| replace:: `fitsmap.mapmaker.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.mapmaker.files_to_map>`__
-.. |dir_to_map| replace:: `fitsmap.mapmaker.dir_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.mapmaker.dir_to_map>`__
+.. |convert| replace:: `fitsmap.convert <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#module-fitsmap.convert>`__
+.. |files_to_map| replace:: `fitsmap.convert.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.files_to_map>`__
+.. |dir_to_map| replace:: `fitsmap.convert.dir_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.dir_to_map>`__
 
 .. image:: docs/logo.svg.png
     :alt: FitsMap
@@ -55,20 +55,20 @@ might look like:
 ::
 
   - path/to/data/
-    - F125W.fits
-    - F160W.fits
+    - F125W.png
+    - F160W.png
     - catalog.cat
 
 To convert this diretory into a map is as simple as using |dir_to_map|:
 
 .. code-block:: python
 
-    from fitsmap import mapmaker
+    from fitsmap import convert
 
-    mapmaker.dir_to_map.(
+    convert.dir_to_map.(
         "path/to/data",
         out_dir="/path/to/data/map",
-        cat_wcs_fits_file="path/to/data/F160W.fits",
+        cat_wcs_fits_file="path/to/header_file.fits",
     )
 
 The first argument is which directory contains the files that we would like to
@@ -136,7 +136,7 @@ files without normalizing them. However, the default scaling is Linear and
 changing it isn't currently supported. So images should  have their dynamic
 range compressed before using FitsMap. Additionally, the default colomap passed
 to imshow is "gray", but you can change this by changing the variable
-``mapmaker.MPL_CMAP`` to the string name of a
+``convert.MPL_CMAP`` to the string name of a
 `Matplotlib colormap <https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html>`_.
 
 To ensure that pixels are rendered correctly and that map markers are
