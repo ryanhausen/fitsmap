@@ -681,4 +681,3 @@ def test_files_to_map():
     helpers.enable_tqdm()
 
     assert dirs_match
-

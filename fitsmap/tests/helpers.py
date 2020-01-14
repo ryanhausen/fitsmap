@@ -50,6 +50,7 @@ def setup(with_data=False):
         )
 
         print()
+
         def extract(f):
             with tarfile.open(with_test_path(f)) as f:
                 f.extractall(TEST_PATH)
