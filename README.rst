@@ -10,6 +10,22 @@
 FitsMap
 =======
 
+.. image:: https://travis-ci.com/ryanhausen/fitsmap.svg?branch=master
+    :target: https://travis-ci.com/ryanhausen/fitsmap
+
+.. image:: https://readthedocs.org/projects/fitsmap/badge/?version=latest
+    :target: https://fitsmap.readthedocs.io
+
+.. image:: https://codecov.io/gh/ryanhausen/fitsmap/branch/master/graph/badge.svg
+    :target: https://codecov.io/gh/ryanhausen/fitsmap/
+
+.. image:: https://img.shields.io/badge/python-3.6-blue.svg
+    :target: https://www.python.org/downloads/release/python-360/
+
+.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
+    :target: https://github.com/ambv/black
+
+
 FitsMap is a tool for displaying astronomical images and their associated
 catalogs, powered by `LeafletJS <https://leafletjs.com>`_.
 
