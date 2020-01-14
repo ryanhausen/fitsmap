@@ -28,7 +28,6 @@ import fitsmap.cartographer as c
 import fitsmap.tests.helpers as helpers
 
 
-
 @pytest.mark.unit
 def test_layer_name_to_dict():
     """test cartographer.layer_name_to_dict"""
@@ -231,15 +230,18 @@ def test_build_conditional_css():
 
     actual_css = c.build_conditional_css(helpers.TEST_PATH)
 
-    expected_css = "\n".join([
-        "   <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>",
-        "   <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>",
-        "   <link rel='stylesheet' href='css/MarkerCluster.css'/>",
-    ])
+    expected_css = "\n".join(
+        [
+            "   <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>",
+            "   <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>",
+            "   <link rel='stylesheet' href='css/MarkerCluster.css'/>",
+        ]
+    )
 
     helpers.tear_down()
 
     assert expected_css == actual_css
+
 
 @pytest.mark.unit
 def test_build_conditional_js():
@@ -249,11 +251,13 @@ def test_build_conditional_js():
 
     acutal_js = c.build_conditional_js([test_file])
 
-    expected_js = "\n".join([
-        "   <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
-        "   <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
-        "   <script src='js/test.js'></script>"
-    ])
+    expected_js = "\n".join(
+        [
+            "   <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
+            "   <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
+            "   <script src='js/test.js'></script>",
+        ]
+    )
 
     assert expected_js == acutal_js
 
@@ -269,37 +273,39 @@ def test_buil_html():
 
     actual_html = c.build_html(title, js, extra_js, extra_css)
 
-    expected_html = "\n".join([
-        "<!DOCTYPE html>",
-        "<html>",
-        "<head>",
-        "   <title>{}</title>".format(title),
-        '   <meta charset="utf-8" />',
-        '   <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '   <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />',
-        '   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
-        extra_css,
-        "   <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",
-        extra_js,
-        "   <style>",
-        "       html, body {",
-        "       height: 100%;",
-        "       margin: 0;",
-        "       }",
-        "       #map {",
-        "           width: 100%;",
-        "           height: 100%;",
-        "       }",
-        "   </style>",
-        "</head>",
-        "<body>",
-        '   <div id="map"></div>',
-        "   <script>",
-        js,
-        "   </script>",
-        "</body>",
-        "</html>",
-    ])
+    expected_html = "\n".join(
+        [
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            "   <title>{}</title>".format(title),
+            '   <meta charset="utf-8" />',
+            '   <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+            '   <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />',
+            '   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
+            extra_css,
+            "   <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",
+            extra_js,
+            "   <style>",
+            "       html, body {",
+            "       height: 100%;",
+            "       margin: 0;",
+            "       }",
+            "       #map {",
+            "           width: 100%;",
+            "           height: 100%;",
+            "       }",
+            "   </style>",
+            "</head>",
+            "<body>",
+            '   <div id="map"></div>',
+            "   <script>",
+            js,
+            "   </script>",
+            "</body>",
+            "</html>",
+        ]
+    )
 
     assert expected_html == actual_html
 
@@ -315,7 +321,12 @@ def test_chart():
     map_layer_names = "test_layer"
     marker_file_names = "test_marker"
 
-    list(map(lambda r: os.makedirs(os.path.join(out_dir, map_layer_names, str(r))), range(2)))
+    list(
+        map(
+            lambda r: os.makedirs(os.path.join(out_dir, map_layer_names, str(r))),
+            range(2),
+        )
+    )
 
     c.chart(out_dir, title, [map_layer_names], [marker_file_names])
 

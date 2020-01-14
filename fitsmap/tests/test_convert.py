@@ -25,6 +25,7 @@ import warnings
 import numpy as np
 import pytest
 from astropy.io import fits
+from astropy.wcs import WCS
 from PIL import Image
 from multiprocessing import JoinableQueue
 from skimage.data import camera
@@ -388,9 +389,40 @@ def test_line_to_json_xy():
 
 
 @pytest.mark.unit
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_line_to_json_ra_dec():
     """Test convert.line_to_json with ra/dec"""
-    # TODO: fill in
+    helpers.setup(with_data=True)
+
+    wcs = WCS(fits.getheader(os.path.join(helpers.TEST_PATH, "test_image.fits")))
+
+    columns = ["id", "ra", "dec", "col1", "col2"]
+    dims = [738, 738]
+    in_line = "1  53.18575  -27.898664  test_1 abc"
+
+    html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
+
+    src_rows = list(
+        map(lambda z: html_row.format(*z), zip(columns, in_line.strip().split()))
+    )
+
+    src_desc = "".join(
+        [
+            "<span style='text-decoration:underline; font-weight:bold'>Catalog Information</span>",
+            "<br>",
+            "<table>",
+            *src_rows,
+            "</table>",
+        ]
+    )
+
+    expected_json = dict(
+        x=100.38067723561184, y=-151.67388074342693, catalog_id="1", desc=src_desc
+    )
+
+    actual_json = convert.line_to_json(wcs, columns, dims, in_line)
+
+    assert expected_json == actual_json
 
 
 @pytest.mark.unit
@@ -525,7 +557,7 @@ def test_tile_img_pil_serial():
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_pil")
     actual_dir = os.path.join(out_dir, "test_tiling_image")
 
-    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
     helpers.tear_down()
     helpers.enable_tqdm()
@@ -552,7 +584,7 @@ def test_tile_img_mpl_serial():
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
     actual_dir = os.path.join(out_dir, "test_tiling_image")
 
-    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
     helpers.tear_down()
     helpers.enable_tqdm()
@@ -584,7 +616,7 @@ def test_tile_img_pil_parallel():
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_pil")
     actual_dir = os.path.join(out_dir, "test_tiling_image")
 
-    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
     helpers.tear_down()
     helpers.enable_tqdm()
@@ -616,7 +648,34 @@ def test_tile_img_mpl_parallel():
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
     actual_dir = os.path.join(out_dir, "test_tiling_image")
 
-    dirs_match = helpers.compare_tile_directories(expected_dir, actual_dir)
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+@pytest.mark.integration
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_files_to_map():
+    """Integration test for making files into map"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
+    out_dir = with_path("test_web")
+
+    files = [with_path("test_tiling_image.jpg"), with_path("test_catalog_radec.cat")]
+
+    convert.files_to_map(
+        files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
+    )
+
+    expected_dir = with_path("expected_test_web")
+    actual_dir = with_path("test_web")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
     helpers.tear_down()
     helpers.enable_tqdm()

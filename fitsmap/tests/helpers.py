@@ -49,6 +49,7 @@ def setup(with_data=False):
             filter(lambda f: f.endswith("tar.xz"), os.listdir(TEST_PATH))
         )
 
+        print()
         def extract(f):
             with tarfile.open(with_test_path(f)) as f:
                 f.extractall(TEST_PATH)
@@ -120,7 +121,7 @@ def get_slice_idx_generator_solution(zoom: int):
     return list(__stable_idx_answer((4305, 9791), zoom))
 
 
-def compare_tile_directories(dir1, dir2):
+def compare_file_directories(dir1, dir2):
     def recursive_diff(dir_compare):
         if dir_compare.subdirs:
             print(dir_compare.subdirs)

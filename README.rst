@@ -55,8 +55,8 @@ might look like:
 ::
 
   - path/to/data/
-    - F125W.fits
-    - F160W.fits
+    - F125W.png
+    - F160W.png
     - catalog.cat
 
 To convert this diretory into a map is as simple as using |dir_to_map|:
@@ -68,7 +68,7 @@ To convert this diretory into a map is as simple as using |dir_to_map|:
     convert.dir_to_map.(
         "path/to/data",
         out_dir="/path/to/data/map",
-        cat_wcs_fits_file="path/to/data/F160W.fits",
+        cat_wcs_fits_file="path/to/header_file.fits",
     )
 
 The first argument is which directory contains the files that we would like to
