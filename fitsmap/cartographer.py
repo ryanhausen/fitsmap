@@ -30,7 +30,7 @@ import shutil
 from itertools import repeat
 from functools import partial, reduce
 from typing import List
-
+0
 
 MARKER_SEARCH_JS = "\n".join(
     [
