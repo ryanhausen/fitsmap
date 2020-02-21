@@ -56,7 +56,7 @@ MPL_CMAP = "gray"
 
 # MPL SINGLETON ENGINE =========================================================
 mpl_f, mpl_img, mpl_alpha_f = None, None, None
-# ===============================================================================
+# ==============================================================================
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -80,38 +80,34 @@ def build_path(z, y, x, out_dir) -> str:
 
 
 def slice_idx_generator(
-    shape: Tuple[int, int], zoom: int
+    shape: Tuple[int, int], zoom: int, tile_size: int
 ) -> Iterable[Tuple[int, int, int, slice, slice]]:
-    """Generates the tile coordinates and respective slices given a shape and zoom
 
-    Args:
-        shape (Tuple[int, int]): The shape of the array being tiled
-        zoom (int): The zoom level for the tiles
-    Returns:
-        An iterable of tuples containing the following:
-        (zoom, y_coordinate, x_coordinate, dim0_slice, dim1_slice)
-    """
-    num_splits = int((4 ** zoom) ** 0.5)
+    dim0_tile_fraction = shape[0] / tile_size
+    dim1_tile_fraction = shape[1] / tile_size
 
-    def split(vals):
-        x0, x2 = vals
-        x1 = x0 + ((x2 - x0) // 2)
-        return [(x0, x1), (x1, x2)]
+    if dim0_tile_fraction < 1 or dim1_tile_fraction < 1:
+        raise StopIteration()
 
-    split_collection = lambda collection: map(split, collection)
-    split_reduce = lambda x, y: split_collection(chain.from_iterable(x))
+    num_tiles_dim0 = int(np.ceil(dim0_tile_fraction))
+    num_tiles_dim1 = int(np.ceil(dim1_tile_fraction))
 
-    rows_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[0])]]))
-    columns_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[1])]]))
+    tile_idxs_dim0 = [i * tile_size for i in range(num_tiles_dim0 + 1)]
+    tile_idxs_dim1 = [i * tile_size for i in range(num_tiles_dim1 + 1)]
 
-    rows = zip(range(num_splits - 1, -1, -1), chain.from_iterable(rows_split))
-    cols = enumerate(chain.from_iterable(columns_split))
+    pair_runner = lambda coll: [slice(c0, c1) for c0, c1 in zip(coll[:-1], coll[1:])]
+
+    row_slices = pair_runner(tile_idxs_dim0)
+    col_slices = pair_runner(tile_idxs_dim1)
+
+    rows = zip(range(num_tiles_dim0 - 1, -1, -1), row_slices)
+    cols = enumerate(col_slices)
 
     rows_cols = product(rows, cols)
 
     def transform_iteration(row_col):
-        ((y, (start_y, end_y)), (x, (start_x, end_x))) = row_col
-        return (zoom, y, x, slice(start_y, end_y), slice(start_x, end_x))
+        ((y, slice_y), (x, slice_x)) = row_col
+        return (zoom, y, x, slice_y, slice_x)
 
     return map(transform_iteration, rows_cols)
 
@@ -124,20 +120,24 @@ def balance_array(array: np.ndarray) -> np.ndarray:
     Returns:
         a balanced version of ``array``
     """
-
     dim0, dim1 = array.shape[0], array.shape[1]
 
-    pad_dim0 = max(dim1 - dim0, 0)
-    pad_dim1 = max(dim0 - dim1, 0)
+    exp_val = np.ceil(np.log2(max(dim0, dim1)))
+    total_size = 2 ** exp_val
+    pad_dim0 = int(total_size - dim0)
+    pad_dim1 = int(total_size - dim1)
 
-    if len(array.shape) == 3:
-        padding = [[0, pad_dim0], [0, pad_dim1], [0, 0]]
+    if pad_dim0 > 0 or pad_dim1 > 0:
+        if len(array.shape) == 3:
+            padding = [[0, pad_dim0], [0, pad_dim1], [0, 0]]
+        else:
+            padding = [[0, pad_dim0], [0, pad_dim1]]
+
+        return np.pad(
+            array.astype(np.float32), padding, mode="constant", constant_values=np.nan
+        )
     else:
-        padding = [[0, pad_dim0], [0, pad_dim1]]
-
-    return np.pad(
-        array.astype(np.float32), padding, mode="constant", constant_values=np.nan
-    )
+        return array
 
 
 def get_array(file_location: str) -> np.ndarray:
@@ -167,10 +167,7 @@ def get_array(file_location: str) -> np.ndarray:
         else:
             raise ValueError("FitsMap only supports 2D and 3D images.")
 
-    if shape[0] != shape[1]:
-        return balance_array(array)
-    else:
-        return array
+    return balance_array(array)
 
 
 def filter_on_extension(
@@ -292,11 +289,16 @@ def make_tile_mpl(
 
     img_path = build_path(z, y, x, out_dir)
 
+    tile = array[slice_ys, slice_xs].copy()
+
+    if np.all(np.isnan(tile)):
+        return
+
     global mpl_f
     global mpl_img
     global mpl_alpha_f
     if mpl_f:
-        mpl_img.set_data(mpl_alpha_f(array[slice_ys, slice_xs]))
+        mpl_img.set_data(mpl_alpha_f(tile))
         mpl_f.savefig(
             img_path,
             dpi=256,
@@ -340,7 +342,7 @@ def make_tile_mpl(
 
         mpl_f = plt.figure(dpi=256)
         mpl_f.set_size_inches([256 / 256, 256 / 256])
-        mpl_img = plt.imshow(mpl_alpha_f(array[slice_ys, slice_xs]), **img_kwargs)
+        mpl_img = plt.imshow(mpl_alpha_f(tile), **img_kwargs)
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
         mpl_f.savefig(
@@ -374,18 +376,23 @@ def make_tile_pil(
 
     img_path = build_path(z, y, x, out_dir)
 
-    arr = array[slice_ys, slice_xs].copy()
-    if len(arr.shape) < 3:
-        arr = np.dstack([arr, arr, arr, np.ones_like(arr) * 255])
-    elif arr.shape[2] == 3:
-        arr = np.concatenate(
-            (arr, np.ones(list(arr.shape[:-1]) + [1], dtype=np.float32) * 255), axis=2,
+    tile = array[slice_ys, slice_xs].copy()
+
+    if np.all(np.isnan(tile)):
+        return
+
+    if len(tile.shape) < 3:
+        tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
+    elif tile.shape[2] == 3:
+        tile = np.concatenate(
+            (tile, np.ones(list(tile.shape[:-1]) + [1], dtype=np.float32) * 255),
+            axis=2,
         )
 
-    ys, xs = np.where(np.isnan(arr[:, :, 0]))
-    arr[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
-    img = Image.fromarray(np.flipud(arr).astype(np.uint8))
-    del arr
+    ys, xs = np.where(np.isnan(tile[:, :, 0]))
+    tile[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+    img = Image.fromarray(np.flipud(tile).astype(np.uint8))
+    del tile
 
     img.thumbnail([256, 256], Image.LANCZOS)
     if img.mode != "RGBA":
@@ -398,7 +405,7 @@ def tile_img(
     file_location: str,
     pbar_loc: int,
     tile_size: Shape = [256, 256],
-    zoom: int = None,
+    min_zoom: int = 0,
     image_engine: str = IMG_ENGINE_PIL,
     out_dir: str = ".",
     mp_procs: int = 0,
@@ -409,8 +416,10 @@ def tile_img(
         file_location (str): The file location of the image to tile
         pbar_loc (int): The index of the location of to print the tqdm bar
         tile_size (Tuple[int, int]): The pixel size of the tiles in the map
-        zoom (int): The maximum zoom to create tiles for. If not provided the
-                    value will be set to floor(log_2(img_height / tile_height))
+        min_zoom (int): The minimum zoom to create tiles for. The default value
+                        is 0, but if it can be helpful to set it to a value
+                        greater than zero if your running out of memory as the
+                        lowest zoom images can be the most memory intensive.
         img_engine (str): Method to convert array tile to an image. Can be one
                           of mapmaker.IMAGE_ENGINE_PIL (using pillow(PIL)) or
                           of mapmaker.IMAGE_ENGINE_MPL (using matplotlib)
@@ -432,8 +441,9 @@ def tile_img(
     array = get_array(file_location)
     arr_min, arr_max = np.nanmin(array), np.nanmax(array)
 
-    min_zoom, max_zoom = get_zoom_range(array.shape, tile_size)
-    max_zoom = zoom if zoom else max_zoom
+    zooms = get_zoom_range(array.shape, tile_size)
+    min_zoom = max(min_zoom, zooms[0])
+    max_zoom = zooms[1]
 
     # build directory structure
     name = get_map_layer_name(file_location)
@@ -444,7 +454,10 @@ def tile_img(
     make_dirs(tile_dir, min_zoom, max_zoom)
 
     tile_params = chain.from_iterable(
-        [slice_idx_generator(array.shape, i) for i in range(min_zoom, max_zoom + 1)]
+        [
+            slice_idx_generator(array.shape, z, 256 * (2 ** i))
+            for (i, z) in enumerate(range(max_zoom, min_zoom - 1, -1), start=0)
+        ]
     )
 
     # tile the image
@@ -561,8 +574,8 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
 
         [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
-    x = img_x / max_dim[1] * 256
-    y = img_y / max_dim[0] * 256 - 256
+    x = img_x
+    y = img_y
 
     html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
     src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
@@ -675,7 +688,7 @@ def async_worker(q: JoinableQueue):
 def files_to_map(
     files: List[str],
     out_dir: str = ".",
-    zoom: int = None,
+    min_zoom: int = 0,
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
@@ -690,8 +703,10 @@ def files_to_map(
                            files (.fits, .png, .jpg) and catalog files (.cat)
         out_dir (str): Directory to place the genreated web page and associated
                        subdirectories
-        zoom (int): The maximum zoom to tile images to. This generally doesn't
-                    need to be set unless you have very very large images
+        min_zoom (int): The minimum zoom to create tiles for. The default value
+                        is 0, but if it can be helpful to set it to a value
+                        greater than zero if your running out of memory as the
+                        lowest zoom images can be the most memory intensive.
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
@@ -718,7 +733,7 @@ def files_to_map(
 
     img_f_kwargs = dict(
         tile_size=tile_size,
-        zoom=zoom,
+        min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=procs_per_task,
@@ -762,7 +777,7 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
-    ns = "\n" * next(pbar_locations)
+    ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
     cartographer.chart(out_dir, title, map_layer_names, marker_file_names)
     print("Done.")
@@ -772,7 +787,7 @@ def dir_to_map(
     directory: str,
     out_dir: str = ".",
     exclude_predicate: Callable = lambda f: False,
-    zoom: int = None,
+    min_zoom: int = 0,
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
@@ -791,8 +806,10 @@ def dir_to_map(
                                       file should not be processed as a part of
                                       the map, and False if it should be
                                       processed
-        zoom (int): The maximum zoom to tile images to. This generally doesn't
-                    need to be set unless you have very very large images
+        min_zoom (int): The minimum zoom to create tiles for. The default value
+                        is 0, but if it can be helpful to set it to a value
+                        greater than zero if your running out of memory as the
+                        lowest zoom images can be the most memory intensive.
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
@@ -834,7 +851,7 @@ def dir_to_map(
     files_to_map(
         dir_files,
         out_dir=out_dir,
-        zoom=zoom,
+        min_zoom=min_zoom,
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,
