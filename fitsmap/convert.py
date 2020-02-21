@@ -603,7 +603,6 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
     return dict(x=x, y=y, catalog_id=src_id, desc=src_desc)
 
 
-# use this
 def catalog_to_markers(
     wcs_file: str, out_dir: str, catalog_file: str, pbar_loc: int,
 ) -> None:
