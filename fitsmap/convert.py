@@ -406,7 +406,6 @@ def tile_img(
     pbar_loc: int,
     tile_size: Shape = [256, 256],
     min_zoom: int = 0,
-    max_zoom: int = None,
     image_engine: str = IMG_ENGINE_PIL,
     out_dir: str = ".",
     mp_procs: int = 0,
@@ -421,9 +420,6 @@ def tile_img(
                         is 0, but if it can be helpful to set it to a value
                         greater than zero if your running out of memory as the
                         lowest zoom images can be the most memory intensive.
-        max_zoom (int): The maximum zoom to create tiles for. If not provided
-                        the value will be set to
-                        floor(log_2(img_height / tile_height))
         img_engine (str): Method to convert array tile to an image. Can be one
                           of mapmaker.IMAGE_ENGINE_PIL (using pillow(PIL)) or
                           of mapmaker.IMAGE_ENGINE_MPL (using matplotlib)
@@ -447,7 +443,7 @@ def tile_img(
 
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
-    max_zoom = max_zoom if max_zoom else zooms[1]
+    max_zoom = zooms[1]
 
     # build directory structure
     name = get_map_layer_name(file_location)
@@ -460,7 +456,7 @@ def tile_img(
     tile_params = chain.from_iterable(
         [
             slice_idx_generator(array.shape, z, 256 * (2 ** i))
-            for (i, z) in enumerate(range(max_zoom, min_zoom-1, -1), start=0)
+            for (i, z) in enumerate(range(max_zoom, min_zoom - 1, -1), start=0)
         ]
     )
 
@@ -699,7 +695,6 @@ def files_to_map(
     files: List[str],
     out_dir: str = ".",
     min_zoom: int = 0,
-    max_zoom: int = None,
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
@@ -718,9 +713,6 @@ def files_to_map(
                         is 0, but if it can be helpful to set it to a value
                         greater than zero if your running out of memory as the
                         lowest zoom images can be the most memory intensive.
-        max_zoom (int): The maximum zoom to tile images to. This generally
-                        doesn't need to be set unless you have very very large
-                        images
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
@@ -748,7 +740,6 @@ def files_to_map(
     img_f_kwargs = dict(
         tile_size=tile_size,
         min_zoom=min_zoom,
-        max_zoom=max_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=procs_per_task,
@@ -802,8 +793,7 @@ def dir_to_map(
     directory: str,
     out_dir: str = ".",
     exclude_predicate: Callable = lambda f: False,
-    min_zoom:int = 0,
-    max_zoom: int = None,
+    min_zoom: int = 0,
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
@@ -826,9 +816,6 @@ def dir_to_map(
                         is 0, but if it can be helpful to set it to a value
                         greater than zero if your running out of memory as the
                         lowest zoom images can be the most memory intensive.
-        max_zoom (int): The maximum zoom to tile images to. This generally
-                        doesn't need to be set unless you have very very large
-                        images
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
@@ -871,7 +858,6 @@ def dir_to_map(
         dir_files,
         out_dir=out_dir,
         min_zoom=min_zoom,
-        max_zoom=max_zoom,
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,

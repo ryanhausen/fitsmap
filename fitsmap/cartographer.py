@@ -171,10 +171,11 @@ def layer_names_to_layer_control(marker_file_names: List[str]) -> str:
     else:
         return "   L.control.layers(baseLayers, {}).addTo(map);"
 
+
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
     max_zoom = max(map(lambda t: t["max_native_zoom"], tile_layers))
 
-    scale_factor = int(2**max_zoom)
+    scale_factor = int(2 ** max_zoom)
 
     js = [
         "   L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",

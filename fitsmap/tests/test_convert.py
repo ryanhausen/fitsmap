@@ -388,9 +388,7 @@ def test_line_to_json_xy():
         ]
     )
 
-    expected_json = dict(
-        x=10, y=20, catalog_id="1", desc=src_desc
-    )
+    expected_json = dict(x=10, y=20, catalog_id="1", desc=src_desc)
 
     actual_json = convert.line_to_json(None, columns, dims, in_line)
 
@@ -428,7 +426,6 @@ def test_line_to_json_ra_dec():
     expected_json = dict(
         x=289.37867109328727, y=300.7526406693396, catalog_id="1", desc=src_desc
     )
-
 
     actual_json = convert.line_to_json(wcs, columns, dims, in_line)
     print(actual_json)
@@ -558,7 +555,7 @@ def test_tile_img_pil_serial():
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
     pbar_loc = 0
-    min_zoom=0
+    min_zoom = 0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
@@ -566,7 +563,7 @@ def test_tile_img_pil_serial():
         pbar_loc,
         min_zoom=min_zoom,
         image_engine=image_engine,
-        out_dir=out_dir
+        out_dir=out_dir,
     )
 
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_pil")
@@ -597,7 +594,7 @@ def test_tile_img_mpl_serial():
         pbar_loc,
         min_zoom=min_zoom,
         image_engine=image_engine,
-        out_dir=out_dir
+        out_dir=out_dir,
     )
 
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
@@ -620,7 +617,7 @@ def test_tile_img_pil_parallel():
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
     pbar_loc = 0
-    min_zoom=0
+    min_zoom = 0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
