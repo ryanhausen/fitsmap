@@ -45,7 +45,7 @@ REQUIRES = [
 
 setup(
     name="fitsmap",
-    version="0.2.0",
+    version="0.3.0",
     author="Ryan Hausen",
     author_email="rhausen@ucsc.edu",
     description=("Turn fits files/catalogs into a leafletjs map"),
