@@ -262,7 +262,7 @@ def test_build_conditional_js():
 
 
 @pytest.mark.unit
-def test_buil_html():
+def test_build_html():
     """test cartographer.build_html"""
 
     title = "test_title"
