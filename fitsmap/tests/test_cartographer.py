@@ -207,7 +207,7 @@ def test_markers_to_js():
             "         src = collection[j];",
             "",
             "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-            "            catalog_id: labels[i] + '_' + src.catalog_id",
+            "            catalog_id: labels[i] + ':' + src.catalog_id + ':'",
             "         }).bindPopup(src.desc))",
             "      }",
             "   }",

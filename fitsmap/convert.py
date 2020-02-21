@@ -460,10 +460,6 @@ def tile_img(
         ]
     )
 
-    # tile_params = chain.from_iterable(
-    #     [slice_idx_generator(array.shape, i) for i in range(min_zoom, max_zoom + 1)]
-    # )
-
     # tile the image
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
@@ -578,8 +574,6 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
 
         [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
-    # x = img_x / max_dim[1] * 256
-    # y = img_y / max_dim[0] * 256 - 256
     x = img_x
     y = img_y
 
@@ -783,7 +777,7 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
-    ns = "\n" * next(pbar_locations)
+    ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
     cartographer.chart(out_dir, title, map_layer_names, marker_file_names)
     print("Done.")

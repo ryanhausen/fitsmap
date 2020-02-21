@@ -11,7 +11,7 @@ if __name__ == "__main__":
         min_zoom=1,
         cat_wcs_fits_file="./tmp/F200W.fits",
         exclude_predicate=lambda f: f.endswith(".fits"),
-        task_procs=1,
-        procs_per_task=1,
+        task_procs=2,
+        procs_per_task=2,
         image_engine=convert.IMG_ENGINE_PIL,
     )
