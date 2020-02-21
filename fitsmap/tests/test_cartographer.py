@@ -77,7 +77,7 @@ def test_layer_dict_to_str():
             "minZoom: " + str(layer_dict["min_zoom"]) + ",",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ",",
             "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + ",",
-            "});",
+            "}).addTo(map);",
         ]
     )
 
@@ -163,11 +163,10 @@ def test_leaflet_map_js():
     expected_map_js = "\n".join(
         [
             '   var map = L.map("map", {',
-            "      crs: L.CRS.Simple,",
+            "      crs: L.CRS.FitsMap,",
             "      zoom: " + str(min_zoom) + ",",
             "      minZoom: " + str(min_zoom) + ",",
             "      center:[-126, 126],",
-            "      layers:[{}]".format(name),
             "   });",
         ]
     )
@@ -208,7 +207,7 @@ def test_markers_to_js():
             "         src = collection[j];",
             "",
             "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-            "            catalog_id: src.catalog_id",
+            "            catalog_id: labels[i] + '_' + src.catalog_id",
             "         }).bindPopup(src.desc))",
             "      }",
             "   }",

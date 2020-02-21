@@ -57,7 +57,8 @@ def test_slice_idx_generator_z0():
     """
     shape = (4305, 9791)
     zoom = 0
-    given = convert.slice_idx_generator(shape, zoom)
+    tile_size = 256
+    given = convert.slice_idx_generator(shape, zoom, tile_size)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -75,7 +76,8 @@ def test_slice_idx_generator_z1():
     """
     shape = (4305, 9791)
     zoom = 1
-    given = convert.slice_idx_generator(shape, zoom)
+    tile_size = 256
+    given = convert.slice_idx_generator(shape, zoom, tile_size)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -93,7 +95,8 @@ def test_slice_idx_generator_z2():
     """
     shape = (4305, 9791)
     zoom = 2
-    given = convert.slice_idx_generator(shape, zoom)
+    tile_size = 256
+    given = convert.slice_idx_generator(shape, zoom, tile_size)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -111,7 +114,8 @@ def test_slice_idx_generator_z3():
     """
     shape = (4305, 9791)
     zoom = 3
-    given = convert.slice_idx_generator(shape, zoom)
+    tile_size = 256
+    given = convert.slice_idx_generator(shape, zoom, tile_size)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -129,7 +133,8 @@ def test_slice_idx_generator_z4():
     """
     shape = (4305, 9791)
     zoom = 4
-    given = convert.slice_idx_generator(shape, zoom)
+    tile_size = 256
+    given = convert.slice_idx_generator(shape, zoom, tile_size)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -147,7 +152,8 @@ def test_slice_idx_generator_z5():
     """
     shape = (4305, 9791)
     zoom = 5
-    given = convert.slice_idx_generator(shape, zoom)
+    tile_size = 256
+    given = convert.slice_idx_generator(shape, zoom, tile_size)
     expected = helpers.get_slice_idx_generator_solution(zoom)
 
     comparable_given = set(map(helpers.covert_idx_to_hashable_tuple, given))
@@ -161,8 +167,8 @@ def test_balance_array_2d():
     """Test convert.balance_array"""
 
     in_shape = (10, 20)
-    expected_shape = (20, 20)
-    expected_num_nans = 200
+    expected_shape = (32, 32)
+    expected_num_nans = np.prod(expected_shape) - np.prod(in_shape)
 
     test_array = np.zeros(in_shape)
 
@@ -177,8 +183,8 @@ def test_balance_array_3d():
     """Test convert.balance_array"""
 
     in_shape = (10, 20, 3)
-    expected_shape = (20, 20, 3)
-    expected_num_nans = 600
+    expected_shape = (32, 32, 3)
+    expected_num_nans = np.prod(expected_shape) - np.prod(in_shape)
 
     test_array = np.zeros(in_shape)
 
@@ -195,16 +201,19 @@ def test_get_array_fits():
     helpers.setup()
 
     # make test array
-    expected_array = np.zeros((3, 3))
+    tmp = np.zeros((3, 3), dtype=np.float32)
     out_path = os.path.join(helpers.TEST_PATH, "test.fits")
-    fits.PrimaryHDU(data=expected_array).writeto(out_path)
+    fits.PrimaryHDU(data=tmp).writeto(out_path)
+
+    pads = [[0, 1], [0, 1]]
+    expected_array = np.pad(tmp, pads, mode="constant", constant_values=np.nan)
 
     # get test array
     actual_array = convert.get_array(out_path)
 
     helpers.tear_down()
 
-    assert np.array_equal(expected_array, actual_array)
+    np.testing.assert_equal(expected_array, actual_array)
 
 
 @pytest.mark.unit
@@ -223,7 +232,7 @@ def test_get_array_png():
 
     helpers.tear_down()
 
-    assert np.array_equal(expected_array, np.flipud(actual_array))
+    np.testing.assert_equal(expected_array, np.flipud(actual_array))
 
 
 @pytest.mark.unit
@@ -380,7 +389,7 @@ def test_line_to_json_xy():
     )
 
     expected_json = dict(
-        x=10 / 1000 * 256, y=20 / 1000 * 256 - 256, catalog_id="1", desc=src_desc
+        x=10, y=20, catalog_id="1", desc=src_desc
     )
 
     actual_json = convert.line_to_json(None, columns, dims, in_line)
@@ -417,10 +426,12 @@ def test_line_to_json_ra_dec():
     )
 
     expected_json = dict(
-        x=100.38067723561184, y=-151.67388074342693, catalog_id="1", desc=src_desc
+        x=289.37867109328727, y=300.7526406693396, catalog_id="1", desc=src_desc
     )
 
+
     actual_json = convert.line_to_json(wcs, columns, dims, in_line)
+    print(actual_json)
 
     assert expected_json == actual_json
 
@@ -547,11 +558,15 @@ def test_tile_img_pil_serial():
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
     pbar_loc = 0
-    zoom = 1
+    min_zoom=0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
-        test_image, pbar_loc, zoom=zoom, image_engine=image_engine, out_dir=out_dir
+        test_image,
+        pbar_loc,
+        min_zoom=min_zoom,
+        image_engine=image_engine,
+        out_dir=out_dir
     )
 
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_pil")
@@ -574,11 +589,15 @@ def test_tile_img_mpl_serial():
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
     pbar_loc = 0
-    zoom = 1
+    min_zoom = 0
     image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
-        test_image, pbar_loc, zoom=zoom, image_engine=image_engine, out_dir=out_dir
+        test_image,
+        pbar_loc,
+        min_zoom=min_zoom,
+        image_engine=image_engine,
+        out_dir=out_dir
     )
 
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
@@ -601,13 +620,13 @@ def test_tile_img_pil_parallel():
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
     pbar_loc = 0
-    zoom = 1
+    min_zoom=0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
         test_image,
         pbar_loc,
-        zoom=zoom,
+        min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=2,
@@ -633,13 +652,13 @@ def test_tile_img_mpl_parallel():
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
     pbar_loc = 0
-    zoom = 1
+    min_zoom = 0
     image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
         test_image,
         pbar_loc,
-        zoom=zoom,
+        min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=2,

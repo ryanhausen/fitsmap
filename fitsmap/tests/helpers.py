@@ -27,6 +27,8 @@ import tarfile
 from functools import reduce
 from itertools import chain, product, repeat
 
+import numpy as np
+
 TEST_PATH = "./testing_tmp"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 TQDM_ENV_VAR = "DISBALE_TQDM"
@@ -82,28 +84,34 @@ def cat_to_json(fname):
     return data, lines[0]
 
 
-def __stable_idx_answer(shape, zoom):
-    num_splits = int((4 ** zoom) ** 0.5)
+def __stable_idx_answer(shape, zoom, tile_size=256):
+    dim0_tile_fraction = shape[0] / tile_size
+    dim1_tile_fraction = shape[1] / tile_size
 
-    def split(vals):
-        x0, x2 = vals
-        x1 = x0 + ((x2 - x0) // 2)
-        return [(x0, x1), (x1, x2)]
+    print(shape, dim0_tile_fraction, dim1_tile_fraction, tile_size, zoom)
 
-    split_collection = lambda collection: map(split, collection)
-    split_reduce = lambda x, y: split_collection(chain.from_iterable(x))
+    if dim0_tile_fraction < 1 or dim1_tile_fraction < 1:
+        raise StopIteration()
 
-    rows_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[0])]]))
-    columns_split = list(reduce(split_reduce, repeat(None, zoom), [[(0, shape[1])]]))
+    num_tiles_dim0 = int(np.ceil(dim0_tile_fraction))
+    num_tiles_dim1 = int(np.ceil(dim1_tile_fraction))
 
-    rows = zip(range(num_splits - 1, -1, -1), chain.from_iterable(rows_split))
-    cols = enumerate(chain.from_iterable(columns_split))
+    tile_idxs_dim0 = [i * tile_size for i in range(num_tiles_dim0 + 1)]
+    tile_idxs_dim1 = [i * tile_size for i in range(num_tiles_dim1 + 1)]
+
+    pair_runner = lambda coll: [slice(c0, c1) for c0, c1 in zip(coll[:-1], coll[1:])]
+
+    row_slices = pair_runner(tile_idxs_dim0)
+    col_slices = pair_runner(tile_idxs_dim1)
+
+    rows = zip(range(num_tiles_dim0 - 1, -1, -1), row_slices)
+    cols = enumerate(col_slices)
 
     rows_cols = product(rows, cols)
 
     def transform_iteration(row_col):
-        ((y, (start_y, end_y)), (x, (start_x, end_x))) = row_col
-        return (zoom, y, x, slice(start_y, end_y), slice(start_x, end_x))
+        ((y, slice_y), (x, slice_x)) = row_col
+        return (zoom, y, x, slice_y, slice_x)
 
     return map(transform_iteration, rows_cols)
 

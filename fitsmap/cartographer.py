@@ -30,14 +30,13 @@ import shutil
 from itertools import repeat
 from functools import partial, reduce
 from typing import List
-0
 
 MARKER_SEARCH_JS = "\n".join(
     [
         "   var marker_layers = L.layerGroup(markers);",
         "",
         "   function searchHelp(e) {",
-        "      map.setView(e.latlng, 8);",
+        "      map.setView(e.latlng, 4);",
         "      e.layer.addTo(map);",
         "   };",
         "",
@@ -87,6 +86,8 @@ def chart(
 
     js_markers = markers_to_js(marker_file_names) if marker_file_names else ""
 
+    js_crs = leaflet_crs_js(layer_dicts)
+
     js_map = leaflet_map_js(layer_dicts)
 
     js_marker_search = MARKER_SEARCH_JS if marker_file_names else ""
@@ -97,9 +98,10 @@ def chart(
 
     js = "\n".join(
         [
+            js_crs,
+            js_map,
             js_layers,
             js_markers,
-            js_map,
             js_marker_search,
             js_base_layers,
             js_layer_control,
@@ -137,7 +139,7 @@ def layer_dict_to_str(layer: dict) -> str:
         "minZoom: " + str(layer["min_zoom"]) + ",",
         "maxZoom: " + str(layer["max_zoom"]) + ",",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + ",",
-        "});",
+        "}).addTo(map);",
     ]
 
     return "".join(layer_str)
@@ -169,15 +171,27 @@ def layer_names_to_layer_control(marker_file_names: List[str]) -> str:
     else:
         return "   L.control.layers(baseLayers, {}).addTo(map);"
 
+def leaflet_crs_js(tile_layers: List[dict]) -> str:
+    max_zoom = max(map(lambda t: t["max_native_zoom"], tile_layers))
+
+    scale_factor = int(2**max_zoom)
+
+    js = [
+        "   L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
+        f"      transformation: new L.Transformation(1/{scale_factor}, 0, -1/{scale_factor}, 256)",
+        "   });",
+    ]
+
+    return "\n".join(js)
+
 
 def leaflet_map_js(tile_layers: List[dict]):
     js = [
         '   var map = L.map("map", {',
-        "      crs: L.CRS.Simple,",
+        "      crs: L.CRS.FitsMap,",
         "      zoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
         "      minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
         "      center:[-126, 126],",
-        "      layers:[{}]".format(",".join([t["name"] for t in tile_layers])),
         "   });",
     ]
 
@@ -222,7 +236,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "         src = collection[j];",
         "",
         "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-        "            catalog_id: src.catalog_id",
+        "            catalog_id: labels[i] + '_' + src.catalog_id",
         "         }).bindPopup(src.desc))",
         "      }",
         "   }",

@@ -27,7 +27,16 @@
 <body>
    <div id="map"></div>
    <script>
-   var test_layer = L.tileLayer("test_layer/{z}/{y}/{x}.png", { attribution:"<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>",minZoom: 0,maxZoom: 6,maxNativeZoom: 1,});
+   L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {
+      transformation: new L.Transformation(1/2, 0, -1/2, 256)
+   });
+   var map = L.map("map", {
+      crs: L.CRS.FitsMap,
+      zoom: 0,
+      minZoom: 0,
+      center:[-126, 126],
+   });
+   var test_layer = L.tileLayer("test_layer/{z}/{y}/{x}.png", { attribution:"<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>",minZoom: 0,maxZoom: 6,maxNativeZoom: 1,}).addTo(map);
    var markers = [
       L.markerClusterGroup({ }),
    ];
@@ -51,7 +60,7 @@
          src = collection[j];
 
          markerList[i].push(L.circleMarker([src.y, src.x], {
-            catalog_id: src.catalog_id
+            catalog_id: labels[i] + '_' + src.catalog_id
          }).bindPopup(src.desc))
       }
    }
@@ -59,17 +68,10 @@
    for (i = 0; i < collections.length; i++){
       markers[i].addLayers(markerList[i]);
    }
-   var map = L.map("map", {
-      crs: L.CRS.Simple,
-      zoom: 0,
-      minZoom: 0,
-      center:[-126, 126],
-      layers:[test_layer]
-   });
    var marker_layers = L.layerGroup(markers);
 
    function searchHelp(e) {
-      map.setView(e.latlng, 8);
+      map.setView(e.latlng, 4);
       e.layer.addTo(map);
    };
 
