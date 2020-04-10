@@ -1,18 +1,18 @@
 Module Documentation
 ==============================
 
-fitsmap.mapmaker module
------------------------
+fitsmap.convert module
+----------------------
 
-.. automodule:: fitsmap.mapmaker
+.. automodule:: fitsmap.convert
    :members:
    :undoc-members:
    :show-inheritance:
 
-fitsmap.web\_map module
------------------------
+fitsmap.cartographer module
+---------------------------
 
-.. automodule:: fitsmap.web_map
+.. automodule:: fitsmap.cartographer
    :members:
    :undoc-members:
    :show-inheritance:

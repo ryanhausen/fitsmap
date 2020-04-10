@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+   <title>test</title>
+   <meta charset="utf-8" />
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />
+   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>
+   <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>
+   <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>
+   <link rel='stylesheet' href='css/MarkerCluster.css'/>
+   <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>
+   <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>
+   <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>
+   <script src='js/test_marker'></script>
+   <style>
+       html, body {
+       height: 100%;
+       margin: 0;
+       }
+       #map {
+           width: 100%;
+           height: 100%;
+       }
+   </style>
+</head>
+<body>
+   <div id="map"></div>
+   <script>
+   L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {
+      transformation: new L.Transformation(1/2, 0, -1/2, 256)
+   });
+   var map = L.map("map", {
+      crs: L.CRS.FitsMap,
+      zoom: 0,
+      minZoom: 0,
+      center:[-126, 126],
+   });
+   var test_layer = L.tileLayer("test_layer/{z}/{y}/{x}.png", { attribution:"<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>",minZoom: 0,maxZoom: 6,maxNativeZoom: 1,}).addTo(map);
+   var markers = [
+      L.markerClusterGroup({ }),
+   ];
+
+   var markerList = [
+      [],
+   ];
+
+   var collections = [
+      test_marker,
+   ];
+
+   var labels = [
+      'test_marker',
+   ];
+
+   for (i = 0; i < collections.length; i++){
+      collection = collections[i];
+
+      for (j = 0; j < collection.length; j++){
+         src = collection[j];
+
+         markerList[i].push(L.circleMarker([src.y, src.x], {
+            catalog_id: labels[i] + ':' + src.catalog_id + ':'
+         }).bindPopup(src.desc))
+      }
+   }
+
+   for (i = 0; i < collections.length; i++){
+      markers[i].addLayers(markerList[i]);
+   }
+   var marker_layers = L.layerGroup(markers);
+
+   function searchHelp(e) {
+      map.setView(e.latlng, 4);
+      e.layer.addTo(map);
+   };
+
+   var searchBar = L.control.search({
+      layer: marker_layers,
+      initial: false,
+      propertyName: 'catalog_id',
+      textPlaceholder: 'Enter catalog_id ID',
+      hideMarkerOnCollapse: true,
+   });
+
+   searchBar.on('search:locationfound', searchHelp);
+
+   searchBar.addTo(map);
+
+   // hack for turning off markers at start. Throws exception but doesn't
+   // crash page. This should be updated when I understand this library better
+   for (l of markers){
+      l.remove()
+   }
+   var baseLayers = {
+      "test_layer": test_layer,
+   };
+   var overlays = {}
+
+   for(i = 0; i < markers.length; i++) {
+      overlays[labels[i]] = markers[i];
+   }
+
+   var layerControl = L.control.layers(baseLayers, overlays);
+   layerControl.addTo(map);
+   </script>
+</body>
+</html>
