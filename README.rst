@@ -116,8 +116,8 @@ To use the map, simply open ``index.html`` with your favorite browser.
 Parallelization *(Linux/Mac Only)*
 **********************************
 
-FitsMap supports the parallelization(via Multiprocessing/``sharedmem``) of map
-creation in two ways:
+FitsMap supports the parallelization(via ``multiprocessing``/``sharedmem``) of
+map creation in two ways:
 
 - splitting images/catalogs into parallel tasks
 - parallel tiling of an image
