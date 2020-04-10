@@ -172,6 +172,25 @@ def layer_names_to_layer_control(marker_file_names: List[str]) -> str:
         return "   L.control.layers(baseLayers, {}).addTo(map);"
 
 
+def colors_js() -> str:
+    js = [
+        "   let colors = [",
+        '      "#4C72B0",',
+        '      "#DD8452",',
+        '      "#55A868",',
+        '      "#C44E52",',
+        '      "#8172B3",',
+        '      "#937860",',
+        '      "#DA8BC3",',
+        '      "#8C8C8C",',
+        '      "#CCB974",',
+        '      "#64B5CD",',
+        "   ];",
+    ]
+
+    return "\n".join(js)
+
+
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
     max_zoom = max(map(lambda t: t["max_native_zoom"], tile_layers))
 
@@ -230,6 +249,8 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         ),
         "   ];",
         "",
+        colors_js(),
+        "",
         "   for (i = 0; i < collections.length; i++){",
         "      collection = collections[i];",
         "",
@@ -237,7 +258,8 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "         src = collection[j];",
         "",
         "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-        "            catalog_id: labels[i] + ':' + src.catalog_id + ':'",
+        "            catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+        "            color: colors[i % colors.length]",
         "         }).bindPopup(src.desc))",
         "      }",
         "   }",

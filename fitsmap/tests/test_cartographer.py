@@ -143,6 +143,29 @@ def test_layer_names_to_layer_control_empty():
 
 
 @pytest.mark.unit
+def test_colors_js():
+    """test cartographer.colors_js"""
+    expected = "\n".join(
+        [
+            "   let colors = [",
+            '      "#4C72B0",',
+            '      "#DD8452",',
+            '      "#55A868",',
+            '      "#C44E52",',
+            '      "#8172B3",',
+            '      "#937860",',
+            '      "#DA8BC3",',
+            '      "#8C8C8C",',
+            '      "#CCB974",',
+            '      "#64B5CD",',
+            "   ];",
+        ]
+    )
+
+    assert expected == c.colors_js()
+
+
+@pytest.mark.unit
 def test_leaflet_map_js():
     """test cartographer.leaflet_map_js"""
 
@@ -200,6 +223,19 @@ def test_markers_to_js():
             "      'test',",
             "   ];",
             "",
+            "   let colors = [",
+            '      "#4C72B0",',
+            '      "#DD8452",',
+            '      "#55A868",',
+            '      "#C44E52",',
+            '      "#8172B3",',
+            '      "#937860",',
+            '      "#DA8BC3",',
+            '      "#8C8C8C",',
+            '      "#CCB974",',
+            '      "#64B5CD",',
+            "   ];",
+            "",
             "   for (i = 0; i < collections.length; i++){",
             "      collection = collections[i];",
             "",
@@ -207,7 +243,8 @@ def test_markers_to_js():
             "         src = collection[j];",
             "",
             "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-            "            catalog_id: labels[i] + ':' + src.catalog_id + ':'",
+            "            catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+            "            color: colors[i % colors.length]",
             "         }).bindPopup(src.desc))",
             "      }",
             "   }",
