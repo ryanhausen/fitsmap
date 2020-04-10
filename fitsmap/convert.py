@@ -28,6 +28,7 @@ import sys
 from functools import partial, reduce
 from itertools import chain, count, filterfalse, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
+from pathlib import Path
 from queue import Empty
 from typing import Callable, Iterable, List, Tuple, Union
 
@@ -78,6 +79,41 @@ def build_path(z, y, x, out_dir) -> str:
     img_path = os.path.join(y_dir, "{}.png".format(x))
 
     return img_path
+
+def digit_to_string(digit:int) -> str:
+    if digit==0:
+        return "zero"
+    elif digit==1:
+        return "one"
+    elif digit==2:
+        return "two"
+    elif digit==3:
+        return "three"
+    elif digit==4:
+        return "four"
+    elif digit==5:
+        return "five"
+    elif digit==6:
+        return "six"
+    elif digit==7:
+        return "seven"
+    elif digit==8:
+        return "eight"
+    elif digit==9:
+        return "nine"
+    else:
+        raise ValueError("Only digits 0-9 are supported")
+
+def make_fname_js_safe(fname:str) -> str:
+    """Converts a string filename to a javascript safe identifier."""
+
+    if fname[0] in string.digits:
+        adj_for_digit = digit_to_string(int(fname[0])) + fname[1:]
+    else:
+        adj_for_digit = fname
+
+    return adj_for_digit.replace(".", "_dot_").replace("-", "_")
+
 
 
 def slice_idx_generator(
@@ -299,7 +335,8 @@ def make_tile_mpl(
     global mpl_img
     global mpl_alpha_f
     if mpl_f:
-        mpl_img.set_data(mpl_alpha_f(tile))
+        # this is a singleton and starts out as null
+        mpl_img.set_data(mpl_alpha_f(tile)) # pylint: disable=not-callable
         mpl_f.savefig(
             img_path,
             dpi=256,
@@ -653,7 +690,8 @@ def catalog_to_markers(
         line_to_json, wcs, columns, catalog_delim, [dim0 + pad_dim0, dim1 + pad_dim1]
     )
 
-    cat_file = os.path.split(catalog_file)[1] + ".js"
+    js_safe_file_name = make_fname_js_safe(Path(catalog_file).stem)
+    cat_file = js_safe_file_name + ".cat.js"
 
     if "js" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "js"))
