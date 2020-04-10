@@ -28,6 +28,7 @@ HELP_MIN_ZOOM = "Min zoom level for map"
 HELP_TITLE = "HTML page title"
 HELP_TASK_PROCS = "The number of tasks to run in parallel"
 HELP_PROCS_PER_TASK = "The number of tiles to process in parallel"
+HELP_CATALOG_DELIM = "The delimiter for .cat files, default is whitespace"
 HELP_CAT_WCS_FITS_FILE = "FITS file with WCS for translating catalog ra/dec"
 HELP_IMAGE_ENGINE = "Method to process image tiles PIL for pillow MPL for matplotlib"
 
@@ -45,6 +46,7 @@ def cli():
 @click.option("--title", default="FitsMap", help=HELP_TITLE)
 @click.option("--task_procs", default=0, help=HELP_TASK_PROCS)
 @click.option("--procs_per_task", default=0, help=HELP_PROCS_PER_TASK)
+@click.option("--catalog_delim", default=None, help=HELP_CATALOG_DELIM)
 @click.option("--cat_wcs_fits_file", default=None, help=HELP_CAT_WCS_FITS_FILE)
 @click.option("--image_engine", default="PIL", help=HELP_IMAGE_ENGINE)
 def dir(
@@ -54,6 +56,7 @@ def dir(
     title,
     task_procs,
     procs_per_task,
+    catalog_delim,
     cat_wcs_fits_file,
     image_engine,
 ):
@@ -69,6 +72,7 @@ def dir(
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,
+        catalog_delim=catalog_delim,
         cat_wcs_fits_file=cat_wcs_fits_file,
         image_engine=image_engine,
     )
@@ -81,6 +85,7 @@ def dir(
 @click.option("--title", default="FitsMap", help=HELP_TITLE)
 @click.option("--task_procs", default=0, help=HELP_TASK_PROCS)
 @click.option("--procs_per_task", default=0, help=HELP_PROCS_PER_TASK)
+@click.option("--catalog_delim", default=None, help=HELP_CATALOG_DELIM)
 @click.option("--cat_wcs_fits_file", default=None, help=HELP_CAT_WCS_FITS_FILE)
 @click.option("--image_engine", default="PIL", help=HELP_IMAGE_ENGINE)
 def files(
@@ -90,6 +95,7 @@ def files(
     title,
     task_procs,
     procs_per_task,
+    catalog_delim,
     cat_wcs_fits_file,
     image_engine,
 ):
@@ -105,6 +111,7 @@ def files(
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,
+        catalog_delim=catalog_delim,
         cat_wcs_fits_file=cat_wcs_fits_file,
         image_engine=image_engine,
     )

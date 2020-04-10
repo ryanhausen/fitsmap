@@ -864,6 +864,7 @@ def dir_to_map(
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
+    catalog_delim: str = None,
     cat_wcs_fits_file: str = None,
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
@@ -886,6 +887,8 @@ def dir_to_map(
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
+        catalog_delim (str): The delimited for catalog (.cat) files. Deault is
+                             whitespace.
         cat_wcs_fits_file (str): A fits file that has the WCS that will be used
                                  to map ra and dec coordinates from the catalog
                                  files to x and y coordinates in the map. Note,
@@ -928,6 +931,7 @@ def dir_to_map(
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,
+        catalog_delim=catalog_delim,
         cat_wcs_fits_file=cat_wcs_fits_file,
         tile_size=tile_size,
         image_engine=image_engine,
