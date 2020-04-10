@@ -80,31 +80,33 @@ def build_path(z, y, x, out_dir) -> str:
 
     return img_path
 
-def digit_to_string(digit:int) -> str:
-    if digit==0:
+
+def digit_to_string(digit: int) -> str:
+    if digit == 0:
         return "zero"
-    elif digit==1:
+    elif digit == 1:
         return "one"
-    elif digit==2:
+    elif digit == 2:
         return "two"
-    elif digit==3:
+    elif digit == 3:
         return "three"
-    elif digit==4:
+    elif digit == 4:
         return "four"
-    elif digit==5:
+    elif digit == 5:
         return "five"
-    elif digit==6:
+    elif digit == 6:
         return "six"
-    elif digit==7:
+    elif digit == 7:
         return "seven"
-    elif digit==8:
+    elif digit == 8:
         return "eight"
-    elif digit==9:
+    elif digit == 9:
         return "nine"
     else:
         raise ValueError("Only digits 0-9 are supported")
 
-def make_fname_js_safe(fname:str) -> str:
+
+def make_fname_js_safe(fname: str) -> str:
     """Converts a string filename to a javascript safe identifier."""
 
     if fname[0] in string.digits:
@@ -113,7 +115,6 @@ def make_fname_js_safe(fname:str) -> str:
         adj_for_digit = fname
 
     return adj_for_digit.replace(".", "_dot_").replace("-", "_")
-
 
 
 def slice_idx_generator(
@@ -336,7 +337,7 @@ def make_tile_mpl(
     global mpl_alpha_f
     if mpl_f:
         # this is a singleton and starts out as null
-        mpl_img.set_data(mpl_alpha_f(tile)) # pylint: disable=not-callable
+        mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
         mpl_f.savefig(
             img_path,
             dpi=256,

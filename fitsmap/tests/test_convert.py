@@ -47,6 +47,7 @@ def test_build_path():
 
     assert expected_file_name_matches
 
+
 @pytest.mark.unit
 def test_make_fname_js_safe_digit():
     """Test the convert.make_fname_js_safe functions."""
@@ -54,7 +55,8 @@ def test_make_fname_js_safe_digit():
     unsafe = "123"
     expected = "one23"
 
-    assert expected==convert.make_fname_js_safe(unsafe)
+    assert expected == convert.make_fname_js_safe(unsafe)
+
 
 @pytest.mark.unit
 def test_make_fname_js_safe_dot_dash():
@@ -63,7 +65,8 @@ def test_make_fname_js_safe_dot_dash():
     unsafe = "a.b-c"
     expected = "a_dot_b_c"
 
-    assert expected==convert.make_fname_js_safe(unsafe)
+    assert expected == convert.make_fname_js_safe(unsafe)
+
 
 @pytest.mark.unit
 def test_make_fname_js_safe_no_change():
@@ -72,7 +75,7 @@ def test_make_fname_js_safe_no_change():
     safe = "abc"
     expected = "abc"
 
-    assert expected==convert.make_fname_js_safe(safe)
+    assert expected == convert.make_fname_js_safe(safe)
 
 
 @pytest.mark.unit
@@ -80,20 +83,21 @@ def test_digit_to_string():
     """Test the convert.digit_to_string function"""
     digits = range(10)
     strings = [
-         "zero",
-         "one",
-         "two",
-         "three",
-         "four",
-         "five",
-         "six",
-         "seven",
-         "eight",
-         "nine",
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
     ]
 
     for expected, actual in zip(strings, map(convert.digit_to_string, digits)):
-        assert expected==actual
+        assert expected == actual
+
 
 @pytest.mark.unit
 def test_slice_idx_generator_z0():
