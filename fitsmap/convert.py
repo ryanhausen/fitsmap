@@ -728,6 +728,11 @@ def files_to_map(
     if len(files) == 0:
         raise ValueError("No files provided `files` is an empty list")
 
+    unlocatable_files = list(filterfalse(os.path.exists, files))
+    if len(unlocatable_files)>0:
+        raise FileNotFoundError(unlocatable_files)
+
+
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 

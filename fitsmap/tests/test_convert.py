@@ -697,3 +697,27 @@ def test_files_to_map():
     helpers.enable_tqdm()
 
     assert dirs_match
+
+@pytest.mark.integration
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_files_to_map_fails():
+    """Integration test for making files into map"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
+    out_dir = with_path("test_web")
+
+    files = [
+        with_path("test_tiling_image.jpg"),
+        with_path("test_catalog_radec.cat"),
+        with_path("does_not_exist.txt")
+    ]
+
+    with pytest.raises(FileNotFoundError):
+        convert.files_to_map(
+            files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
+        )
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
