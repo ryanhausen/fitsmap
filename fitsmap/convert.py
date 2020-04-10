@@ -23,6 +23,7 @@
 import json
 import os
 import shutil
+import string
 import sys
 from functools import partial, reduce
 from itertools import chain, count, filterfalse, product, repeat
@@ -529,7 +530,7 @@ def get_marker_file_name(file_location: str):
     return os.path.split(file_location)[1] + ".js"
 
 
-def line_to_cols(raw_line: str):
+def line_to_cols(catalog_delim: str, raw_line: str):
     """Transform a raw text line of column names into a list of column names
 
     Args:
@@ -538,12 +539,14 @@ def line_to_cols(raw_line: str):
     Returns:
         A list of the column names in order
     """
-
     change_case = ["RA", "DEC", "Ra", "Dec", "X", "Y"]
 
     # make ra and dec lowercase for ease of access
     raw_cols = list(
-        map(lambda s: s.lower() if s in change_case else s, raw_line.strip().split())
+        map(
+            lambda s: s.lower() if s in change_case else s,
+            raw_line.strip().split(catalog_delim),
+        )
     )
 
     # if header line starts with a '#' exclude it
@@ -553,7 +556,13 @@ def line_to_cols(raw_line: str):
         return raw_cols
 
 
-def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_line: str):
+def line_to_json(
+    wcs: WCS,
+    columns: List[str],
+    catalog_delim: str,
+    max_dim: Tuple[int, int],
+    src_line: str,
+):
     """Transform a raw text line attribute values into a JSON marker
 
     Args:
@@ -562,7 +571,7 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
     Returns:
         A list of the column names in order
     """
-    src_vals = src_line.strip().split()
+    src_vals = src_line.strip().split(catalog_delim)
 
     src_id = str(src_vals[columns.index("id")])
     if "x" in columns and "y" in columns:
@@ -594,7 +603,12 @@ def line_to_json(wcs: WCS, columns: List[str], max_dim: Tuple[int, int], src_lin
 
 
 def catalog_to_markers(
-    wcs_file: str, out_dir: str, catalog_file: str, pbar_loc: int,
+    wcs_file: str,
+    out_dir: str,
+    catalog_delim: str,
+    cat_bounds: Tuple[int, int],
+    catalog_file: str,
+    pbar_loc: int,
 ) -> None:
     """Transform ``catalog_file`` into a json collection for mapping
 
@@ -607,11 +621,9 @@ def catalog_to_markers(
     Returns:
         None
     """
-    wcs = WCS(wcs_file)
-
     f = open(catalog_file, "r")
 
-    columns = line_to_cols(next(f))
+    columns = line_to_cols(catalog_delim, next(f))
 
     ra_dec_coords = "ra" in columns and "dec" in columns
     x_y_coords = "x" in columns and "y" in columns
@@ -625,14 +637,21 @@ def catalog_to_markers(
         )
         raise ValueError(err_msg)
 
-    header = fits.getheader(wcs_file)
+    if ra_dec_coords and (wcs_file is None):
+        err_msg = " ".join(
+            [catalog_file + " uses ra/dec coords, but a WCS file wasn't", "provided."]
+        )
+        raise ValueError(err_msg)
 
-    dim0, dim1 = header["NAXIS2"], header["NAXIS1"]
+    dim0, dim1 = cat_bounds
 
     pad_dim0 = max(dim1 - dim0, 0)
     pad_dim1 = max(dim0 - dim1, 0)
 
-    line_func = partial(line_to_json, wcs, columns, [dim0 + pad_dim0, dim1 + pad_dim1])
+    wcs = WCS(wcs_file) if wcs_file else None
+    line_func = partial(
+        line_to_json, wcs, columns, catalog_delim, [dim0 + pad_dim0, dim1 + pad_dim1]
+    )
 
     cat_file = os.path.split(catalog_file)[1] + ".js"
 
@@ -692,6 +711,7 @@ def files_to_map(
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
+    catalog_delim: str = None,
     cat_wcs_fits_file: str = None,
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
@@ -710,6 +730,8 @@ def files_to_map(
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
+        catalog_delim (str): The delimited for catalog (.cat) files. Deault is
+                             whitespace.
         cat_wcs_fits_file (str): A fits file that has the WCS that will be used
                                  to map ra and dec coordinates from the catalog
                                  files to x and y coordinates in the map
@@ -729,9 +751,8 @@ def files_to_map(
         raise ValueError("No files provided `files` is an empty list")
 
     unlocatable_files = list(filterfalse(os.path.exists, files))
-    if len(unlocatable_files)>0:
+    if len(unlocatable_files) > 0:
         raise FileNotFoundError(unlocatable_files)
-
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -752,16 +773,24 @@ def files_to_map(
     marker_file_names = list(map(get_marker_file_name, cat_files))
 
     if len(cat_files) > 0:
-        if cat_wcs_fits_file is None:
-            cat_files = marker_file_names = []
-            err_msg = [
-                "Catalog files (.cat) were included, but no value was given for"
-                "`cat_wcs_fits_file`. ra/dec can't be converted without a fits"
-                "file. Skipping catalog conversion"
-            ]
-            print(" ".join(err_msg))
+        cat_delim = (
+            None
+            if (bool(catalog_delim) and catalog_delim in string.whitespace)
+            else catalog_delim
+        )
+
+        if cat_wcs_fits_file is None or img_files[0].endswith(("png", "jpg")):
+            with Image.open(img_files[0]) as im:
+                width, height = im.size
+            cat_bounds = height, width
         else:
-            cat_job_f = partial(catalog_to_markers, cat_wcs_fits_file, out_dir)
+            check_file = cat_wcs_fits_file if cat_wcs_fits_file else img_files[0]
+            header = fits.getheader(cat_wcs_fits_file)
+            cat_bounds = header["NAXIS2"], header["NAXIS1"]
+
+        cat_job_f = partial(
+            catalog_to_markers, cat_wcs_fits_file, out_dir, cat_delim, cat_bounds
+        )
     else:
         cat_job_f = None
 
