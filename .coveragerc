@@ -1,2 +1,4 @@
 [report]
-omit = fitsmap/tests/*
+omit =
+    fitsmap/tests/*
+    fitsmap/__*__.py

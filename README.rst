@@ -53,6 +53,7 @@ Requirements:
 - ``scikit-image``
 - ``sharedmem``
 - ``tqdm``
+- ``click``
 
 Use ``pip`` to install
 
@@ -83,7 +84,7 @@ To convert this diretory into a map is as simple as using |dir_to_map|:
 
     convert.dir_to_map.(
         "path/to/data",
-        out_dir="/path/to/data/map",
+        out_dir="path/to/data/map",
         cat_wcs_fits_file="path/to/header_file.fits",
     )
 
@@ -95,6 +96,17 @@ in a new subdirectory called ``map`` within ``path/to/data``. Finally, the
 last argument is the ``cat_wcs_fits_file`` keyword argument. This tells FitsMap
 which header to use to parse any catalog files and convert them into map
 markers. In this example, one of the FITS files in the directory is used.
+
+Equivalently, using the FitsMap command line interface:
+
+::
+
+  fitsmap dir --out_dir /path/to/data/map \
+              --cat_wcs_fits_file "path/to/header_file.fits" \
+              path/to/data
+
+Run ``fitsmap --help`` for more information
+
 
 Once FitsMap is finished, the following will have been generated:
 
@@ -116,8 +128,8 @@ To use the map, simply open ``index.html`` with your favorite browser.
 Parallelization *(Linux/Mac Only)*
 **********************************
 
-FitsMap supports the parallelization(via Multiprocessing/``sharedmem``) of map
-creation in two ways:
+FitsMap supports the parallelization(via ``multiprocessing``/``sharedmem``) of
+map creation in two ways:
 
 - splitting images/catalogs into parallel tasks
 - parallel tiling of an image

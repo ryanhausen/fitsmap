@@ -49,6 +49,57 @@ def test_build_path():
 
 
 @pytest.mark.unit
+def test_make_fname_js_safe_digit():
+    """Test the convert.make_fname_js_safe functions."""
+
+    unsafe = "123"
+    expected = "one23"
+
+    assert expected == convert.make_fname_js_safe(unsafe)
+
+
+@pytest.mark.unit
+def test_make_fname_js_safe_dot_dash():
+    """Test the convert.make_fname_js_safe functions."""
+
+    unsafe = "a.b-c"
+    expected = "a_dot_b_c"
+
+    assert expected == convert.make_fname_js_safe(unsafe)
+
+
+@pytest.mark.unit
+def test_make_fname_js_safe_no_change():
+    """Test the convert.make_fname_js_safe functions."""
+
+    safe = "abc"
+    expected = "abc"
+
+    assert expected == convert.make_fname_js_safe(safe)
+
+
+@pytest.mark.unit
+def test_digit_to_string():
+    """Test the convert.digit_to_string function"""
+    digits = range(10)
+    strings = [
+        "zero",
+        "one",
+        "two",
+        "three",
+        "four",
+        "five",
+        "six",
+        "seven",
+        "eight",
+        "nine",
+    ]
+
+    for expected, actual in zip(strings, map(convert.digit_to_string, digits)):
+        assert expected == actual
+
+
+@pytest.mark.unit
 def test_slice_idx_generator_z0():
     """Test convert.slice_idx_generator at zoom level 0.
 
@@ -346,9 +397,10 @@ def test_line_to_cols():
     """Test convert.line_to_cols"""
 
     line = "id ra dec test1 test2"
+    catalog_delim = None
     expected_cols = line.split()
 
-    actual_cols = convert.line_to_cols(line)
+    actual_cols = convert.line_to_cols(catalog_delim, line)
 
     assert expected_cols == actual_cols
 
@@ -358,9 +410,10 @@ def test_line_to_cols_with_hash():
     """Test convert.line_to_cols"""
 
     line = "# id ra dec test1 test2"
+    catalog_delim = None
     expected_cols = line.split()[1:]
 
-    actual_cols = convert.line_to_cols(line)
+    actual_cols = convert.line_to_cols(catalog_delim, line)
 
     assert expected_cols == actual_cols
 
@@ -369,6 +422,7 @@ def test_line_to_cols_with_hash():
 def test_line_to_json_xy():
     """Test convert.line_to_json with x/y"""
     in_wcs = None
+    catalog_delim = None
     columns = ["id", "x", "y", "col1", "col2"]
     dims = [1000, 1000]
     in_line = "1 10 20 abc 123"
@@ -390,7 +444,7 @@ def test_line_to_json_xy():
 
     expected_json = dict(x=10, y=20, catalog_id="1", desc=src_desc)
 
-    actual_json = convert.line_to_json(None, columns, dims, in_line)
+    actual_json = convert.line_to_json(None, columns, catalog_delim, dims, in_line)
 
     assert expected_json == actual_json
 
@@ -405,6 +459,7 @@ def test_line_to_json_ra_dec():
 
     columns = ["id", "ra", "dec", "col1", "col2"]
     dims = [738, 738]
+    catalog_delim = None
     in_line = "1  53.18575  -27.898664  test_1 abc"
 
     html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
@@ -427,7 +482,7 @@ def test_line_to_json_ra_dec():
         x=289.37867109328727, y=300.7526406693396, catalog_id="1", desc=src_desc
     )
 
-    actual_json = convert.line_to_json(wcs, columns, dims, in_line)
+    actual_json = convert.line_to_json(wcs, columns, catalog_delim, dims, in_line)
     print(actual_json)
 
     assert expected_json == actual_json
@@ -478,12 +533,17 @@ def test_catalog_to_markers_xy():
 
     out_dir = helpers.TEST_PATH
     wcs_file = os.path.join(out_dir, "test_image.fits")
+    header = fits.getheader(wcs_file)
+    catalog_bounds = header["NAXIS2"], header["NAXIS1"]
     catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
+    catalog_delim = None
     pbar_loc = 0
 
-    convert.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+    convert.catalog_to_markers(
+        wcs_file, out_dir, catalog_delim, catalog_bounds, catalog_file, pbar_loc
+    )
 
-    expected_json, expcted_name = helpers.cat_to_json(
+    expected_json, expected_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_xy.cat.js")
     )
     actual_json, actual_name = helpers.cat_to_json(
@@ -494,7 +554,7 @@ def test_catalog_to_markers_xy():
     helpers.enable_tqdm()
 
     assert expected_json == actual_json
-    assert expcted_name == actual_name
+    assert expected_name == actual_name
 
 
 @pytest.mark.unit
@@ -506,10 +566,15 @@ def test_catalog_to_markers_radec():
 
     out_dir = helpers.TEST_PATH
     wcs_file = os.path.join(out_dir, "test_image.fits")
+    header = fits.getheader(wcs_file)
+    catalog_bounds = header["NAXIS2"], header["NAXIS1"]
     catalog_file = os.path.join(out_dir, "test_catalog_radec.cat")
+    catalog_delim = None
     pbar_loc = 0
 
-    convert.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+    convert.catalog_to_markers(
+        wcs_file, out_dir, catalog_delim, catalog_bounds, catalog_file, pbar_loc
+    )
 
     expected_json, expcted_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_radec.cat.js")
@@ -534,11 +599,16 @@ def test_catalog_to_markers_fails():
 
     out_dir = helpers.TEST_PATH
     wcs_file = os.path.join(out_dir, "test_image.fits")
+    header = fits.getheader(wcs_file)
+    catalog_bounds = header["NAXIS2"], header["NAXIS1"]
+    catalog_delim = None
     catalog_file = os.path.join(out_dir, "test_catalog_fails.cat")
     pbar_loc = 0
 
     with pytest.raises(ValueError) as excinfo:
-        convert.catalog_to_markers(wcs_file, out_dir, catalog_file, pbar_loc)
+        convert.catalog_to_markers(
+            wcs_file, out_dir, catalog_delim, catalog_bounds, catalog_file, pbar_loc
+        )
 
     helpers.tear_down()
     helpers.enable_tqdm()
@@ -697,3 +767,28 @@ def test_files_to_map():
     helpers.enable_tqdm()
 
     assert dirs_match
+
+
+@pytest.mark.integration
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_files_to_map_fails():
+    """Integration test for making files into map"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
+    out_dir = with_path("test_web")
+
+    files = [
+        with_path("test_tiling_image.jpg"),
+        with_path("test_catalog_radec.cat"),
+        with_path("does_not_exist.txt"),
+    ]
+
+    with pytest.raises(FileNotFoundError):
+        convert.files_to_map(
+            files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
+        )
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
