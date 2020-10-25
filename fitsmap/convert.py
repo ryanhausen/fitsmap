@@ -702,7 +702,7 @@ def catalog_to_markers(
 
     json_markers_file = os.path.join(out_dir, "js", cat_file)
     with open(json_markers_file, "w") as j:
-        j.write("var " + cat_file.replace(".cat.js", "") + " = ")
+        j.write("var " + cat_file.replace(".cat.js", "_cat_var") + " = ")
         json.dump(
             list(
                 map(

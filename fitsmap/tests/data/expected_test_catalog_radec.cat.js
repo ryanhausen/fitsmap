@@ -1,4 +1,4 @@
-var test_catalog_radec = [
+var test_catalog_radec_cat_var = [
   {
     "x": 289.37867109328727,
     "y": 300.7526406693396,

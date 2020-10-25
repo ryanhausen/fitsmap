@@ -236,7 +236,10 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "",
         "   var collections = [",
         *list(
-            map(lambda s: "      " + s.replace(".cat.js", "") + ",", marker_file_names,)
+            map(
+                lambda s: "      " + s.replace(".cat.js", "_cat_var") + ",",
+                marker_file_names,
+            )
         ),
         "   ];",
         "",
