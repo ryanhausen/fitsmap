@@ -216,7 +216,7 @@ def test_markers_to_js():
             "   ];",
             "",
             "   var collections = [",
-            "      test,",
+            "      test_cat_var,",
             "   ];",
             "",
             "   var labels = [",
