@@ -25,12 +25,12 @@ import os
 import shutil
 import string
 import sys
-from functools import partial, reduce
+from functools import partial
 from itertools import chain, count, filterfalse, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
 from pathlib import Path
 from queue import Empty
-from typing import Callable, Iterable, List, Tuple, Union
+from typing import Callable, Iterable, List, Tuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -599,6 +599,8 @@ def line_to_json(
     columns: List[str],
     catalog_delim: str,
     max_dim: Tuple[int, int],
+    rows_per_col:int,
+    catalog_img_ext:str, # Set to None if no images otherwise png/jpg
     src_line: str,
 ):
     """Transform a raw text line attribute values into a JSON marker
@@ -627,24 +629,109 @@ def line_to_json(
     html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
     src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
 
-    src_desc = "".join(
+
+
+    table_pair = "<td><b>{}:<b></td><td>{}</td>"
+    table_items = list(map(lambda z: table_pair.format(*z), zip(columns, src_vals)))
+
+    longest_str = max(max(map(len, columns)), max(map(len, map(str, src_vals))))
+
+    # if there are more rows than rows per column then we need to append some
+    # items to previous items so that the table has mulitple columns
+    n_src_rows = len(src_rows)
+    if rows_per_col < n_src_rows:
+        n_cols = (n_src_rows // rows_per_col) + int((n_src_rows % rows_per_col) > 0)
+
+        def get_html_row(row_idx:int):
+            combined = "".join(list(
+                map(
+                    lambda t: t[1],
+                    filter(
+                        lambda i: i[0] % rows_per_col == row_idx,
+                        enumerate(table_items)
+                    )
+                )
+            ))
+
+            return "<tr>" + combined + "</tr>"
+
+        html_rows = list(map(get_html_row, range(rows_per_col)))
+
+    else:
+        n_cols = 1
+        html_rows = ["<tr>" + t + "</tr>" for t in table_items]
+        pass
+
+    # Every pair is two columns
+    col_width = 100 / (2 * n_cols)
+
+    css = [
+        "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
+        "tr { line-height: 7pt; }",
+        "td { width: " + str(col_width) + "%; }",
+        "table { width: 100%; }",
+        "img { height: 50%; width: auto; }",
+    ]
+
+    include_img = catalog_img_ext is not None
+    src_img = f"<img src='{src_id}.{catalog_img_ext}'/>" if include_img else ""
+
+    src_desc = "\n".join(
         [
-            "<span style='text-decoration:underline; font-weight:bold'>Catalog Information</span>",
+            "<html>",
+            "<head>",
+            "<style>",
+            *css,
+            "</style>",
+            "</head>",
+            "<body>",
+            "<span>Catalog Information</span>",
             "<br>",
             "<table>",
-            *src_rows,
+            *html_rows,
             "</table>",
+            src_img,
+            "</body>",
+            "</html>",
         ]
     )
 
-    return dict(x=x, y=y, catalog_id=src_id, desc=src_desc)
+    return dict(
+        x=x,
+        y=y,
+        catalog_id=src_id,
+        desc=src_desc,
+        widest_col=longest_str,
+        n_rows=min(rows_per_col, n_src_rows),
+        n_cols=2*n_cols,
+        include_img=include_img,
 
+    )
+
+def save_img_html(out_path:str, img_path:str, img_ext:str, catalog_info:dict) -> dict:
+
+    src_html = os.path.join(out_path, f"{catalog_info['catalog_id']}.html")
+    with open(src_html, "w") as f:
+        f.write(catalog_info["desc"])
+
+    if catalog_info["include_img"] and os.path.exists(img_path):
+        from_f = os.path.join(img_path, f"{catalog_info['catalog_id']}.{img_ext}")
+        to_f = os.path.join(out_path, f"{catalog_info['catalog_id']}.{img_ext}")
+        shutil.copy(from_f, to_f)
+    else:
+        catalog_info["include_img"] = False
+
+    catalog_info.pop("desc")
+    catalog_info["cat_path"] = os.path.basename(out_path)
+    return catalog_info
 
 def catalog_to_markers(
     wcs_file: str,
     out_dir: str,
     catalog_delim: str,
     cat_bounds: Tuple[int, int],
+    img_ext:str, # something like jpg png
+    rows_per_col:int,
     catalog_file: str,
     pbar_loc: int,
 ) -> None:
@@ -687,12 +774,11 @@ def catalog_to_markers(
     pad_dim1 = max(dim0 - dim1, 0)
 
     wcs = WCS(wcs_file) if wcs_file else None
-    line_func = partial(
-        line_to_json, wcs, columns, catalog_delim, [dim0 + pad_dim0, dim1 + pad_dim1]
-    )
 
-    js_safe_file_name = make_fname_js_safe(Path(catalog_file).stem)
-    cat_file = js_safe_file_name + ".cat.js"
+    cat_file_root = Path(catalog_file).stem
+    js_safe_file_name = make_fname_js_safe(cat_file_root) + "_cat_var"
+    cat_file = cat_file_root + ".cat.js"
+
 
     if "js" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "js"))
@@ -700,19 +786,49 @@ def catalog_to_markers(
     if "css" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "css"))
 
+    catalog_assets_parent_path = os.path.join(out_dir, "catalog_assets")
+    if "catalog_assets" not in os.listdir(out_dir):
+        os.mkdir(catalog_assets_parent_path)
+
+    catalog_assets_path = os.path.join(catalog_assets_parent_path, cat_file_root)
+    if cat_file_root not in os.listdir(catalog_assets_parent_path):
+        os.mkdir(catalog_assets_path)
+
+    catalog_img_path = os.path.join(
+        os.path.dirname(catalog_file),
+        cat_file_root
+    )
+
+    if not os.path.exists(catalog_img_path) or len(os.listdir(catalog_img_path))==0:
+        img_ext = None
+
+    line_func = partial(
+        line_to_json, wcs, columns, catalog_delim, [dim0 + pad_dim0, dim1 + pad_dim1], rows_per_col, img_ext,
+    )
+
+    save_assets_f = partial(
+        save_img_html,
+        catalog_assets_path,
+        catalog_img_path,
+        img_ext,
+    )
+
     json_markers_file = os.path.join(out_dir, "js", cat_file)
     with open(json_markers_file, "w") as j:
-        j.write("var " + cat_file.replace(".cat.js", "_cat_var") + " = ")
+        j.write("var " + js_safe_file_name + " = ")
         json.dump(
             list(
                 map(
-                    line_func,
-                    tqdm(
-                        f,
-                        position=pbar_loc,
-                        desc="Converting " + cat_file,
-                        disable=bool(os.getenv("DISBALE_TQDM", False)),
-                    ),
+                    save_assets_f,
+                    map(
+                        line_func,
+                        tqdm(
+                            f,
+                            position=pbar_loc,
+                            desc="Converting " + catalog_file,
+                            disable=bool(os.getenv("DISBALE_TQDM", False)),
+                        ),
+                    )
                 )
             ),
             j,
@@ -754,6 +870,8 @@ def files_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    rows_per_column:int = np.inf,
+    catalog_images:str = None,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -828,7 +946,7 @@ def files_to_map(
             cat_bounds = header["NAXIS2"], header["NAXIS1"]
 
         cat_job_f = partial(
-            catalog_to_markers, cat_wcs_fits_file, out_dir, cat_delim, cat_bounds
+            catalog_to_markers, cat_wcs_fits_file, out_dir, cat_delim, cat_bounds, catalog_images, rows_per_column
         )
     else:
         cat_job_f = None
@@ -868,6 +986,8 @@ def dir_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    rows_per_column:int = np.inf,
+    catalog_images:str = None,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -935,4 +1055,6 @@ def dir_to_map(
         cat_wcs_fits_file=cat_wcs_fits_file,
         tile_size=tile_size,
         image_engine=image_engine,
+        rows_per_column=rows_per_column,
+        catalog_images=catalog_images,
     )

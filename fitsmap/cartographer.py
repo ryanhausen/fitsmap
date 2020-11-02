@@ -31,6 +31,8 @@ from itertools import repeat
 from functools import partial, reduce
 from typing import List
 
+import fitsmap.convert as convert
+
 MARKER_SEARCH_JS = "\n".join(
     [
         "   var marker_layers = L.layerGroup(markers);",
@@ -237,7 +239,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "   var collections = [",
         *list(
             map(
-                lambda s: "      " + s.replace(".cat.js", "_cat_var") + ",",
+                lambda s: "      " + convert.make_fname_js_safe(s.replace(".cat.js", "_cat_var")) + ",",
                 marker_file_names,
             )
         ),
@@ -260,10 +262,19 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "      for (j = 0; j < collection.length; j++){",
         "         src = collection[j];",
         "",
+        "         var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';",
+        "         var include_img = src.include_img ? 2 : 1;",
+        "         var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';",
+        "",
+        "         let p = L.popup({ maxWidth: \"auto\" })",
+        "             .setLatLng([src.y, src.x])",
+        "             .setContent(\"<iframe src='catalog_assets/\" + src.cat_path + \"/\" + src.catalog_id + \".html' width='\" + width + \"' height='\" + height + \"'></iframe>\");",
+        "",
+        "",
         "         markerList[i].push(L.circleMarker([src.y, src.x], {",
         "            catalog_id: labels[i] + ':' + src.catalog_id + ':',",
         "            color: colors[i % colors.length]",
-        "         }).bindPopup(src.desc))",
+        "         }).bindPopup(p));",
         "      }",
         "   }",
         "",
