@@ -35,30 +35,30 @@ import fitsmap.convert as convert
 
 MARKER_SEARCH_JS = "\n".join(
     [
-        "   var marker_layers = L.layerGroup(markers);",
+        "    var marker_layers = L.layerGroup(markers);",
         "",
-        "   function searchHelp(e) {",
-        "      map.setView(e.latlng, 4);",
-        "      e.layer.addTo(map);",
-        "   };",
+        "    function searchHelp(e) {",
+        "        map.setView(e.latlng, 4);",
+        "        e.layer.addTo(map);",
+        "    };",
         "",
-        "   var searchBar = L.control.search({",
-        "      layer: marker_layers,",
-        "      initial: false,",
-        "      propertyName: 'catalog_id',",
-        "      textPlaceholder: 'Enter catalog_id ID',",
-        "      hideMarkerOnCollapse: true,",
-        "   });",
+        "    var searchBar = L.control.search({",
+        "        layer: marker_layers,",
+        "        initial: false,",
+        "        propertyName: 'catalog_id',",
+        "        textPlaceholder: 'Enter catalog_id ID',",
+        "        hideMarkerOnCollapse: true,",
+        "    });",
         "",
-        "   searchBar.on('search:locationfound', searchHelp);",
+        "    searchBar.on('search:locationfound', searchHelp);",
         "",
-        "   searchBar.addTo(map);",
+        "    searchBar.addTo(map);",
         "",
-        "   // hack for turning off markers at start. Throws exception but doesn't",
-        "   // crash page. This should be updated when I understand this library better",
-        "   for (l of markers){",
-        "      l.remove()",
-        "   }",
+        "    // hack for turning off markers at start. Throws exception but doesn't",
+        "    // crash page. This should be updated when I understand this library better",
+        "    for (l of markers){",
+        "        l.remove()",
+        "    }",
     ]
 )
 
@@ -110,7 +110,9 @@ def chart(
         ]
     )
 
-    extra_js = build_conditional_js(marker_file_names) if marker_file_names else ""
+    extra_js = (
+        build_conditional_js(out_dir, marker_file_names) if marker_file_names else ""
+    )
 
     extra_css = build_conditional_css(out_dir) if marker_file_names else ""
 
@@ -134,7 +136,7 @@ def layer_dict_to_str(layer: dict) -> str:
     """Convert layer dict to layer str for including in HTML file."""
 
     layer_str = [
-        "   var " + layer["name"],
+        "    var " + layer["name"],
         ' = L.tileLayer("' + layer["directory"] + '"',
         ", { ",
         'attribution:"' + LAYER_ATTRIBUTION + '",',
@@ -149,9 +151,9 @@ def layer_dict_to_str(layer: dict) -> str:
 
 def layers_dict_to_base_layer_js(tile_layers: List[dict]):
     js = [
-        "   var baseLayers = {",
-        *list(map(lambda t: '      "{0}": {0},'.format(t["name"]), tile_layers)),
-        "   };",
+        "    var baseLayers = {",
+        *list(map(lambda t: '        "{0}": {0},'.format(t["name"]), tile_layers)),
+        "    };",
     ]
     return "\n".join(js)
 
@@ -159,35 +161,35 @@ def layers_dict_to_base_layer_js(tile_layers: List[dict]):
 def layer_names_to_layer_control(marker_file_names: List[str]) -> str:
     if marker_file_names:
         js = [
-            "   var overlays = {}",
+            "    var overlays = {}",
             "",
-            "   for(i = 0; i < markers.length; i++) {",
-            "      overlays[labels[i]] = markers[i];",
-            "   }",
+            "    for(i = 0; i < markers.length; i++) {",
+            "        overlays[labels[i]] = markers[i];",
+            "    }",
             "",
-            "   var layerControl = L.control.layers(baseLayers, overlays);",
-            "   layerControl.addTo(map);",
+            "    var layerControl = L.control.layers(baseLayers, overlays);",
+            "    layerControl.addTo(map);",
         ]
 
         return "\n".join(js)
     else:
-        return "   L.control.layers(baseLayers, {}).addTo(map);"
+        return "    L.control.layers(baseLayers, {}).addTo(map);"
 
 
 def colors_js() -> str:
     js = [
-        "   let colors = [",
-        '      "#4C72B0",',
-        '      "#DD8452",',
-        '      "#55A868",',
-        '      "#C44E52",',
-        '      "#8172B3",',
-        '      "#937860",',
-        '      "#DA8BC3",',
-        '      "#8C8C8C",',
-        '      "#CCB974",',
-        '      "#64B5CD",',
-        "   ];",
+        "    let colors = [",
+        '        "#4C72B0",',
+        '        "#DD8452",',
+        '        "#55A868",',
+        '        "#C44E52",',
+        '        "#8172B3",',
+        '        "#937860",',
+        '        "#DA8BC3",',
+        '        "#8C8C8C",',
+        '        "#CCB974",',
+        '        "#64B5CD",',
+        "    ];",
     ]
 
     return "\n".join(js)
@@ -199,9 +201,9 @@ def leaflet_crs_js(tile_layers: List[dict]) -> str:
     scale_factor = int(2 ** max_zoom)
 
     js = [
-        "   L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
-        f"      transformation: new L.Transformation(1/{scale_factor}, 0, -1/{scale_factor}, 256)",
-        "   });",
+        "    L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
+        f"        transformation: new L.Transformation(1/{scale_factor}, 0, -1/{scale_factor}, 256)",
+        "    });",
     ]
 
     return "\n".join(js)
@@ -209,12 +211,12 @@ def leaflet_crs_js(tile_layers: List[dict]) -> str:
 
 def leaflet_map_js(tile_layers: List[dict]):
     js = [
-        '   var map = L.map("map", {',
-        "      crs: L.CRS.FitsMap,",
-        "      zoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
-        "      minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
-        "      center:[-126, 126],",
-        "   });",
+        '    var map = L.map("map", {',
+        "        crs: L.CRS.FitsMap,",
+        "        zoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
+        "        minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
+        "        center:[-126, 126],",
+        "    });",
     ]
 
     return "\n".join(js)
@@ -224,63 +226,74 @@ def leaflet_map_js(tile_layers: List[dict]):
 def markers_to_js(marker_file_names: List[str]) -> str:
     """Convert marker file names into marker javascript for the HTML file."""
 
-    cluster_text = "      L.markerClusterGroup({ }),"
-    marker_list_text = "      [],"
+    cluster_text = "        L.markerClusterGroup({ }),"
+    marker_list_text = "        [],"
 
     js = [
-        "   var markers = [",
+        "    var markers = [",
         *list(repeat(cluster_text, len(marker_file_names))),
-        "   ];",
+        "    ];",
         "",
-        "   var markerList = [",
+        "    var markerList = [",
         *list(repeat(marker_list_text, len(marker_file_names))),
-        "   ];",
+        "    ];",
         "",
-        "   var collections = [",
+        "    var collections = [",
         *list(
             map(
-                lambda s: "      " + convert.make_fname_js_safe(s.replace(".cat.js", "_cat_var")) + ",",
+                lambda s: "        "
+                + convert.make_fname_js_safe(s.replace(".cat.js", "_cat_var"))
+                + ",",
                 marker_file_names,
             )
         ),
-        "   ];",
+        "    ];",
         "",
-        "   var labels = [",
+        "    var labels = [",
         *list(
             map(
-                lambda s: "      '" + s.replace(".cat.js", "") + "',",
+                lambda s: "        '" + s.replace(".cat.js", "") + "',",
                 marker_file_names,
             )
         ),
-        "   ];",
+        "    ];",
         "",
         colors_js(),
         "",
-        "   for (i = 0; i < collections.length; i++){",
-        "      collection = collections[i];",
+        "    for (i = 0; i < collections.length; i++){",
+        "        collection = collections[i];",
         "",
-        "      for (j = 0; j < collection.length; j++){",
-        "         src = collection[j];",
+        "        for (j = 0; j < collection.length; j++){",
+        "            src = collection[j];",
         "",
-        "         var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';",
-        "         var include_img = src.include_img ? 2 : 1;",
-        "         var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';",
+        "            var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';",
+        "            var include_img = src.include_img ? 2 : 1;",
+        "            var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';",
         "",
-        "         let p = L.popup({ maxWidth: \"auto\" })",
-        "             .setLatLng([src.y, src.x])",
-        "             .setContent(\"<iframe src='catalog_assets/\" + src.cat_path + \"/\" + src.catalog_id + \".html' width='\" + width + \"' height='\" + height + \"'></iframe>\");",
+        '            let p = L.popup({ maxWidth: "auto" })',
+        "                     .setLatLng([src.y, src.x])",
+        '                     .setContent("<iframe src=\'catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html\' width=\'" + width + "\' height=\'" + height + "\'></iframe>");',
         "",
+        "            let marker;",
+        "            if (src.a==-1){",
+        "                marker = L.circleMarker([src.y, src.x], {",
+        "                    catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+        "                    color: colors[i % colors.length]",
+        "                }).bindPopup(p);",
+        "            } else {",
+        "                marker = L.ellipse([src.y, src.x], [src.a, src.b], (src.theta * (180/Math.PI) * -1), {",
+        "                    catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+        "                    color: colors[i % colors.length]",
+        "                }).bindPopup(p);",
+        "            }",
         "",
-        "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-        "            catalog_id: labels[i] + ':' + src.catalog_id + ':',",
-        "            color: colors[i % colors.length]",
-        "         }).bindPopup(p));",
-        "      }",
-        "   }",
+        "            markerList[i].push(marker);",
+        "        }",
+        "    }",
         "",
-        "   for (i = 0; i < collections.length; i++){",
-        "      markers[i].addLayers(markerList[i]);",
-        "   }",
+        "    for (i = 0; i < collections.length; i++){",
+        "        markers[i].addLayers(markerList[i]);",
+        "    }",
     ]
 
     return "\n".join(js)
@@ -289,7 +302,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
 def build_conditional_css(out_dir: str) -> str:
 
     search_css = "https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css"
-    css_string = "   <link rel='stylesheet' href='{}'/>"
+    css_string = "    <link rel='stylesheet' href='{}'/>"
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_css_dir = os.path.join(out_dir, "css")
@@ -315,16 +328,38 @@ def build_conditional_css(out_dir: str) -> str:
     return "\n".join(map(lambda s: css_string.format(s), [search_css] + local_css))
 
 
-def build_conditional_js(marker_file_names: List[str]) -> str:
-    search_and_cluster_js = [
-        "   <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
-        "   <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
+def build_conditional_js(out_dir: str, marker_file_names: List[str]) -> str:
+
+    support_dir = os.path.join(os.path.dirname(__file__), "support")
+    out_js_dir = os.path.join(out_dir, "js")
+
+    local_js_files = list(
+        filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir))
+    )
+
+    if not os.path.exists(out_js_dir):
+        os.mkdir(out_js_dir)
+
+    all(
+        map(
+            lambda f: shutil.copy2(
+                os.path.join(support_dir, f), os.path.join(out_js_dir, f)
+            ),
+            local_js_files,
+        )
+    )
+
+    leaflet_js = [
+        "    <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
+        "    <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
     ]
 
-    js_string = "   <script src='js/{}'></script>"
-    local_js = list(map(lambda s: js_string.format(s), marker_file_names))
+    js_string = "    <script src='js/{}'></script>"
+    local_js = list(
+        map(lambda s: js_string.format(s), marker_file_names + local_js_files)
+    )
 
-    return "\n".join(search_and_cluster_js + local_js)
+    return "\n".join(leaflet_js + local_js)
 
 
 def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
