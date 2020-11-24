@@ -20,7 +20,6 @@
 
 """Converts image files and catalogs into a leafletJS map."""
 
-from build.lib.fitsmap import convert
 import csv
 import json
 import os
