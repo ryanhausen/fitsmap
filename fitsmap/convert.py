@@ -20,6 +20,7 @@
 
 """Converts image files and catalogs into a leafletJS map."""
 
+from build.lib.fitsmap import convert
 import csv
 import json
 import os
@@ -60,6 +61,8 @@ MPL_CMAP = "gray"
 # MPL SINGLETON ENGINE =========================================================
 mpl_f, mpl_img, mpl_alpha_f = None, None, None
 # ==============================================================================
+
+MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -739,6 +742,15 @@ def line_to_json(
     )
 
 
+def _simplify_mixed_ws(catalog_fname: str) -> None:
+    with open(catalog_fname, "r") as f:
+        lines = [l.strip() for l in f.readlines()]
+
+    with open(catalog_fname, "w") as f:
+        for line in lines:
+            f.write(" ".join([token.strip() for token in line.split()]) + "\n")
+
+
 def catalog_to_markers(
     wcs_file: str,
     out_dir: str,
@@ -758,6 +770,10 @@ def catalog_to_markers(
     Returns:
         None
     """
+    if catalog_delim == MIXED_WHITESPACE_DELIMITER:
+        _simplify_mixed_ws(catalog_file)
+        catalog_delim = " "
+
     f = open(catalog_file, "r", newline="")
     csv_reader = csv.reader(f, delimiter=catalog_delim, skipinitialspace=True)
     columns = line_to_cols(next(csv_reader))
