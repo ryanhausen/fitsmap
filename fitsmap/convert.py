@@ -472,6 +472,12 @@ def tile_img(
     Returns:
         None
     """
+
+    _, fname = os.path.split(file_location)
+    if get_map_layer_name(file_location) in os.listdir(out_dir):
+        print(f"{fname} already tiled. Skipping tiling.")
+        return
+
     # reset mpl vars just in case they have been set by another img
     global mpl_f
     global mpl_img
@@ -769,6 +775,14 @@ def catalog_to_markers(
     Returns:
         None
     """
+    _, fname = os.path.split(catalog_file)
+    out_location = os.path.join(out_dir, "js")
+    if os.path.exists(out_location) and get_marker_file_name(
+        catalog_file
+    ) in os.listdir(out_location):
+        print(f"{fname} already converted to js. Skipping conversion.")
+        return
+
     if catalog_delim == MIXED_WHITESPACE_DELIMITER:
         _simplify_mixed_ws(catalog_file)
         catalog_delim = " "
