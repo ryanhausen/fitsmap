@@ -20,17 +20,18 @@
 
 """Converts image files and catalogs into a leafletJS map."""
 
+import csv
 import json
 import os
 import shutil
 import string
 import sys
-from functools import partial, reduce
+from functools import partial
 from itertools import chain, count, filterfalse, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
 from pathlib import Path
 from queue import Empty
-from typing import Callable, Iterable, List, Tuple, Union
+from typing import Callable, Iterable, List, Tuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -59,6 +60,8 @@ MPL_CMAP = "gray"
 # MPL SINGLETON ENGINE =========================================================
 mpl_f, mpl_img, mpl_alpha_f = None, None, None
 # ==============================================================================
+
+MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -469,6 +472,12 @@ def tile_img(
     Returns:
         None
     """
+
+    _, fname = os.path.split(file_location)
+    if get_map_layer_name(file_location) in os.listdir(out_dir):
+        print(f"{fname} already tiled. Skipping tiling.")
+        return
+
     # reset mpl vars just in case they have been set by another img
     global mpl_f
     global mpl_img
@@ -568,7 +577,7 @@ def get_marker_file_name(file_location: str):
     return os.path.split(file_location)[1] + ".js"
 
 
-def line_to_cols(catalog_delim: str, raw_line: str):
+def line_to_cols(raw_col_vals: str):
     """Transform a raw text line of column names into a list of column names
 
     Args:
@@ -577,15 +586,24 @@ def line_to_cols(catalog_delim: str, raw_line: str):
     Returns:
         A list of the column names in order
     """
-    change_case = ["RA", "DEC", "Ra", "Dec", "X", "Y"]
+    change_case = [
+        "RA",
+        "DEC",
+        "Ra",
+        "Dec",
+        "X",
+        "Y",
+        "ID",
+        "iD",
+        "Id",
+        "A",
+        "B",
+        "THETA",
+        "Theta",
+    ]
 
     # make ra and dec lowercase for ease of access
-    raw_cols = list(
-        map(
-            lambda s: s.lower() if s in change_case else s,
-            raw_line.strip().split(catalog_delim),
-        )
-    )
+    raw_cols = list(map(lambda s: s.lower() if s in change_case else s, raw_col_vals,))
 
     # if header line starts with a '#' exclude it
     if raw_cols[0] == "#":
@@ -597,9 +615,11 @@ def line_to_cols(catalog_delim: str, raw_line: str):
 def line_to_json(
     wcs: WCS,
     columns: List[str],
-    catalog_delim: str,
-    max_dim: Tuple[int, int],
-    src_line: str,
+    rows_per_col: int,
+    catalog_img_ext: str,  # Set to None if no images otherwise png/jpg
+    catalog_assets_path: str,
+    catalog_img_path: str,
+    src_vals: str,
 ):
     """Transform a raw text line attribute values into a JSON marker
 
@@ -609,8 +629,6 @@ def line_to_json(
     Returns:
         A list of the column names in order
     """
-    src_vals = src_line.strip().split(catalog_delim)
-
     src_id = str(src_vals[columns.index("id")])
     if "x" in columns and "y" in columns:
         img_x = float(src_vals[columns.index("x")])
@@ -621,30 +639,128 @@ def line_to_json(
 
         [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
 
+    if "a" in columns and "b" in columns and "theta" in columns:
+        a = float(src_vals[columns.index("a")])
+        b = float(src_vals[columns.index("b")])
+        theta = float(src_vals[columns.index("theta")])
+    else:
+        a = -1
+        b = -1
+        theta = -1
+
     x = img_x
     y = img_y
 
     html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
     src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
 
-    src_desc = "".join(
+    table_pair = "<td><b>{}:<b></td><td>{}</td>"
+    table_items = list(map(lambda z: table_pair.format(*z), zip(columns, src_vals)))
+
+    longest_str = max(max(map(len, columns)), max(map(len, map(str, src_vals))))
+
+    # if there are more rows than rows per column then we need to append some
+    # items to previous items so that the table has mulitple columns
+    n_src_rows = len(src_rows)
+    if rows_per_col < n_src_rows:
+        n_cols = (n_src_rows // rows_per_col) + int((n_src_rows % rows_per_col) > 0)
+
+        def get_html_row(row_idx: int):
+            combined = "".join(
+                list(
+                    map(
+                        lambda t: t[1],
+                        filter(
+                            lambda i: i[0] % rows_per_col == row_idx,
+                            enumerate(table_items),
+                        ),
+                    )
+                )
+            )
+
+            return "<tr>" + combined + "</tr>"
+
+        html_rows = list(map(get_html_row, range(rows_per_col)))
+
+    else:
+        n_cols = 1
+        html_rows = ["<tr>" + t + "</tr>" for t in table_items]
+        pass
+
+    # Every pair is two columns
+    col_width = 100 / (2 * n_cols)
+
+    css = [
+        "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
+        "tr { line-height: 7pt; }",
+        "td { width: " + str(col_width) + "%; }",
+        "table { width: 100%; }",
+        "img { height: 50%; width: auto; }",
+    ]
+
+    src_img_path = os.path.join(catalog_img_path, f"{src_id}{catalog_img_ext}")
+    if os.path.exists(src_img_path):
+        to_f = os.path.join(catalog_assets_path, f"{src_id}{catalog_img_ext}")
+        shutil.copy(src_img_path, to_f)
+        include_img = True
+    else:
+        include_img = False
+
+    src_img = f"<img src='{src_id}{catalog_img_ext}'/>" if include_img else ""
+
+    src_desc = "\n".join(
         [
-            "<span style='text-decoration:underline; font-weight:bold'>Catalog Information</span>",
+            "<html>",
+            "<head>",
+            "<style>",
+            *css,
+            "</style>",
+            "</head>",
+            "<body>",
+            "<span>Catalog Information</span>",
             "<br>",
             "<table>",
-            *src_rows,
+            *html_rows,
             "</table>",
+            src_img,
+            "</body>",
+            "</html>",
         ]
     )
 
-    return dict(x=x, y=y, catalog_id=src_id, desc=src_desc)
+    src_html = os.path.join(catalog_assets_path, f"{src_id}.html")
+    with open(src_html, "w") as f:
+        f.write(src_desc)
+
+    return dict(
+        x=x,
+        y=y,
+        a=a,
+        b=b,
+        theta=theta,
+        catalog_id=src_id,
+        widest_col=longest_str,
+        n_rows=min(rows_per_col, n_src_rows),
+        n_cols=2 * n_cols,
+        include_img=include_img,
+        cat_path=os.path.basename(catalog_assets_path),
+    )
+
+
+def _simplify_mixed_ws(catalog_fname: str) -> None:
+    with open(catalog_fname, "r") as f:
+        lines = [l.strip() for l in f.readlines()]
+
+    with open(catalog_fname, "w") as f:
+        for line in lines:
+            f.write(" ".join([token.strip() for token in line.split()]) + "\n")
 
 
 def catalog_to_markers(
     wcs_file: str,
     out_dir: str,
     catalog_delim: str,
-    cat_bounds: Tuple[int, int],
+    rows_per_col: int,
     catalog_file: str,
     pbar_loc: int,
 ) -> None:
@@ -653,15 +769,28 @@ def catalog_to_markers(
     Args:
         wcs_file (str): path to fits file used to interpret catalog
         out_dir (str): path to save the json collection in
+        catalog_delim (str): delimiter to use when parsing catalog
         catalog_file (str): path to catalog file
         pbar_loc (int): the index to draw the tqdm bar in
 
     Returns:
         None
     """
-    f = open(catalog_file, "r")
+    _, fname = os.path.split(catalog_file)
+    out_location = os.path.join(out_dir, "js")
+    if os.path.exists(out_location) and get_marker_file_name(
+        catalog_file
+    ) in os.listdir(out_location):
+        print(f"{fname} already converted to js. Skipping conversion.")
+        return
 
-    columns = line_to_cols(catalog_delim, next(f))
+    if catalog_delim == MIXED_WHITESPACE_DELIMITER:
+        _simplify_mixed_ws(catalog_file)
+        catalog_delim = " "
+
+    f = open(catalog_file, "r", newline="")
+    csv_reader = csv.reader(f, delimiter=catalog_delim, skipinitialspace=True)
+    columns = line_to_cols(next(csv_reader))
 
     ra_dec_coords = "ra" in columns and "dec" in columns
     x_y_coords = "x" in columns and "y" in columns
@@ -681,18 +810,11 @@ def catalog_to_markers(
         )
         raise ValueError(err_msg)
 
-    dim0, dim1 = cat_bounds
-
-    pad_dim0 = max(dim1 - dim0, 0)
-    pad_dim1 = max(dim0 - dim1, 0)
-
     wcs = WCS(wcs_file) if wcs_file else None
-    line_func = partial(
-        line_to_json, wcs, columns, catalog_delim, [dim0 + pad_dim0, dim1 + pad_dim1]
-    )
 
-    js_safe_file_name = make_fname_js_safe(Path(catalog_file).stem)
-    cat_file = js_safe_file_name + ".cat.js"
+    cat_file_root = Path(catalog_file).stem
+    js_safe_file_name = make_fname_js_safe(cat_file_root) + "_cat_var"
+    cat_file = cat_file_root + ".cat.js"
 
     if "js" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "js"))
@@ -700,17 +822,44 @@ def catalog_to_markers(
     if "css" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "css"))
 
+    catalog_assets_parent_path = os.path.join(out_dir, "catalog_assets")
+    if "catalog_assets" not in os.listdir(out_dir):
+        os.mkdir(catalog_assets_parent_path)
+
+    catalog_assets_path = os.path.join(catalog_assets_parent_path, cat_file_root)
+    if cat_file_root not in os.listdir(catalog_assets_parent_path):
+        os.mkdir(catalog_assets_path)
+
+    catalog_img_path = os.path.join(
+        os.path.dirname(catalog_file), cat_file_root + "_images"
+    )
+
+    if not os.path.exists(catalog_img_path) or len(os.listdir(catalog_img_path)) == 0:
+        img_ext = None
+    else:
+        img_ext = os.path.splitext(os.listdir(catalog_img_path)[0])[1]
+
+    line_func = partial(
+        line_to_json,
+        wcs,
+        columns,
+        rows_per_col,
+        img_ext,
+        catalog_assets_path,
+        catalog_img_path,
+    )
+
     json_markers_file = os.path.join(out_dir, "js", cat_file)
     with open(json_markers_file, "w") as j:
-        j.write("var " + cat_file.replace(".cat.js", "_cat_var") + " = ")
+        j.write("var " + js_safe_file_name + " = ")
         json.dump(
             list(
                 map(
                     line_func,
                     tqdm(
-                        f,
+                        csv_reader,
                         position=pbar_loc,
-                        desc="Converting " + cat_file,
+                        desc="Converting " + catalog_file,
                         disable=bool(os.getenv("DISBALE_TQDM", False)),
                     ),
                 )
@@ -750,10 +899,11 @@ def files_to_map(
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
-    catalog_delim: str = None,
+    catalog_delim: str = ",",
     cat_wcs_fits_file: str = None,
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    rows_per_column: int = np.inf,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -812,23 +962,12 @@ def files_to_map(
     marker_file_names = list(map(get_marker_file_name, cat_files))
 
     if len(cat_files) > 0:
-        cat_delim = (
-            None
-            if (bool(catalog_delim) and catalog_delim in string.whitespace)
-            else catalog_delim
-        )
-
-        if cat_wcs_fits_file is None or img_files[0].endswith(("png", "jpg")):
-            with Image.open(img_files[0]) as im:
-                width, height = im.size
-            cat_bounds = height, width
-        else:
-            check_file = cat_wcs_fits_file if cat_wcs_fits_file else img_files[0]
-            header = fits.getheader(cat_wcs_fits_file)
-            cat_bounds = header["NAXIS2"], header["NAXIS1"]
-
         cat_job_f = partial(
-            catalog_to_markers, cat_wcs_fits_file, out_dir, cat_delim, cat_bounds
+            catalog_to_markers,
+            cat_wcs_fits_file,
+            out_dir,
+            catalog_delim,
+            rows_per_column,
         )
     else:
         cat_job_f = None
@@ -864,10 +1003,11 @@ def dir_to_map(
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
-    catalog_delim: str = None,
+    catalog_delim: str = ",",
     cat_wcs_fits_file: str = None,
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    rows_per_column: int = np.inf,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -887,8 +1027,8 @@ def dir_to_map(
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
-        catalog_delim (str): The delimited for catalog (.cat) files. Deault is
-                             whitespace.
+        catalog_delim (str): The delimiter for catalog (.cat) files. Deault is
+                             comma.
         cat_wcs_fits_file (str): A fits file that has the WCS that will be used
                                  to map ra and dec coordinates from the catalog
                                  files to x and y coordinates in the map. Note,
@@ -904,6 +1044,12 @@ def dir_to_map(
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
                             overall array.
+        rows_per_column (int): If converting a catalog, the number of items in
+                               have in each column of the marker popup.
+                               By default produces all values in a single
+                               column. Setting this value can make it easier to
+                               work with catalogs that have a lot of values for
+                               each object.
     Returns:
         None
 
@@ -935,4 +1081,5 @@ def dir_to_map(
         cat_wcs_fits_file=cat_wcs_fits_file,
         tile_size=tile_size,
         image_engine=image_engine,
+        rows_per_column=rows_per_column,
     )

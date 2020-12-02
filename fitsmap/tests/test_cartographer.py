@@ -21,6 +21,7 @@
 
 import filecmp
 import os
+import py
 
 import pytest
 
@@ -68,7 +69,7 @@ def test_layer_dict_to_str():
 
     expected_str = "".join(
         [
-            "   var " + layer_dict["name"],
+            "    var " + layer_dict["name"],
             ' = L.tileLayer("' + layer_dict["directory"] + '"',
             ", { ",
             'attribution:"'
@@ -103,7 +104,7 @@ def test_layers_dict_to_base_layer_js():
     acutal_base_layers = c.layers_dict_to_base_layer_js([layer_dict])
 
     expected_base_layers = "\n".join(
-        ["   var baseLayers = {", '      "{0}": {0},'.format(name), "   };",]
+        ["    var baseLayers = {", '        "{0}": {0},'.format(name), "    };",]
     )
 
     assert expected_base_layers == acutal_base_layers
@@ -117,14 +118,14 @@ def test_layer_names_to_layer_control_full():
 
     expected_layer_control = "\n".join(
         [
-            "   var overlays = {}",
+            "    var overlays = {}",
             "",
-            "   for(i = 0; i < markers.length; i++) {",
-            "      overlays[labels[i]] = markers[i];",
-            "   }",
+            "    for(i = 0; i < markers.length; i++) {",
+            "        overlays[labels[i]] = markers[i];",
+            "    }",
             "",
-            "   var layerControl = L.control.layers(baseLayers, overlays);",
-            "   layerControl.addTo(map);",
+            "    var layerControl = L.control.layers(baseLayers, overlays);",
+            "    layerControl.addTo(map);",
         ]
     )
 
@@ -137,7 +138,7 @@ def test_layer_names_to_layer_control_empty():
 
     actual_layer_control = c.layer_names_to_layer_control([])
 
-    expected_layer_control = "   L.control.layers(baseLayers, {}).addTo(map);"
+    expected_layer_control = "    L.control.layers(baseLayers, {}).addTo(map);"
 
     assert expected_layer_control == actual_layer_control
 
@@ -147,18 +148,18 @@ def test_colors_js():
     """test cartographer.colors_js"""
     expected = "\n".join(
         [
-            "   let colors = [",
-            '      "#4C72B0",',
-            '      "#DD8452",',
-            '      "#55A868",',
-            '      "#C44E52",',
-            '      "#8172B3",',
-            '      "#937860",',
-            '      "#DA8BC3",',
-            '      "#8C8C8C",',
-            '      "#CCB974",',
-            '      "#64B5CD",',
-            "   ];",
+            "    let colors = [",
+            '        "#4C72B0",',
+            '        "#DD8452",',
+            '        "#55A868",',
+            '        "#C44E52",',
+            '        "#8172B3",',
+            '        "#937860",',
+            '        "#DA8BC3",',
+            '        "#8C8C8C",',
+            '        "#CCB974",',
+            '        "#64B5CD",',
+            "    ];",
         ]
     )
 
@@ -185,12 +186,12 @@ def test_leaflet_map_js():
 
     expected_map_js = "\n".join(
         [
-            '   var map = L.map("map", {',
-            "      crs: L.CRS.FitsMap,",
-            "      zoom: " + str(min_zoom) + ",",
-            "      minZoom: " + str(min_zoom) + ",",
-            "      center:[-126, 126],",
-            "   });",
+            '    var map = L.map("map", {',
+            "        crs: L.CRS.FitsMap,",
+            "        zoom: " + str(min_zoom) + ",",
+            "        minZoom: " + str(min_zoom) + ",",
+            "        center:[-126, 126],",
+            "    });",
         ]
     )
 
@@ -207,51 +208,69 @@ def test_markers_to_js():
 
     expected_marker_js = "\n".join(
         [
-            "   var markers = [",
-            "      L.markerClusterGroup({ }),",
-            "   ];",
+            "    var markers = [",
+            "        L.markerClusterGroup({ }),",
+            "    ];",
             "",
-            "   var markerList = [",
-            "      [],",
-            "   ];",
+            "    var markerList = [",
+            "        [],",
+            "    ];",
             "",
-            "   var collections = [",
-            "      test_cat_var,",
-            "   ];",
+            "    var collections = [",
+            "        test_cat_var,",
+            "    ];",
             "",
-            "   var labels = [",
-            "      'test',",
-            "   ];",
+            "    var labels = [",
+            "        'test',",
+            "    ];",
             "",
-            "   let colors = [",
-            '      "#4C72B0",',
-            '      "#DD8452",',
-            '      "#55A868",',
-            '      "#C44E52",',
-            '      "#8172B3",',
-            '      "#937860",',
-            '      "#DA8BC3",',
-            '      "#8C8C8C",',
-            '      "#CCB974",',
-            '      "#64B5CD",',
-            "   ];",
+            "    let colors = [",
+            '        "#4C72B0",',
+            '        "#DD8452",',
+            '        "#55A868",',
+            '        "#C44E52",',
+            '        "#8172B3",',
+            '        "#937860",',
+            '        "#DA8BC3",',
+            '        "#8C8C8C",',
+            '        "#CCB974",',
+            '        "#64B5CD",',
+            "    ];",
             "",
-            "   for (i = 0; i < collections.length; i++){",
-            "      collection = collections[i];",
+            "    for (i = 0; i < collections.length; i++){",
+            "        collection = collections[i];",
             "",
-            "      for (j = 0; j < collection.length; j++){",
-            "         src = collection[j];",
+            "        for (j = 0; j < collection.length; j++){",
+            "            src = collection[j];",
             "",
-            "         markerList[i].push(L.circleMarker([src.y, src.x], {",
-            "            catalog_id: labels[i] + ':' + src.catalog_id + ':',",
-            "            color: colors[i % colors.length]",
-            "         }).bindPopup(src.desc))",
-            "      }",
-            "   }",
+            "            var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';",
+            "            var include_img = src.include_img ? 2 : 1;",
+            "            var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';",
             "",
-            "   for (i = 0; i < collections.length; i++){",
-            "      markers[i].addLayers(markerList[i]);",
-            "   }",
+            '            let p = L.popup({ maxWidth: "auto" })',
+            "                     .setLatLng([src.y, src.x])",
+            '                     .setContent("<iframe src=\'catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html\' width=\'" + width + "\' height=\'" + height + "\'></iframe>");',
+            "",
+            "            let marker;",
+            "            if (src.a==-1){",
+            "                marker = L.circleMarker([src.y, src.x], {",
+            "                    catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+            "                    color: colors[i % colors.length]",
+            "                }).bindPopup(p);",
+            "            } else {",
+            "                marker = L.ellipse([src.y, src.x], [src.a, src.b], (src.theta * (180/Math.PI) * -1), {",
+            "                    catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+            "                    color: colors[i % colors.length]",
+            "                }).bindPopup(p);",
+            "            }",
+            "",
+            "            markerList[i].push(marker);",
+            "        }",
+            "    }",
+            "",
+            "    for (i = 0; i < collections.length; i++){",
+            "        markers[i].addLayers(markerList[i]);",
+            "    }",
         ]
     )
 
@@ -268,9 +287,9 @@ def test_build_conditional_css():
 
     expected_css = "\n".join(
         [
-            "   <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>",
-            "   <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>",
-            "   <link rel='stylesheet' href='css/MarkerCluster.css'/>",
+            "    <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>",
+            "    <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>",
+            "    <link rel='stylesheet' href='css/MarkerCluster.css'/>",
         ]
     )
 
@@ -283,17 +302,22 @@ def test_build_conditional_css():
 def test_build_conditional_js():
     """test cartographer.build_conditional_js"""
 
+    helpers.setup()
+
     test_file = "test.js"
 
-    acutal_js = c.build_conditional_js([test_file])
+    acutal_js = c.build_conditional_js(helpers.TEST_PATH, [test_file])
 
     expected_js = "\n".join(
         [
-            "   <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
-            "   <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
-            "   <script src='js/test.js'></script>",
+            "    <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
+            "    <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
+            "    <script src='js/test.js'></script>",
+            "    <script src='js/l.ellipse.min.js'></script>",
         ]
     )
+
+    helpers.tear_down()
 
     assert expected_js == acutal_js
 
