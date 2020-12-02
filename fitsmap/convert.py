@@ -769,6 +769,7 @@ def catalog_to_markers(
     Args:
         wcs_file (str): path to fits file used to interpret catalog
         out_dir (str): path to save the json collection in
+        catalog_delim (str): delimiter to use when parsing catalog
         catalog_file (str): path to catalog file
         pbar_loc (int): the index to draw the tqdm bar in
 
@@ -1026,8 +1027,8 @@ def dir_to_map(
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
-        catalog_delim (str): The delimited for catalog (.cat) files. Deault is
-                             whitespace.
+        catalog_delim (str): The delimiter for catalog (.cat) files. Deault is
+                             comma.
         cat_wcs_fits_file (str): A fits file that has the WCS that will be used
                                  to map ra and dec coordinates from the catalog
                                  files to x and y coordinates in the map. Note,

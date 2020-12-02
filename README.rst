@@ -140,6 +140,25 @@ The settings for parallelization are set using the following keyword arguments:
   time.
 - ``task_procs``: How many tiles to generate in parallel
 
+Note that if you use parallelization you need to wrap your code like so:
+
+.. code-block::python
+
+    from fitsmap import convert
+
+    if __name__=="__main__:
+        convert.dir_to_map.(
+            "path/to/data",
+            out_dir="path/to/data/map",
+            cat_wcs_fits_file="path/to/header_file.fits",
+            proces_per_task=2,
+            task_procs=2
+        )
+
+For an explanation on why this is necessary, see the
+`Python Programming Guidelines
+<https://docs.python.org/3/library/multiprocessing.html#multiprocessing-programming>`_
+
 You can use both keyword arguments at the same time, but keep in mind the
 number of cpus available. For example, if ``procs_per_task=2`` amd
 ``task_procs=2`` then that will generate 6 new processes, 2 new processes for
@@ -176,18 +195,22 @@ will be converted into transparent pixels.
 Notes on Catalog Conversion
 +++++++++++++++++++++++++++
 
-Catalogs should be whitespace delimited text files with the first line
+Catalogs should be delimited text files with the first line
 containing the column names, and the following lines containing values.
 Catalogs need to have an ``id`` column with a unique value for each row. It
 also needs to have coordinates for each source, which can be one of the
 following pairs of columns (``ra``/``dec``) or (``x``/``y``).
 
-All of the columns/values for each source will be stored in the description for
-object and will show up when the marker is clicked. As a consequence,
-having many columns will cause the following:
-
-- Very large pop-up descriptions when a marker is clicked.
-- Slower web page loading times due to the json marker file being larger.
+Some catalogs have many coluns for each row, which will create very tall
+pop-ups when the markers are clicked. To avoid this, you can pass an integer
+value using ``rows_per_column`` to either |dir_to_map| or |files_to_map|.
+This will break the information into ``rows_per_column`` sized columns.
+Further, you can associate an images with each entry in the catalog by adding
+a directory to the same directory as the catalog that is named as the following
+``{catalog_name}_images``. In this directory there should be images that are
+named according to the id in the catalog. If they are present there, they will
+be copied into the output directory and will be shown in the popup for each
+marker according to its value in the ``id`` column.
 
 ----
 
