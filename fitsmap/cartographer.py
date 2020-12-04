@@ -309,7 +309,7 @@ def build_conditional_css(out_dir: str) -> str:
     out_css_dir = os.path.join(out_dir, "css")
 
     local_css_files = list(
-        filter(lambda f: os.path.splitext(f)[1] == ".css", os.listdir(support_dir))
+        filter(lambda f: os.path.splitext(f)[1] == ".css", sorted(os.listdir(support_dir)))
     )
 
     if not os.path.exists(out_css_dir):
