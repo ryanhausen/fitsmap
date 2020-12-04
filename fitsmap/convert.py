@@ -637,12 +637,18 @@ def line_to_json(
         ra = float(src_vals[columns.index("ra")])
         dec = float(src_vals[columns.index("dec")])
 
-        [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 0)
+        [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 1)
 
     if "a" in columns and "b" in columns and "theta" in columns:
         a = float(src_vals[columns.index("a")])
         b = float(src_vals[columns.index("b")])
+        if np.isnan(b):
+            b = a
+
         theta = float(src_vals[columns.index("theta")])
+        if np.isnan(theta):
+            theta = 0
+
     else:
         a = -1
         b = -1

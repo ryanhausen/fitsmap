@@ -215,7 +215,8 @@ def leaflet_map_js(tile_layers: List[dict]):
         "        crs: L.CRS.FitsMap,",
         "        zoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
         "        minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
-        "        center:[-126, 126],",
+        "        center: [-126, 126],",
+        "        preferCanvas: true,",
         "    });",
     ]
 

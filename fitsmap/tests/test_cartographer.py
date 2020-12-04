@@ -190,7 +190,8 @@ def test_leaflet_map_js():
             "        crs: L.CRS.FitsMap,",
             "        zoom: " + str(min_zoom) + ",",
             "        minZoom: " + str(min_zoom) + ",",
-            "        center:[-126, 126],",
+            "        center: [-126, 126],",
+            "        preferCanvas: true,",
             "    });",
         ]
     )
@@ -290,6 +291,7 @@ def test_build_conditional_css():
             "    <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>",
             "    <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>",
             "    <link rel='stylesheet' href='css/MarkerCluster.css'/>",
+            "    <link rel='stylesheet' href='css/TileNearestNeighbor.css'/>",
         ]
     )
 
