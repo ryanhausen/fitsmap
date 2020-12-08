@@ -1,2 +1,5 @@
 include fitsmap/support/MarkerCluster.css
 include fitsmap/support/MarkerCluster.Default.css
+include fitsmap/support/TileNearestNeighbor.css
+include fitsmap/support/l.ellipse.min.js
+include fitsmap/support/l.ellipse.js.txt
