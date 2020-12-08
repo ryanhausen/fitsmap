@@ -32,8 +32,6 @@ from itertools import repeat
 from functools import partial, reduce
 from typing import List
 
-import fitsmap.convert as convert
-
 MARKER_SEARCH_JS = "\n".join(
     [
         "    var marker_layers = L.layerGroup(markers);",
