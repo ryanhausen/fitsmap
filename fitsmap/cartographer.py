@@ -27,6 +27,7 @@
 
 import os
 import shutil
+import string
 from itertools import repeat
 from functools import partial, reduce
 from typing import List
@@ -66,7 +67,10 @@ LAYER_ATTRIBUTION = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>
 
 
 def chart(
-    out_dir: str, title: str, map_layer_names: List[str], marker_file_names: List[str],
+    out_dir: str,
+    title: str,
+    map_layer_names: List[str],
+    marker_file_names: List[str],
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -243,7 +247,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         *list(
             map(
                 lambda s: "        "
-                + convert.make_fname_js_safe(s.replace(".cat.js", "_cat_var"))
+                + make_fname_js_safe(s.replace(".cat.js", "_cat_var"))
                 + ",",
                 marker_file_names,
             )
@@ -399,3 +403,39 @@ def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
     ]
 
     return "\n".join(html)
+
+
+def digit_to_string(digit: int) -> str:
+    if digit == 0:
+        return "zero"
+    elif digit == 1:
+        return "one"
+    elif digit == 2:
+        return "two"
+    elif digit == 3:
+        return "three"
+    elif digit == 4:
+        return "four"
+    elif digit == 5:
+        return "five"
+    elif digit == 6:
+        return "six"
+    elif digit == 7:
+        return "seven"
+    elif digit == 8:
+        return "eight"
+    elif digit == 9:
+        return "nine"
+    else:
+        raise ValueError("Only digits 0-9 are supported")
+
+
+def make_fname_js_safe(fname: str) -> str:
+    """Converts a string filename to a javascript safe identifier."""
+
+    if fname[0] in string.digits:
+        adj_for_digit = digit_to_string(int(fname[0])) + fname[1:]
+    else:
+        adj_for_digit = fname
+
+    return adj_for_digit.replace(".", "_dot_").replace("-", "_")

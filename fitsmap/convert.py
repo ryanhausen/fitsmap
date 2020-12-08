@@ -603,7 +603,12 @@ def line_to_cols(raw_col_vals: str):
     ]
 
     # make ra and dec lowercase for ease of access
-    raw_cols = list(map(lambda s: s.lower() if s in change_case else s, raw_col_vals,))
+    raw_cols = list(
+        map(
+            lambda s: s.lower() if s in change_case else s,
+            raw_col_vals,
+        )
+    )
 
     # if header line starts with a '#' exclude it
     if raw_cols[0] == "#":
@@ -1067,7 +1072,10 @@ def dir_to_map(
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
-            filterfalse(exclude_predicate, os.listdir(directory),),
+            filterfalse(
+                exclude_predicate,
+                os.listdir(directory),
+            ),
         )
     )
 

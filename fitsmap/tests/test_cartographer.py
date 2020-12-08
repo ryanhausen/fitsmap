@@ -104,7 +104,11 @@ def test_layers_dict_to_base_layer_js():
     acutal_base_layers = c.layers_dict_to_base_layer_js([layer_dict])
 
     expected_base_layers = "\n".join(
-        ["    var baseLayers = {", '        "{0}": {0},'.format(name), "    };",]
+        [
+            "    var baseLayers = {",
+            '        "{0}": {0},'.format(name),
+            "    };",
+        ]
     )
 
     assert expected_base_layers == acutal_base_layers
