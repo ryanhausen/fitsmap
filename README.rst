@@ -19,8 +19,8 @@ FitsMap
 .. image:: https://codecov.io/gh/ryanhausen/fitsmap/branch/master/graph/badge.svg
     :target: https://codecov.io/gh/ryanhausen/fitsmap/
 
-.. image:: https://img.shields.io/badge/python-3.6-blue.svg
-    :target: https://www.python.org/downloads/release/python-360/
+.. image:: https://img.shields.io/badge/python-3.7-blue.svg
+    :target: https://www.python.org/downloads/release/python-370/
 
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/ambv/black
@@ -199,7 +199,9 @@ Catalogs should be delimited text files with the first line
 containing the column names, and the following lines containing values.
 Catalogs need to have an ``id`` column with a unique value for each row. It
 also needs to have coordinates for each source, which can be one of the
-following pairs of columns (``ra``/``dec``) or (``x``/``y``).
+following pairs of columns (``ra``/``dec``) or (``x``/``y``). **Note fitsmap
+assumes that the origin of the image starts at (1,1), which is a common
+convention in catalogs.**
 
 Some catalogs have many coluns for each row, which will create very tall
 pop-ups when the markers are clicked. To avoid this, you can pass an integer

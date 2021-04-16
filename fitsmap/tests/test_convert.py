@@ -36,6 +36,7 @@ import fitsmap.tests.helpers as helpers
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_build_path():
     """Test the convert.build_path function"""
     z, y, x = 1, 2, 3
@@ -50,6 +51,7 @@ def test_build_path():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_make_fname_js_safe_digit():
     """Test the convert.make_fname_js_safe functions."""
 
@@ -60,6 +62,7 @@ def test_make_fname_js_safe_digit():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_make_fname_js_safe_dot_dash():
     """Test the convert.make_fname_js_safe functions."""
 
@@ -70,6 +73,7 @@ def test_make_fname_js_safe_dot_dash():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_make_fname_js_safe_no_change():
     """Test the convert.make_fname_js_safe functions."""
 
@@ -80,6 +84,7 @@ def test_make_fname_js_safe_no_change():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_digit_to_string():
     """Test the convert.digit_to_string function"""
     digits = range(10)
@@ -101,6 +106,7 @@ def test_digit_to_string():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_slice_idx_generator_z0():
     """Test convert.slice_idx_generator at zoom level 0.
 
@@ -120,6 +126,7 @@ def test_slice_idx_generator_z0():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_slice_idx_generator_z1():
     """Test convert.slice_idx_generator at zoom level 1.
 
@@ -139,6 +146,7 @@ def test_slice_idx_generator_z1():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_slice_idx_generator_z2():
     """Test convert.slice_idx_generator at zoom level 2.
 
@@ -158,6 +166,7 @@ def test_slice_idx_generator_z2():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_slice_idx_generator_z3():
     """Test convert.slice_idx_generator at zoom level 3.
 
@@ -177,6 +186,7 @@ def test_slice_idx_generator_z3():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_slice_idx_generator_z4():
     """Test convert.slice_idx_generator at zoom level 4.
 
@@ -196,6 +206,7 @@ def test_slice_idx_generator_z4():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_slice_idx_generator_z5():
     """Test convert.slice_idx_generator at zoom level 5.
 
@@ -215,6 +226,7 @@ def test_slice_idx_generator_z5():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_balance_array_2d():
     """Test convert.balance_array"""
 
@@ -231,6 +243,7 @@ def test_balance_array_2d():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_balance_array_3d():
     """Test convert.balance_array"""
 
@@ -247,6 +260,7 @@ def test_balance_array_3d():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_get_array_fits():
     """Test convert.get_array"""
 
@@ -269,6 +283,7 @@ def test_get_array_fits():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_get_array_png():
     """Test convert.get_array"""
 
@@ -288,6 +303,7 @@ def test_get_array_png():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_filter_on_extension_without_predicate():
     """Test convert.filter_on_extension without a predicate argument"""
 
@@ -302,6 +318,7 @@ def test_filter_on_extension_without_predicate():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_filter_on_extension_with_predicate():
     """Test convert.filter_on_extension with a predicate argument"""
 
@@ -317,6 +334,7 @@ def test_filter_on_extension_with_predicate():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_make_dirs():
     """Test convert.make_dirs"""
 
@@ -343,6 +361,7 @@ def test_make_dirs():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_get_zoom_range():
     """Test convert.get_zoom_range"""
 
@@ -359,6 +378,7 @@ def test_get_zoom_range():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_get_total_tiles():
     """Test convert.get_total_tiles"""
 
@@ -370,6 +390,7 @@ def test_get_total_tiles():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_get_map_layer_name():
     """Test convert.get_map_layer_name"""
 
@@ -382,6 +403,7 @@ def test_get_map_layer_name():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_get_marker_file_name():
     """Test convert.get_marker_file_names"""
 
@@ -394,6 +416,7 @@ def test_get_marker_file_name():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_line_to_cols():
     """Test convert.line_to_cols"""
 
@@ -406,8 +429,8 @@ def test_line_to_cols():
 
     assert expected_cols == actual_cols
 
-
 @pytest.mark.unit
+@pytest.mark.convert
 def test_line_to_cols_with_hash():
     """Test convert.line_to_cols"""
 
@@ -422,6 +445,7 @@ def test_line_to_cols_with_hash():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_line_to_json_xy():
     """Test convert.line_to_json with x/y"""
 
@@ -437,8 +461,8 @@ def test_line_to_json_xy():
     in_line = ["1", "10", "20", "abc", "123"]
 
     expected_json = dict(
-        x=10,
-        y=20,
+        x=9.5,
+        y=19.5,
         a=-1,
         b=-1,
         theta=-1,
@@ -466,6 +490,7 @@ def test_line_to_json_xy():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_line_to_json_ra_dec():
     """Test convert.line_to_json with ra/dec"""
@@ -482,8 +507,8 @@ def test_line_to_json_ra_dec():
     in_line = ["1", "53.18575", "-27.898664", "abc", "123"]
 
     expected_json = dict(
-        x=290.37867109328727,
-        y=301.7526406693396,
+        x=289.87867109328727,
+        y=301.2526406693396,
         a=-1,
         b=-1,
         theta=-1,
@@ -511,6 +536,7 @@ def test_line_to_json_ra_dec():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_async_worker_completes():
     """Test convert.async_worker"""
 
@@ -523,6 +549,7 @@ def test_async_worker_completes():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_make_tile_mpl():
     """Test convert.make_tile_mpl"""
     helpers.setup()
@@ -547,6 +574,7 @@ def test_make_tile_mpl():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_catalog_to_markers_xy():
     """Test convert.catalog_to_markers using xy coords"""
@@ -579,6 +607,7 @@ def test_catalog_to_markers_xy():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_catalog_to_markers_radec():
     """Test convert.catalog_to_markers using xy coords"""
@@ -610,6 +639,7 @@ def test_catalog_to_markers_radec():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_catalog_to_markers_fails():
     """Test convert.catalog_to_markers using xy coords"""
@@ -635,6 +665,7 @@ def test_catalog_to_markers_fails():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_tile_img_pil_serial():
     """Test convert.tile_img"""
     helpers.disbale_tqdm()
@@ -664,8 +695,8 @@ def test_tile_img_pil_serial():
 
     assert dirs_match
 
-
 @pytest.mark.unit
+@pytest.mark.convert
 def test_tile_img_mpl_serial():
     """Test convert.tile_img"""
     helpers.disbale_tqdm()
@@ -697,6 +728,7 @@ def test_tile_img_mpl_serial():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_tile_img_pil_parallel():
     """Test convert.tile_img"""
     helpers.disbale_tqdm()
@@ -729,6 +761,7 @@ def test_tile_img_pil_parallel():
 
 
 @pytest.mark.unit
+@pytest.mark.convert
 def test_tile_img_mpl_parallel():
     """Test convert.tile_img"""
     helpers.disbale_tqdm()
@@ -761,6 +794,7 @@ def test_tile_img_mpl_parallel():
 
 
 @pytest.mark.integration
+@pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_files_to_map():
     """Integration test for making files into map"""
@@ -784,13 +818,14 @@ def test_files_to_map():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    helpers.tear_down()
-    helpers.enable_tqdm()
+    # helpers.tear_down()
+    # helpers.enable_tqdm()
 
     assert dirs_match
 
 
 @pytest.mark.integration
+@pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_files_to_map_fails():
     """Integration test for making files into map"""

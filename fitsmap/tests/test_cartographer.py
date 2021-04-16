@@ -30,6 +30,7 @@ import fitsmap.tests.helpers as helpers
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_layer_name_to_dict():
     """test cartographer.layer_name_to_dict"""
     min_zoom = 0
@@ -50,6 +51,7 @@ def test_layer_name_to_dict():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_layer_dict_to_str():
     """test cartographer.layer_dict_to_str"""
 
@@ -86,6 +88,7 @@ def test_layer_dict_to_str():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_layers_dict_to_base_layer_js():
     """Test cartographer.layers_dict_to_base_layer_js"""
 
@@ -115,6 +118,7 @@ def test_layers_dict_to_base_layer_js():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_layer_names_to_layer_control_full():
     """test cartographer.layers_dict_to_layer_control with entries"""
 
@@ -137,6 +141,7 @@ def test_layer_names_to_layer_control_full():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_layer_names_to_layer_control_empty():
     """test cartographer.layers_dict_to_layer_control without entries"""
 
@@ -148,6 +153,7 @@ def test_layer_names_to_layer_control_empty():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_colors_js():
     """test cartographer.colors_js"""
     expected = "\n".join(
@@ -171,6 +177,7 @@ def test_colors_js():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_leaflet_map_js():
     """test cartographer.leaflet_map_js"""
 
@@ -204,6 +211,7 @@ def test_leaflet_map_js():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_markers_to_js():
     """test cartographer.markers_to_js"""
 
@@ -283,6 +291,7 @@ def test_markers_to_js():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_build_conditional_css():
     """test cartographer.build_conditional_css"""
 
@@ -305,6 +314,7 @@ def test_build_conditional_css():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_build_conditional_js():
     """test cartographer.build_conditional_js"""
 
@@ -329,6 +339,7 @@ def test_build_conditional_js():
 
 
 @pytest.mark.unit
+@pytest.mark.cartographer
 def test_build_html():
     """test cartographer.build_html"""
 
@@ -377,6 +388,7 @@ def test_build_html():
 
 
 @pytest.mark.integration
+@pytest.mark.cartographer
 def test_chart():
     """test cartographer.chart"""
 

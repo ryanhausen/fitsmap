@@ -20,6 +20,7 @@
 
 """Converts image files and catalogs into a leafletJS map."""
 
+import copy
 import csv
 import json
 import os
@@ -345,12 +346,11 @@ def make_tile_mpl(
             img_path,
             dpi=256,
             bbox_inches=0,
-            interpolation="nearest",
             facecolor=(0, 0, 0, 0),
         )
     else:
         if len(array.shape) == 2:
-            cmap = mpl.cm.get_cmap(MPL_CMAP)
+            cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
             cmap.set_bad(color=(0, 0, 0, 0))
 
             img_kwargs = dict(
@@ -391,7 +391,6 @@ def make_tile_mpl(
             img_path,
             dpi=256,
             bbox_inches=0,
-            interpolation="nearest",
             facecolor=(0, 0, 0, 0),
         )
 
@@ -642,6 +641,7 @@ def line_to_json(
         ra = float(src_vals[columns.index("ra")])
         dec = float(src_vals[columns.index("dec")])
 
+        # We assume the origins of the images for catalog conversion start at (1,1).
         [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 1)
 
     if "a" in columns and "b" in columns and "theta" in columns:
@@ -659,8 +659,14 @@ def line_to_json(
         b = -1
         theta = -1
 
-    x = img_x
-    y = img_y
+
+    # The default catalog convention is that the lower left corner is (1, 1)
+    # The default leaflet convention is that the lower left corner is (0, 0)
+    # The convention for leaflet is to place markers at the lower left corner
+    # of a pixel, to center the marker on the pixel, we subtract 1 to bring it
+    # to leaflet convention and add 0.5 to move it to the center of the pixel.
+    x = (img_x - 1) + 0.5
+    y = (img_y - 1) + 0.5
 
     html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
     src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))

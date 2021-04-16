@@ -1,7 +1,7 @@
 var test_catalog_xy_cat_var = [
   {
-    "x": 290.0,
-    "y": 301.0,
+    "x": 289.5,
+    "y": 300.5,
     "a": -1,
     "b": -1,
     "theta": -1,
@@ -13,8 +13,8 @@ var test_catalog_xy_cat_var = [
     "cat_path": "test_catalog_xy"
   },
   {
-    "x": 357.0,
-    "y": 284.0,
+    "x": 356.5,
+    "y": 283.5,
     "a": -1,
     "b": -1,
     "theta": -1,
@@ -26,8 +26,8 @@ var test_catalog_xy_cat_var = [
     "cat_path": "test_catalog_xy"
   },
   {
-    "x": 384.0,
-    "y": 230.0,
+    "x": 383.5,
+    "y": 229.5,
     "a": -1,
     "b": -1,
     "theta": -1,
@@ -39,8 +39,8 @@ var test_catalog_xy_cat_var = [
     "cat_path": "test_catalog_xy"
   },
   {
-    "x": 345.0,
-    "y": 204.0,
+    "x": 344.5,
+    "y": 203.5,
     "a": -1,
     "b": -1,
     "theta": -1,
@@ -52,8 +52,8 @@ var test_catalog_xy_cat_var = [
     "cat_path": "test_catalog_xy"
   },
   {
-    "x": 418.0,
-    "y": 180.0,
+    "x": 417.5,
+    "y": 179.5,
     "a": -1,
     "b": -1,
     "theta": -1,
@@ -65,8 +65,8 @@ var test_catalog_xy_cat_var = [
     "cat_path": "test_catalog_xy"
   },
   {
-    "x": 306.0,
-    "y": 120.0,
+    "x": 305.5,
+    "y": 119.5,
     "a": -1,
     "b": -1,
     "theta": -1,
@@ -78,8 +78,8 @@ var test_catalog_xy_cat_var = [
     "cat_path": "test_catalog_xy"
   },
   {
-    "x": 529.0,
-    "y": 133.0,
+    "x": 528.5,
+    "y": 132.5,
     "a": -1,
     "b": -1,
     "theta": -1,
@@ -91,8 +91,8 @@ var test_catalog_xy_cat_var = [
     "cat_path": "test_catalog_xy"
   },
   {
-    "x": 454.0,
-    "y": 79.0,
+    "x": 453.5,
+    "y": 78.5,
     "a": -1,
     "b": -1,
     "theta": -1,
