@@ -34,6 +34,7 @@ from typing import List
 
 MARKER_SEARCH_JS = "\n".join(
     [
+        "// search function =========================================================",
         "    var marker_layers = L.layerGroup(markers);",
         "",
         "    function searchHelp(e) {",
@@ -50,14 +51,8 @@ MARKER_SEARCH_JS = "\n".join(
         "    });",
         "",
         "    searchBar.on('search:locationfound', searchHelp);",
-        "",
         "    searchBar.addTo(map);",
-        "",
-        "    // hack for turning off markers at start. Throws exception but doesn't",
-        "    // crash page. This should be updated when I understand this library better",
-        "    for (l of markers){",
-        "        l.remove()",
-        "    }",
+        "// =========================================================================",
     ]
 )
 
@@ -76,7 +71,6 @@ def chart(
     * Designed for internal use. Any method/variable can be deprecated/changed *
     * without consideration.                                                   *
     ****************************************************************************
-
     """
 
     # convert layer names into a single javascript string
@@ -86,11 +80,13 @@ def chart(
     layer_dicts = list(map(convert_layer_name_func, map_layer_names))
 
     # build leafletjs js string
+    js_crs = leaflet_crs_js(layer_dicts)
+
+    js_layer_control_declaration = leaflet_layer_control_declaration()
+
     js_layers = "\n".join(map(layer_dict_to_str, layer_dicts))
 
     js_markers = markers_to_js(marker_file_names) if marker_file_names else ""
-
-    js_crs = leaflet_crs_js(layer_dicts)
 
     js_map = leaflet_map_js(layer_dicts)
 
@@ -102,9 +98,11 @@ def chart(
 
     js = "\n".join(
         [
-            js_crs,
-            js_map,
+            js_crs,                         # udpated
+            js_layer_control_declaration,   # updated
+            js_map,                         # updated
             js_layers,
+            # js_loadNextLayer + first layer listener
             js_markers,
             js_marker_search,
             js_base_layers,
@@ -138,7 +136,7 @@ def layer_dict_to_str(layer: dict) -> str:
     """Convert layer dict to layer str for including in HTML file."""
 
     layer_str = [
-        "    var " + layer["name"],
+        "    const " + layer["name"],
         ' = L.tileLayer("' + layer["directory"] + '"',
         ", { ",
         'attribution:"' + LAYER_ATTRIBUTION + '",',
@@ -215,11 +213,19 @@ def leaflet_map_js(tile_layers: List[dict]):
     js = [
         '    var map = L.map("map", {',
         "        crs: L.CRS.FitsMap,",
-        "        zoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
         "        minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
-        "        center: [-126, 126],",
         "        preferCanvas: true,",
         "    });",
+    ]
+
+    return "\n".join(js)
+
+
+def leaflet_map_set_view(tile_layers: List[dict]):
+    center = None
+    zoom = str(max(map(lambda t: t["min_zoom"], tile_layers)))
+    js = [
+        f"    map.setView({center}, {zoom});"
     ]
 
     return "\n".join(js)
@@ -366,30 +372,36 @@ def build_conditional_js(out_dir: str, marker_file_names: List[str]) -> str:
 
     return "\n".join(leaflet_js + local_js)
 
+def leaflet_layer_control_declaration():
+    js = [
+        "    var layerControl = L.control.layers();"
+    ]
+    return "\n".join(js)
+
 
 def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
     html = [
         "<!DOCTYPE html>",
         "<html>",
         "<head>",
-        "   <title>{}</title>".format(title),
-        '   <meta charset="utf-8" />',
-        '   <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '   <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />',
-        '   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
+        "    <title>{}</title>".format(title),
+        '    <meta charset="utf-8" />',
+        '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
+        '    <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />',
+        '    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
         extra_css,
-        "   <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",
+        "    <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",
         extra_js,
-        "   <style>",
-        "       html, body {",
-        "       height: 100%;",
-        "       margin: 0;",
-        "       }",
-        "       #map {",
-        "           width: 100%;",
-        "           height: 100%;",
-        "       }",
-        "   </style>",
+        "    <style>",
+        "        html, body {",
+        "        height: 100%;",
+        "        margin: 0;",
+        "        }",
+        "        #map {",
+        "            width: 100%;",
+        "            height: 100%;",
+        "        }",
+        "    </style>",
         "</head>",
         "<body>",
         '   <div id="map"></div>',

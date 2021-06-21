@@ -28,7 +28,7 @@ import shutil
 import string
 import sys
 from functools import partial
-from itertools import chain, count, filterfalse, product, repeat
+from itertools import chain, count, filterfalse, islice, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
 from pathlib import Path
 from queue import Empty
@@ -866,26 +866,60 @@ def catalog_to_markers(
         catalog_img_path,
     )
 
-    json_markers_file = os.path.join(out_dir, "js", cat_file)
-    with open(json_markers_file, "w") as j:
-        j.write("var " + js_safe_file_name + " = ")
-        json.dump(
-            list(
-                map(
-                    line_func,
+    
+    # json_markers_file = os.path.join(out_dir, "js", cat_file)
+    # with open(json_markers_file, "w") as j:
+    #     j.write("var " + js_safe_file_name + " = ")
+    #     json.dump(
+    #         list(
+    #             map(
+    #                 line_func,
+    #                 tqdm(
+    #                     csv_reader,
+    #                     position=pbar_loc,
+    #                     desc="Converting " + catalog_file,
+    #                     disable=bool(os.getenv("DISBALE_TQDM", False)),
+    #                 ),
+    #             )
+    #         ),
+    #         j,
+    #         indent=2,
+    #     )
+    #     j.write(";")
+    # f.close()
+
+    n_per_shard = 25000
+    cat_file = lambda n: cat_file_root + f"_{n}.cat.js"
+    for shard in count():
+        catalog_data = list(
+            map(
+                line_func,
+                islice(
                     tqdm(
                         csv_reader,
                         position=pbar_loc,
                         desc="Converting " + catalog_file,
                         disable=bool(os.getenv("DISBALE_TQDM", False)),
                     ),
+                    n_per_shard
                 )
-            ),
-            j,
-            indent=2,
+            )
         )
-        j.write(";")
+
+        if len(catalog_data) > 0:
+            json_markers_file =  os.path.join(out_dir, "js", cat_file(shard))
+            with open(json_markers_file, "w") as j:
+                j.write("var " + js_safe_file_name + f"_{shard}" + " = ")
+                json.dump(catalog_data, j, indent=2)
+                j.write(";")
+        else:
+            break
     f.close()
+
+
+        
+
+
 
 
 def async_worker(q: JoinableQueue):
@@ -976,7 +1010,6 @@ def files_to_map(
     img_job_f = partial(tile_img, **img_f_kwargs)
 
     cat_files = filter_on_extension(files, CAT_FORMAT)
-    marker_file_names = list(map(get_marker_file_name, cat_files))
 
     if len(cat_files) > 0:
         cat_job_f = partial(
@@ -988,6 +1021,8 @@ def files_to_map(
         )
     else:
         cat_job_f = None
+
+    marker_file_names = sorted(os.listdir(os.path.join(out_dir, "js")))
 
     pbar_locations = count(0)
 
