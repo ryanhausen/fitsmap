@@ -28,9 +28,9 @@
 import os
 import shutil
 import string
-from itertools import repeat
+from itertools import count, repeat
 from functools import partial, reduce
-from typing import List
+from typing import Dict, List
 
 MARKER_SEARCH_JS = "\n".join(
     [
@@ -84,7 +84,9 @@ def chart(
 
     js_layer_control_declaration = leaflet_layer_control_declaration()
 
-    js_layers = "\n".join(map(layer_dict_to_str, layer_dicts))
+    js_first_layer = layer_dict_to_str(layer_dicts[0])
+
+    js_async_layers = async_layers_js(layer_dicts[1:])
 
     js_markers = markers_to_js(marker_file_names) if marker_file_names else ""
 
@@ -98,11 +100,13 @@ def chart(
 
     js = "\n".join(
         [
-            js_crs,                         # udpated
-            js_layer_control_declaration,   # updated
-            js_map,                         # updated
-            js_layers,
-            # js_loadNextLayer + first layer listener
+            js_crs,                                     # udpated
+            js_layer_control_declaration,               # updated
+            js_map,                                     # updated
+            js_first_layer,                             # udpated
+            js_async_layers,                            # updated
+            js_load_next_layer(),                       # updated    
+            js_first_layer_listener(layer_dicts[0]),    # updated
             js_markers,
             js_marker_search,
             js_base_layers,
@@ -147,6 +151,49 @@ def layer_dict_to_str(layer: dict) -> str:
     ]
 
     return "".join(layer_str)
+
+
+def async_layers_js(async_layers:List[Dict]) -> str:
+    """Converts all layers after the first one into layers that area loaded async"""
+
+    layer_fmt = '        ["{name}", L.tileLayer("{directory}",\{ attribution:"{attr}", ' \
+                + "minZoom:{min_zoom}, maxZoom:{max_zoom}, " \
+                + "maxNativeZoom:{max_native_zoom}\})],"
+
+    str_fmt = lambda al: layer_fmt.format(
+        name=al["name"], 
+        directory=al["directory"],
+        attr=LAYER_ATTRIBUTION,
+        min_zoom=str(al["min_zoom"]),
+        max_zoom=str(al["max_zoom"]),
+        max_native_zoom=str(al["max_native_zoom"]),
+    )
+
+    js = [
+        "    asyncLayers = [",
+        *list(map(str_fmt, async_layers)),
+        "    ];"
+    ]
+
+    return "\n".join(js)
+
+
+def js_load_next_layer() -> str:
+    return "\n".join([
+        "    function loadNextLayer(event) {",
+        "        if (asyncLayers.length > 0){",
+        "            nextLayer = asyncLayers.pop()",
+        "            nextLayer[1].addTo(map);",
+        "            nextLayer[1].on(\"load\", loadNextLayer);",
+        "            layerControl.addBaseLayer(nextLayer[1], nextLayer[0]);",
+        "        }",
+        "    };",
+    ])
+
+
+def js_first_layer_listener(first_layer:dict) -> str:
+    return f'    {first_layer["name"]}.on("load", loadNextLayer);'
+
 
 
 def layers_dict_to_base_layer_js(tile_layers: List[dict]):
@@ -222,6 +269,7 @@ def leaflet_map_js(tile_layers: List[dict]):
 
 
 def leaflet_map_set_view(tile_layers: List[dict]):
+    raise NotImplementedError("Calculate the center")
     center = None
     zoom = str(max(map(lambda t: t["min_zoom"], tile_layers)))
     js = [
@@ -235,18 +283,51 @@ def leaflet_map_set_view(tile_layers: List[dict]):
 def markers_to_js(marker_file_names: List[str]) -> str:
     """Convert marker file names into marker javascript for the HTML file."""
 
+    deshard_name = lambda s: "_".join(s.replace(".cat.js", "").split("_")[:-1])
+    desharded_names = list(map, marker_file_names)
+    shard_counts = map(desharded_names.count, set(sorted(desharded_names)))
+    names_counts = zip(set(sorted(desharded_names)), shard_counts)
+
+    def expand_name_counts(name_count):
+        name, cnt = name_count
+        
+        fmt = lambda i: f"{name}_cat_var_{i}"
+        return "[" + ",".join(map(fmt, range(cnt))) + "]"
+    
+
+
+    def convert_to_var_name(s):
+        catvar = ["cat", "var"]
+        tokens = s.replace(".cat.js", "").split("_")
+        return "_".join(tokens[:-1] + catvar + tokens[-1:])
+
     cluster_text = "        L.markerClusterGroup({ }),"
-    marker_list_text = "        [],"
+
+    marker_list_f = lambda n: "        [" + repeat("[],", n) + "],"
 
     js = [
         "    var markers = [",
         *list(repeat(cluster_text, len(marker_file_names))),
         "    ];",
         "",
+
+        "    // catalogs ================================================================",
+        "    // a preset list of colors to use for markers in different catalogs",
+        colors_js(),
+        "",
+        "    // each list will hold the markers. if a catalog is sharded then there",
+        "    // will be multiple lists in a each top-level list element.",
         "    var markerList = [",
-        *list(repeat(marker_list_text, len(marker_file_names))),
+        *list(map(marker_list_f, shard_counts)),
         "    ];",
         "",
+        "    // the variables containing the catalog information, this mirrors the",
+        "    // structre in `markerList`. the sources in these variables will be",
+        "    // converted into markers and then added to the corresponding array"
+        "    const collections = [",
+        # resume here
+        "    ];"
+
         "    var collections = [",
         *list(
             map(
@@ -267,7 +348,6 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         ),
         "    ];",
         "",
-        colors_js(),
         "",
         "    for (i = 0; i < collections.length; i++){",
         "        collection = collections[i];",
