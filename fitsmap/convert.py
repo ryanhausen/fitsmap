@@ -866,7 +866,7 @@ def catalog_to_markers(
         catalog_img_path,
     )
 
-    
+
     # json_markers_file = os.path.join(out_dir, "js", cat_file)
     # with open(json_markers_file, "w") as j:
     #     j.write("var " + js_safe_file_name + " = ")
@@ -917,7 +917,7 @@ def catalog_to_markers(
     f.close()
 
 
-        
+
 
 
 
@@ -1022,8 +1022,6 @@ def files_to_map(
     else:
         cat_job_f = None
 
-    marker_file_names = sorted(os.listdir(os.path.join(out_dir, "js")))
-
     pbar_locations = count(0)
 
     img_tasks = zip(repeat(img_job_f), zip(img_files, pbar_locations))
@@ -1040,6 +1038,8 @@ def files_to_map(
         q.join()
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
+
+    marker_file_names = sorted(os.listdir(os.path.join(out_dir, "js")))
 
     ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")

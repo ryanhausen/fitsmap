@@ -35,8 +35,6 @@ from typing import Dict, List
 MARKER_SEARCH_JS = "\n".join(
     [
         "// search function =========================================================",
-        "    var marker_layers = L.layerGroup(markers);",
-        "",
         "    function searchHelp(e) {",
         "        map.setView(e.latlng, 4);",
         "        e.layer.addTo(map);",
@@ -94,9 +92,9 @@ def chart(
 
     js_marker_search = MARKER_SEARCH_JS if marker_file_names else ""
 
-    js_base_layers = layers_dict_to_base_layer_js(layer_dicts)
+    js_add_layer_control = "    layerControl.addTo(map);"
 
-    js_layer_control = layer_names_to_layer_control(marker_file_names)
+    js_set_map = leaflet_map_set_view(layer_dicts)
 
     js = "\n".join(
         [
@@ -105,12 +103,12 @@ def chart(
             js_map,                                     # updated
             js_first_layer,                             # udpated
             js_async_layers,                            # updated
-            js_load_next_layer(),                       # updated    
+            js_load_next_layer(),                       # updated
             js_first_layer_listener(layer_dicts[0]),    # updated
-            js_markers,
-            js_marker_search,
-            js_base_layers,
-            js_layer_control,
+            js_markers,                                 # updated
+            js_marker_search,                           # updated
+            js_add_layer_control,                       # updated
+            js_set_map,                                 # updated
         ]
     )
 
@@ -161,7 +159,7 @@ def async_layers_js(async_layers:List[Dict]) -> str:
                 + "maxNativeZoom:{max_native_zoom}\})],"
 
     str_fmt = lambda al: layer_fmt.format(
-        name=al["name"], 
+        name=al["name"],
         directory=al["directory"],
         attr=LAYER_ATTRIBUTION,
         min_zoom=str(al["min_zoom"]),
@@ -193,34 +191,6 @@ def js_load_next_layer() -> str:
 
 def js_first_layer_listener(first_layer:dict) -> str:
     return f'    {first_layer["name"]}.on("load", loadNextLayer);'
-
-
-
-def layers_dict_to_base_layer_js(tile_layers: List[dict]):
-    js = [
-        "    var baseLayers = {",
-        *list(map(lambda t: '        "{0}": {0},'.format(t["name"]), tile_layers)),
-        "    };",
-    ]
-    return "\n".join(js)
-
-
-def layer_names_to_layer_control(marker_file_names: List[str]) -> str:
-    if marker_file_names:
-        js = [
-            "    var overlays = {}",
-            "",
-            "    for(i = 0; i < markers.length; i++) {",
-            "        overlays[labels[i]] = markers[i];",
-            "    }",
-            "",
-            "    var layerControl = L.control.layers(baseLayers, overlays);",
-            "    layerControl.addTo(map);",
-        ]
-
-        return "\n".join(js)
-    else:
-        return "    L.control.layers(baseLayers, {}).addTo(map);"
 
 
 def colors_js() -> str:
@@ -269,14 +239,14 @@ def leaflet_map_js(tile_layers: List[dict]):
 
 
 def leaflet_map_set_view(tile_layers: List[dict]):
-    raise NotImplementedError("Calculate the center")
-    center = None
-    zoom = str(max(map(lambda t: t["min_zoom"], tile_layers)))
-    js = [
-        f"    map.setView({center}, {zoom});"
-    ]
+    return "   map.fitWorld();"
+    # center = None
+    # zoom = str(max(map(lambda t: t["min_zoom"], tile_layers)))
+    # js = [
+    #     f"    map.setView({center}, {zoom});"
+    # ]
 
-    return "\n".join(js)
+    # return "\n".join(js)
 
 
 # TODO: Maybe break this up into handling single marker files?
@@ -284,26 +254,24 @@ def markers_to_js(marker_file_names: List[str]) -> str:
     """Convert marker file names into marker javascript for the HTML file."""
 
     deshard_name = lambda s: "_".join(s.replace(".cat.js", "").split("_")[:-1])
-    desharded_names = list(map, marker_file_names)
-    shard_counts = map(desharded_names.count, set(sorted(desharded_names)))
-    names_counts = zip(set(sorted(desharded_names)), shard_counts)
+    desharded_names = list(map(deshard_name, marker_file_names))
+    unique_names = set(sorted(desharded_names))
+    shard_counts = map(desharded_names.count, unique_names)
+    names_counts = zip(unique_names, shard_counts)
+
+    cluster_text = "        L.markerClusterGroup({ }),"
+    marker_list_f = lambda n: "        [" + repeat("[],", n) + "],"
+
 
     def expand_name_counts(name_count):
         name, cnt = name_count
-        
         fmt = lambda i: f"{name}_cat_var_{i}"
-        return "[" + ",".join(map(fmt, range(cnt))) + "]"
-    
 
+        return "[" + ", ".join(map(fmt, range(cnt))) + "],"
 
-    def convert_to_var_name(s):
-        catvar = ["cat", "var"]
-        tokens = s.replace(".cat.js", "").split("_")
-        return "_".join(tokens[:-1] + catvar + tokens[-1:])
-
-    cluster_text = "        L.markerClusterGroup({ }),"
-
-    marker_list_f = lambda n: "        [" + repeat("[],", n) + "],"
+    def convert_name_count_to_label(name_count):
+        name, cnt = name_count
+        return "'<span style=\"color:red\">Massive_COSMOS-DASH_20190904</span>::0/'+ collections[0].length +'-0%',"
 
     js = [
         "    var markers = [",
@@ -325,64 +293,137 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "    // structre in `markerList`. the sources in these variables will be",
         "    // converted into markers and then added to the corresponding array"
         "    const collections = [",
-        # resume here
+        *list(map(expand_name_counts, names_counts)),
         "    ];"
-
-        "    var collections = [",
-        *list(
-            map(
-                lambda s: "        "
-                + make_fname_js_safe(s.replace(".cat.js", "_cat_var"))
-                + ",",
-                marker_file_names,
-            )
-        ),
-        "    ];",
         "",
         "    var labels = [",
-        *list(
-            map(
-                lambda s: "        '" + s.replace(".cat.js", "") + "',",
-                marker_file_names,
-            )
-        ),
+        *list(map(convert_name_count_to_label, names_counts)),
         "    ];",
         "",
+        "    // `collections_idx` is a collection of indexes that can be popped to",
+        "    // asynchronously process the catalog data in `collections`",
+        "    collection_idx = []",
+        "    for (var i = 0; i < collections.length; i++){",
+        "        collection_idx.push([...Array(collections[i].length).keys()])",
+        "    }",
+        "",
+        "    // declare markers up here for scope",
+        "    var markers = [];",
+        "",
+        "    // this is a function that returns a callback function for the chunked",
+        "    // loading function of markerClusterGroups",
+        "    function update_f(i){",
+        "        //console.log(\"update_f\", i);",
+        "",
+        "        // the markerClusterGroups callback function takes three arguments",
+        "        // nMarkers: number of markers processed so far",
+        "        // total:    total number of markers in shard",
+        "        // elapsed:  time elapsed (not used)",
+        "        return (nMarkers, total, elasped) => {",
+        "",
+        "            var completetion = total==0 ? 0 : nMarkers/total;",
+        "",
+        "            name_tag = layerControl._layers[i].name;",
+        "            split_values = name_tag.split(\"::\");",
+        "            html_name = split_values[0];",
+        "            progress = split_values[1];",
+        "",
+        "            current_iter = parseInt(progress.split("/")[0]) + Math.floor(completetion);",
+        "            total_iter = parseInt(progress.split("/")[1].split("-")[0]);",
+        "            html_name = name_tag.split(\"::\")[0];",
+        "",
+        "            if (completetion==1 && current_iter==total_iter){",
+        "                layerControl._layers[i].name = html_name.replace(\"red\", \"black\");",
+        "            }",
+        "            else {",
+        "                layerControl._layers[i].name = html_name + \"::\" + current_iter + \"/\" + total_iter + \"-\" + Math.floor(completetion*100) + \"%\";",
+        "            }",
+        "            layerControl._update();",
+        "",
+        "            // if we have finished processing move on to the next shard/catalog",
+        "            if (completetion==1){",
+        "                add_marker_collections_f(i);",
+        "            }",
+        "        }",
+        "    };",
+        "",
+        "    const panes = [",
+        *list(map(lambda s: f'        "{s}",', unique_names)),
+        "    ];",
+        "    panes.forEach(i => {map.createPane(i).style.zIndex = 0;});",
+        "",
+        "    for (var i = 0; i < panes.length; i++){",
+        "        markers.push(",
+        "            L.markerClusterGroup({'chunkedLoading':true, 'chunkInterval':50, 'chunkDelay':50, 'chunkProgress':update_f(i), 'clusterPane':panes[i]}),",
+        "        );",
+        "    }",
+        "",
+        "    for (var i = 0; i < markers.length; i++){",
+        "        layerControl.addOverlay(markers[i], labels[i]);",
+        "    }",
+        "",
+        "    function add_marker_collections(event){",
+        "        add_marker_collections_f(collection_idx.length-1);",
+        "    }",
+        "",
+        "    function add_marker_collections_f(i){",
+        "        //console.log('i is currently ', i);",
+        "        if (i >= 0){",
+        "            if (collection_idx[i].length > 0) {",
+        "                j = collection_idx[i].pop();",
+        "                markers[i].addLayers(markerList[i][j]);",
+        "            } else {",
+        "                markers[i].options.chunkProgress = null;",
+        "                layerControl._update();",
+        "",
+        "                // this for some reason causes an error, but doesn't seem to",
+        "                // affect the map.",
+        "                map.getPane(panes[i]).style.zIndex=650;",
+        "                markers[i].remove();",
+        "",
+        "                add_marker_collections_f(i-1);",
+        "            }",
+        "        }",
+        "    };",
         "",
         "    for (i = 0; i < collections.length; i++){",
         "        collection = collections[i];",
+        "        console.log(i, collection);",
         "",
-        "        for (j = 0; j < collection.length; j++){",
-        "            src = collection[j];",
+        "        for (ii = 0; ii < collection.length; ii++){",
+        "            collec = collection[ii];",
+        "            for (j = 0; j < collec.length; j++){",
+        "                src = collec[j];",
         "",
-        "            var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';",
-        "            var include_img = src.include_img ? 2 : 1;",
-        "            var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';",
+        "                var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';",
+        "                var include_img = src.include_img ? 2 : 1;",
+        "                var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';",
         "",
-        '            let p = L.popup({ maxWidth: "auto" })',
-        "                     .setLatLng([src.y, src.x])",
-        '                     .setContent("<iframe src=\'catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html\' width=\'" + width + "\' height=\'" + height + "\'></iframe>");',
+        '                let p = L.popup({ maxWidth: "auto" })',
+        "                         .setLatLng([src.y, src.x])",
+        '                         .setContent("<iframe src=\'catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html\' width=\'" + width + "\' height=\'" + height + "\'></iframe>");',
         "",
-        "            let marker;",
-        "            if (src.a==-1){",
-        "                marker = L.circleMarker([src.y, src.x], {",
-        "                    catalog_id: labels[i] + ':' + src.catalog_id + ':',",
-        "                    color: colors[i % colors.length]",
-        "                }).bindPopup(p);",
-        "            } else {",
-        "                marker = L.ellipse([src.y, src.x], [src.a, src.b], (src.theta * (180/Math.PI) * -1), {",
-        "                    catalog_id: labels[i] + ':' + src.catalog_id + ':',",
-        "                    color: colors[i % colors.length]",
-        "                }).bindPopup(p);",
+        "                let marker;",
+        "                if (src.a==-1){",
+        "                    marker = L.circleMarker([src.y, src.x], {",
+        "                        catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+        "                        color: colors[i % colors.length]",
+        "                    }).bindPopup(p);",
+        "                } else {",
+        "                    marker = L.ellipse([src.y, src.x], [src.a, src.b], (src.theta * (180/Math.PI) * -1), {",
+        "                        catalog_id: labels[i] + ':' + src.catalog_id + ':',",
+        "                        color: colors[i % colors.length]",
+        "                    }).bindPopup(p);",
+        "                }",
+        "",
+        "                markerList[i][ii].push(marker);",
         "            }",
-        "",
-        "            markerList[i].push(marker);",
         "        }",
         "    }",
         "",
-        "    for (i = 0; i < collections.length; i++){",
-        "        markers[i].addLayers(markerList[i]);",
-        "    }",
+        '    map.on("load", add_marker_collections);',
+        "    var marker_layers = L.layerGroup(markers);",
+        "   // ========================================================================="
     ]
 
     return "\n".join(js)

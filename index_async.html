@@ -33,7 +33,7 @@
     <script src='js/COSMOS_2020_13.cat.js'></script>
     <script src='js/COSMOS_2020_14.cat.js'></script>
     <script src='js/COSMOS_2020_15.cat.js'></script>
-        
+
     <script src='js/l.ellipse.min.js'></script>
    <style>
        html, body {
@@ -49,7 +49,7 @@
 <body>
    <div id="map"></div>
    <script>
-    
+
     L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {
         transformation: new L.Transformation(1/256, 0, -1/256, 256)
     });
@@ -76,13 +76,13 @@
     function loadNextLayer(event) {
         if (asyncLayers.length > 0){
             nextLayer = asyncLayers.pop()
-            
+
             nextLayer[1].addTo(map);
             nextLayer[1].on("load", loadNextLayer);
             layerControl.addBaseLayer(nextLayer[1], nextLayer[0]);
         }
         else {
-            
+
         }
     };
     // add the load listener to kick off the sequential loading
@@ -130,16 +130,16 @@
             [],
         ],
     ];
-    
-    // the variables containing the catalog information, this mirrors the 
-    // structre in `markerList`. the sources in these variables will be 
+
+    // the variables containing the catalog information, this mirrors the
+    // structre in `markerList`. the sources in these variables will be
     // converted into markers and then added to the corresponding array
     var collections = [
         [Massive_COSMOS_DASH_20190904_cat_var],
         [UVISTA_H_v1_cat_var],
         [PAU_COSMOS_cat_var],
         [
-            COSMOS_2020_cat_var_0, 
+            COSMOS_2020_cat_var_0,
             COSMOS_2020_cat_var_1,
             COSMOS_2020_cat_var_2,
             COSMOS_2020_cat_var_3,
@@ -165,21 +165,20 @@
         '<span style="color:red">COSMOS_2020</span>::0/'+ collections[3].length +'-0%',
     ];
 
-
-    // `collections_idx` is a collection of indexes that can be popped to 
+    // `collections_idx` is a collection of indexes that can be popped to
     // asynchronously process the catalog data in `collections`
     collection_idx = []
     for (var i = 0; i < collections.length; i++){
         collection_idx.push([...Array(collections[i].length).keys()])
     }
 
+    // declare markers up here for scope
     var markers;
 
-    // this is a function that returns a callback function for the chunked 
+    // this is a function that returns a callback function for the chunked
     // loading function of markerClusterGroups.
     function update_f(i){
-
-        console.log("update_f", i);
+        //console.log("update_f", i);
 
         // the markerClusterGroups callback function takes three arguments
         // nMarkers: number of markers processed so far
@@ -193,7 +192,7 @@
             split_values = name_tag.split("::");
             html_name = split_values[0];
             progress = split_values[1];
-            
+
             current_iter = parseInt(progress.split("/")[0]) + Math.floor(completetion);
             total_iter = parseInt(progress.split("/")[1].split("-")[0]);
             html_name = name_tag.split("::")[0];
@@ -239,14 +238,14 @@
     function add_marker_collections_f(i){
         console.log("i is currently ", i);
         if (i >= 0){
-            console.log(collection_idx[i]);            
+            console.log(collection_idx[i]);
             if (collection_idx[i].length > 0) {
                 j = collection_idx[i].pop();
                 markers[i].addLayers(markerList[i][j]);
             } else {
                 markers[i].options.chunkProgress = null;
                 layerControl._update();
-                
+
                 // this for some reason causes an error, but doesn't seem to affect
                 // the map.
                 map.getPane(panes[i]).style.zIndex=650;
@@ -297,7 +296,7 @@
     map.on("load", add_marker_collections);
     var marker_layers = L.layerGroup(markers);
     // =========================================================================
-    
+
     // search function =========================================================
     function searchHelp(e) {
         map.setView(e.latlng, 4);
