@@ -40,6 +40,7 @@ import numpy as np
 import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.visualization import simple_norm    
 from imageio import imread
 from PIL import Image
 from tqdm import tqdm
@@ -306,6 +307,7 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
 def make_tile_mpl(
     vmin: float,
     vmax: float,
+    norm : None,
     out_dir: str,
     array: np.ndarray,
     job: Tuple[int, int, int, slice, slice],
@@ -356,13 +358,18 @@ def make_tile_mpl(
             img_kwargs = dict(
                 origin="lower",
                 cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
                 interpolation="nearest",
+                norm=norm
             )
+            if norm is None:
+                img_kwargs['vmin'] = vmin
+                img_kwargs['vmax'] = vmax
+                
             mpl_alpha_f = lambda arr: arr
         else:
-            img_kwargs = dict(interpolation="nearest", origin="lower")
+            img_kwargs = dict(interpolation="nearest", 
+                              origin="lower",
+                              norm=norm)
 
             def adjust_pixels(arr):
                 img = arr.copy()
@@ -450,6 +457,7 @@ def tile_img(
     image_engine: str = IMG_ENGINE_PIL,
     out_dir: str = ".",
     mp_procs: int = 0,
+    norm_kwargs: dict = None
 ) -> None:
     """Extracts tiles from the array at ``file_location``.
 
@@ -467,7 +475,8 @@ def tile_img(
         out_dir (str): The root directory to save the tiles in
         mp_procs (int): The number of multiprocessing processes to use for
                         generating tiles.
-
+        norm_kwargs (dict): Optional normalization keyword arguments passed to 
+                            `astropy.visualization.simple_norm`
     Returns:
         None
     """
@@ -487,7 +496,11 @@ def tile_img(
     # get image
     array = get_array(file_location)
     arr_min, arr_max = np.nanmin(array), np.nanmax(array)
-
+    if norm_kwargs is None:
+        norm = None
+    else:
+        norm = simple_norm(array, **norm_kwargs)
+        
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
     max_zoom = zooms[1]
@@ -511,7 +524,7 @@ def tile_img(
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
     if image_engine == IMG_ENGINE_MPL:
-        make_tile = partial(make_tile_mpl, arr_min, arr_max, tile_dir)
+        make_tile = partial(make_tile_mpl, arr_min, arr_max, norm, tile_dir)
     else:
         make_tile = partial(make_tile_pil, tile_dir)
 
@@ -920,6 +933,7 @@ def files_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    norm_kwargs: dict = None,
     rows_per_column: int = np.inf,
 ):
     """Converts a list of files into a LeafletJS map.
@@ -969,6 +983,7 @@ def files_to_map(
         image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=procs_per_task,
+        norm_kwargs=norm_kwargs
     )
 
     img_files = filter_on_extension(files, IMG_FORMATS)
@@ -1014,6 +1029,7 @@ def files_to_map(
 
 def dir_to_map(
     directory: str,
+    filelist: List[str] = None,
     out_dir: str = ".",
     exclude_predicate: Callable = lambda f: False,
     min_zoom: int = 0,
@@ -1024,6 +1040,7 @@ def dir_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    norm_kwargs: dict = None,
     rows_per_column: int = np.inf,
 ):
     """Converts a list of files into a LeafletJS map.
@@ -1074,13 +1091,16 @@ def dir_to_map(
         ValueError if the dir is empty, there are no convertable files or if
         ``exclude_predicate`` exlcudes all files
     """
-
+    
+    if filelist is None:
+        filelist = os.listdir(directory)
+        
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
             filterfalse(
                 exclude_predicate,
-                os.listdir(directory),
+                filelist,
             ),
         )
     )
@@ -1089,7 +1109,7 @@ def dir_to_map(
         raise ValueError(
             "No files in `directory` or `exlcude_predicate exlucdes everything"
         )
-
+        
     files_to_map(
         dir_files,
         out_dir=out_dir,
@@ -1101,5 +1121,6 @@ def dir_to_map(
         cat_wcs_fits_file=cat_wcs_fits_file,
         tile_size=tile_size,
         image_engine=image_engine,
+        norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
     )

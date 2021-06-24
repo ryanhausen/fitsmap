@@ -726,6 +726,38 @@ def test_tile_img_mpl_serial():
 
     assert dirs_match
 
+@pytest.mark.unit
+@pytest.mark.convert
+def test_tile_img_mpl_normed_serial():
+    """Test convert.tile_img"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    pbar_loc = 0
+    min_zoom = 0
+    image_engine = convert.IMG_ENGINE_MPL
+
+    convert.tile_img(
+        test_image,
+        pbar_loc,
+        min_zoom=min_zoom,
+        image_engine=image_engine,
+        out_dir=out_dir,
+        norm_kwargs=dict(min_cut=-1, max_cut=1, stretch='log', log_a=1e3)
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
+    actual_dir = os.path.join(out_dir, "test_tiling_image")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
 
 @pytest.mark.unit
 @pytest.mark.convert
