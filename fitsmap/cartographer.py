@@ -34,7 +34,7 @@ from typing import Dict, List
 
 MARKER_SEARCH_JS = "\n".join(
     [
-        "// search function =========================================================",
+        "    // search function =========================================================",
         "    function searchHelp(e) {",
         "        map.setView(e.latlng, 4);",
         "        e.layer.addTo(map);",
@@ -50,7 +50,7 @@ MARKER_SEARCH_JS = "\n".join(
         "",
         "    searchBar.on('search:locationfound', searchHelp);",
         "    searchBar.addTo(map);",
-        "// =========================================================================",
+        "    // =========================================================================",
     ]
 )
 
@@ -72,7 +72,7 @@ def chart(
     """
 
     # convert layer names into a single javascript string
-    layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
+    layer_zooms = lambda l: [0] + list(map(int, os.listdir(os.path.join(out_dir, l))))
     zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, map_layer_names)))
     convert_layer_name_func = partial(layer_name_to_dict, min(zooms), max(zooms))
     layer_dicts = list(map(convert_layer_name_func, map_layer_names))
@@ -92,9 +92,9 @@ def chart(
 
     js_marker_search = MARKER_SEARCH_JS if marker_file_names else ""
 
-    js_add_layer_control = "    layerControl.addTo(map);"
+    js_add_layer_control = add_layer_control(layer_dicts[0])
 
-    js_set_map = leaflet_map_set_view(layer_dicts)
+    js_set_map = leaflet_map_set_view()
 
     js = "\n".join(
         [
@@ -149,6 +149,15 @@ def layer_dict_to_str(layer: dict) -> str:
     ]
 
     return "".join(layer_str)
+
+
+def add_layer_control(layer:dict):
+    js = [
+        f'    layerControl.addBaseLayer({layer["name"]}, "{layer["name"]}");'
+        "    layerControl.addTo(map);"
+    ]
+
+    return "\n".join(js)
 
 
 def async_layers_js(async_layers:List[Dict]) -> str:
@@ -238,47 +247,35 @@ def leaflet_map_js(tile_layers: List[dict]):
     return "\n".join(js)
 
 
-def leaflet_map_set_view(tile_layers: List[dict]):
-    return "   map.fitWorld();"
-    # center = None
-    # zoom = str(max(map(lambda t: t["min_zoom"], tile_layers)))
-    # js = [
-    #     f"    map.setView({center}, {zoom});"
-    # ]
-
-    # return "\n".join(js)
+def leaflet_map_set_view():
+    return '    map.fitWorld({"maxZoom":map.getMinZoom()});'
 
 
 # TODO: Maybe break this up into handling single marker files?
 def markers_to_js(marker_file_names: List[str]) -> str:
     """Convert marker file names into marker javascript for the HTML file."""
 
+    print(marker_file_names)
     deshard_name = lambda s: "_".join(s.replace(".cat.js", "").split("_")[:-1])
     desharded_names = list(map(deshard_name, marker_file_names))
     unique_names = set(sorted(desharded_names))
-    shard_counts = map(desharded_names.count, unique_names)
-    names_counts = zip(unique_names, shard_counts)
+    shard_counts = list(map(desharded_names.count, unique_names))
+    names_counts = list(zip(unique_names, shard_counts))
 
-    cluster_text = "        L.markerClusterGroup({ }),"
-    marker_list_f = lambda n: "        [" + repeat("[],", n) + "],"
+    marker_list_f = lambda n: "        [" + ",".join(repeat("[]", n)) + "],"
 
-
+    print(names_counts)
     def expand_name_counts(name_count):
         name, cnt = name_count
-        fmt = lambda i: f"{name}_cat_var_{i}"
+        fmt = lambda i: f"{make_fname_js_safe(name)}_cat_var_{i}"
 
-        return "[" + ", ".join(map(fmt, range(cnt))) + "],"
+        return "        [" + ", ".join(map(fmt, range(cnt))) + "],"
 
     def convert_name_count_to_label(name_count):
         name, cnt = name_count
-        return "'<span style=\"color:red\">Massive_COSMOS-DASH_20190904</span>::0/'+ collections[0].length +'-0%',"
+        return "        '<span style=\"color:red\">{}</span>::0/'+ {} +'-0%',".format(name, cnt)
 
     js = [
-        "    var markers = [",
-        *list(repeat(cluster_text, len(marker_file_names))),
-        "    ];",
-        "",
-
         "    // catalogs ================================================================",
         "    // a preset list of colors to use for markers in different catalogs",
         colors_js(),
@@ -291,7 +288,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "",
         "    // the variables containing the catalog information, this mirrors the",
         "    // structre in `markerList`. the sources in these variables will be",
-        "    // converted into markers and then added to the corresponding array"
+        "    // converted into markers and then added to the corresponding array",
         "    const collections = [",
         *list(map(expand_name_counts, names_counts)),
         "    ];"
@@ -324,19 +321,19 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "            var completetion = total==0 ? 0 : nMarkers/total;",
         "",
         "            name_tag = layerControl._layers[i].name;",
-        "            split_values = name_tag.split(\"::\");",
+        '            split_values = name_tag.split("::");',
         "            html_name = split_values[0];",
         "            progress = split_values[1];",
         "",
-        "            current_iter = parseInt(progress.split("/")[0]) + Math.floor(completetion);",
-        "            total_iter = parseInt(progress.split("/")[1].split("-")[0]);",
-        "            html_name = name_tag.split(\"::\")[0];",
+        '            current_iter = parseInt(progress.split("/")[0]) + Math.floor(completetion);',
+        '            total_iter = parseInt(progress.split("/")[1].split("-")[0]);',
+        '            html_name = name_tag.split("::")[0];',
         "",
         "            if (completetion==1 && current_iter==total_iter){",
-        "                layerControl._layers[i].name = html_name.replace(\"red\", \"black\");",
+        '                layerControl._layers[i].name = html_name.replace("red", "black");',
         "            }",
         "            else {",
-        "                layerControl._layers[i].name = html_name + \"::\" + current_iter + \"/\" + total_iter + \"-\" + Math.floor(completetion*100) + \"%\";",
+        '                layerControl._layers[i].name = html_name + "::" + current_iter + "/" + total_iter + "-" + Math.floor(completetion*100) + "%";',
         "            }",
         "            layerControl._update();",
         "",
@@ -388,7 +385,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "",
         "    for (i = 0; i < collections.length; i++){",
         "        collection = collections[i];",
-        "        console.log(i, collection);",
+        "        //console.log(i, collection);",
         "",
         "        for (ii = 0; ii < collection.length; ii++){",
         "            collec = collection[ii];",
