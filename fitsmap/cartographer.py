@@ -58,10 +58,7 @@ LAYER_ATTRIBUTION = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>
 
 
 def chart(
-    out_dir: str,
-    title: str,
-    map_layer_names: List[str],
-    marker_file_names: List[str],
+    out_dir: str, title: str, map_layer_names: List[str], marker_file_names: List[str],
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -84,7 +81,7 @@ def chart(
 
     js_first_layer = layer_dict_to_str(layer_dicts[0])
 
-    js_async_layers = async_layers_js(layer_dicts[1:])
+    js_async_layers_str = js_async_layers(layer_dicts[1:])
 
     js_markers = markers_to_js(marker_file_names) if marker_file_names else ""
 
@@ -98,17 +95,17 @@ def chart(
 
     js = "\n".join(
         [
-            js_crs,                                     # udpated
-            js_layer_control_declaration,               # updated
-            js_map,                                     # updated
-            js_first_layer,                             # udpated
-            js_async_layers,                            # updated
-            js_load_next_layer(),                       # updated
-            js_first_layer_listener(layer_dicts[0]),    # updated
-            js_markers,                                 # updated
-            js_marker_search,                           # updated
-            js_add_layer_control,                       # updated
-            js_set_map,                                 # updated
+            js_crs,
+            js_layer_control_declaration,
+            js_map,
+            js_first_layer,
+            js_async_layers_str,
+            js_load_next_layer(),
+            js_first_layer_listener(layer_dicts[0]),
+            js_markers,
+            js_marker_search,
+            js_add_layer_control,
+            js_set_map,
         ]
     )
 
@@ -151,54 +148,59 @@ def layer_dict_to_str(layer: dict) -> str:
     return "".join(layer_str)
 
 
-def add_layer_control(layer:dict):
+def add_layer_control(layer: dict):
     js = [
-        f'    layerControl.addBaseLayer({layer["name"]}, "{layer["name"]}");'
-        "    layerControl.addTo(map);"
+        f'    layerControl.addBaseLayer({layer["name"]}, "{layer["name"]}");',
+        "    layerControl.addTo(map);",
     ]
 
     return "\n".join(js)
 
 
-def async_layers_js(async_layers:List[Dict]) -> str:
+# TODO: This should be factored into a map call to a single format function
+def js_async_layers(async_layers: List[Dict]) -> str:
     """Converts all layers after the first one into layers that area loaded async"""
 
-    layer_fmt = '        ["{name}", L.tileLayer("{directory}",\{ attribution:"{attr}", ' \
-                + "minZoom:{min_zoom}, maxZoom:{max_zoom}, " \
-                + "maxNativeZoom:{max_native_zoom}\})],"
+    def layer_fmt(l: dict):
+        return "".join(
+            [
+                '        ["',
+                l["name"],
+                '", L.tileLayer("',
+                l["directory"],
+                '",{ attribution:"',
+                LAYER_ATTRIBUTION,
+                '", minZoom:',
+                str(l["min_zoom"]),
+                ", maxZoom:",
+                str(l["max_zoom"]),
+                ", maxNativeZoom:",
+                str(l["max_native_zoom"]),
+                "})],",
+            ]
+        )
 
-    str_fmt = lambda al: layer_fmt.format(
-        name=al["name"],
-        directory=al["directory"],
-        attr=LAYER_ATTRIBUTION,
-        min_zoom=str(al["min_zoom"]),
-        max_zoom=str(al["max_zoom"]),
-        max_native_zoom=str(al["max_native_zoom"]),
-    )
-
-    js = [
-        "    asyncLayers = [",
-        *list(map(str_fmt, async_layers)),
-        "    ];"
-    ]
+    js = ["    asyncLayers = [", *list(map(layer_fmt, async_layers)), "    ];"]
 
     return "\n".join(js)
 
 
 def js_load_next_layer() -> str:
-    return "\n".join([
-        "    function loadNextLayer(event) {",
-        "        if (asyncLayers.length > 0){",
-        "            nextLayer = asyncLayers.pop()",
-        "            nextLayer[1].addTo(map);",
-        "            nextLayer[1].on(\"load\", loadNextLayer);",
-        "            layerControl.addBaseLayer(nextLayer[1], nextLayer[0]);",
-        "        }",
-        "    };",
-    ])
+    return "\n".join(
+        [
+            "    function loadNextLayer(event) {",
+            "        if (asyncLayers.length > 0){",
+            "            nextLayer = asyncLayers.pop()",
+            "            nextLayer[1].addTo(map);",
+            '            nextLayer[1].on("load", loadNextLayer);',
+            "            layerControl.addBaseLayer(nextLayer[1], nextLayer[0]);",
+            "        }",
+            "    };",
+        ]
+    )
 
 
-def js_first_layer_listener(first_layer:dict) -> str:
+def js_first_layer_listener(first_layer: dict) -> str:
     return f'    {first_layer["name"]}.on("load", loadNextLayer);'
 
 
@@ -255,7 +257,6 @@ def leaflet_map_set_view():
 def markers_to_js(marker_file_names: List[str]) -> str:
     """Convert marker file names into marker javascript for the HTML file."""
 
-    print(marker_file_names)
     deshard_name = lambda s: "_".join(s.replace(".cat.js", "").split("_")[:-1])
     desharded_names = list(map(deshard_name, marker_file_names))
     unique_names = set(sorted(desharded_names))
@@ -264,7 +265,6 @@ def markers_to_js(marker_file_names: List[str]) -> str:
 
     marker_list_f = lambda n: "        [" + ",".join(repeat("[]", n)) + "],"
 
-    print(names_counts)
     def expand_name_counts(name_count):
         name, cnt = name_count
         fmt = lambda i: f"{make_fname_js_safe(name)}_cat_var_{i}"
@@ -273,7 +273,9 @@ def markers_to_js(marker_file_names: List[str]) -> str:
 
     def convert_name_count_to_label(name_count):
         name, cnt = name_count
-        return "        '<span style=\"color:red\">{}</span>::0/'+ {} +'-0%',".format(name, cnt)
+        return "        '<span style=\"color:red\">{}</span>::0/'+ {} +'-0%',".format(
+            name, cnt
+        )
 
     js = [
         "    // catalogs ================================================================",
@@ -291,8 +293,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "    // converted into markers and then added to the corresponding array",
         "    const collections = [",
         *list(map(expand_name_counts, names_counts)),
-        "    ];"
-        "",
+        "    ];" "",
         "    var labels = [",
         *list(map(convert_name_count_to_label, names_counts)),
         "    ];",
@@ -310,7 +311,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "    // this is a function that returns a callback function for the chunked",
         "    // loading function of markerClusterGroups",
         "    function update_f(i){",
-        "        //console.log(\"update_f\", i);",
+        '        //console.log("update_f", i);',
         "",
         "        // the markerClusterGroups callback function takes three arguments",
         "        // nMarkers: number of markers processed so far",
@@ -420,7 +421,7 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "",
         '    map.on("load", add_marker_collections);',
         "    var marker_layers = L.layerGroup(markers);",
-        "   // ========================================================================="
+        "    // =========================================================================",
     ]
 
     return "\n".join(js)
@@ -490,11 +491,9 @@ def build_conditional_js(out_dir: str, marker_file_names: List[str]) -> str:
 
     return "\n".join(leaflet_js + local_js)
 
+
 def leaflet_layer_control_declaration():
-    js = [
-        "    var layerControl = L.control.layers();"
-    ]
-    return "\n".join(js)
+    return "    var layerControl = L.control.layers();"
 
 
 def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
@@ -522,10 +521,10 @@ def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
         "    </style>",
         "</head>",
         "<body>",
-        '   <div id="map"></div>',
-        "   <script>",
+        '    <div id="map"></div>',
+        "    <script>",
         js,
-        "   </script>",
+        "    </script>",
         "</body>",
         "</html>",
     ]

@@ -429,6 +429,7 @@ def test_line_to_cols():
 
     assert expected_cols == actual_cols
 
+
 @pytest.mark.unit
 @pytest.mark.convert
 def test_line_to_cols_with_hash():
@@ -694,6 +695,7 @@ def test_tile_img_pil_serial():
     helpers.enable_tqdm()
 
     assert dirs_match
+
 
 @pytest.mark.unit
 @pytest.mark.convert

@@ -76,18 +76,17 @@ class ShardedProcBarIter:
         proc_bar (tqdm): the tqdm object
     """
 
-    def __init__(self, iter:Iterable, proc_bar:tqdm):
+    def __init__(self, iter: Iterable, proc_bar: tqdm):
 
         self.iter = iter
         self.proc_bar = proc_bar
-    
+
     def __iter__(self):
         return self
 
     def __next__(self):
-        self.proc_bar.update()    
+        self.proc_bar.update()
         return next(self.iter)
-
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -368,10 +367,7 @@ def make_tile_mpl(
         # this is a singleton and starts out as null
         mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
         mpl_f.savefig(
-            img_path,
-            dpi=256,
-            bbox_inches=0,
-            facecolor=(0, 0, 0, 0),
+            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
         )
     else:
         if len(array.shape) == 2:
@@ -413,10 +409,7 @@ def make_tile_mpl(
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
         mpl_f.savefig(
-            img_path,
-            dpi=256,
-            bbox_inches=0,
-            facecolor=(0, 0, 0, 0),
+            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
         )
 
 
@@ -625,12 +618,7 @@ def line_to_cols(raw_col_vals: str):
     ]
 
     # make ra and dec lowercase for ease of access
-    raw_cols = list(
-        map(
-            lambda s: s.lower() if s in change_case else s,
-            raw_col_vals,
-        )
-    )
+    raw_cols = list(map(lambda s: s.lower() if s in change_case else s, raw_col_vals,))
 
     # if header line starts with a '#' exclude it
     if raw_cols[0] == "#":
@@ -681,7 +669,6 @@ def line_to_json(
         a = -1
         b = -1
         theta = -1
-
 
     # The default catalog convention is that the lower left corner is (1, 1)
     # The default leaflet convention is that the lower left corner is (0, 0)
@@ -802,7 +789,7 @@ def catalog_to_markers(
     catalog_delim: str,
     rows_per_col: int,
     catalog_file: str,
-    n_per_catalog_shard:int,
+    n_per_catalog_shard: int,
     pbar_loc: int,
 ) -> None:
     """Transform ``catalog_file`` into a json collection for mapping
@@ -891,7 +878,7 @@ def catalog_to_markers(
     )
 
     bar = tqdm(
-        position=pbar_loc, 
+        position=pbar_loc,
         desc="Converting " + catalog_file,
         disable=bool(os.getenv("DISBALE_TQDM", False)),
     )
@@ -901,12 +888,12 @@ def catalog_to_markers(
         catalog_data = list(
             map(
                 line_func,
-                islice(ShardedProcBarIter(csv_reader, bar), n_per_catalog_shard)
+                islice(ShardedProcBarIter(csv_reader, bar), n_per_catalog_shard),
             )
         )
 
         if len(catalog_data) > 0:
-            json_markers_file =  os.path.join(out_dir, "js", cat_file(shard))
+            json_markers_file = os.path.join(out_dir, "js", cat_file(shard))
             with open(json_markers_file, "w") as j:
                 j.write("var " + js_safe_file_name + f"_{shard}" + " = ")
                 json.dump(catalog_data, j, indent=2)
@@ -914,11 +901,6 @@ def catalog_to_markers(
         else:
             break
     f.close()
-
-
-
-
-
 
 
 def async_worker(q: JoinableQueue):
@@ -1052,10 +1034,7 @@ def files_to_map(
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
     marker_file_names = sorted(
-        filter(
-            lambda s: ".cat.js" in s,
-            os.listdir(os.path.join(out_dir, "js"))
-        )
+        filter(lambda s: ".cat.js" in s, os.listdir(os.path.join(out_dir, "js")))
     )
 
     ns = "\n" * (next(pbar_locations) - 1)
@@ -1136,10 +1115,7 @@ def dir_to_map(
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
-            filterfalse(
-                exclude_predicate,
-                os.listdir(directory),
-            ),
+            filterfalse(exclude_predicate, os.listdir(directory),),
         )
     )
 
@@ -1160,5 +1136,5 @@ def dir_to_map(
         tile_size=tile_size,
         image_engine=image_engine,
         rows_per_column=rows_per_column,
-        n_per_catalog_shard=n_per_catalog_shard
+        n_per_catalog_shard=n_per_catalog_shard,
     )
