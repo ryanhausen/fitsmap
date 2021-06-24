@@ -1093,21 +1093,30 @@ def dir_to_map(
     """
     
     if filelist is None:
-        filelist = os.listdir(directory)
+        file_listing = os.listdir(directory)
+    else:
+        file_listing = []
+        for f in filelist:
+            if os.path.exists(os.path.join(directory, f)):
+                file_listing.append(f)
         
+        if len(file_listing) == 0:
+            msg = "No files from {0} found in directory '{1}'"
+            raise ValueError(msg.format(filelist, directory))
+            
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
             filterfalse(
                 exclude_predicate,
-                filelist,
+                file_listing,
             ),
         )
     )
 
     if len(dir_files) == 0:
         raise ValueError(
-            "No files in `directory` or `exlcude_predicate exlucdes everything"
+            "No files in `directory` or `exclude_predicate` excludes everything"
         )
         
     files_to_map(
