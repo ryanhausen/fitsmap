@@ -646,7 +646,6 @@ def test_make_tile_mpl():
     helpers.tear_down()
 
 
-# TODO: RESUME HERE WITH A SHARDED VERSION OF THIS TEST
 @pytest.mark.unit
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
@@ -668,8 +667,8 @@ def test_catalog_to_markers_xy():
         out_dir,
         catalog_delim,
         rows_per_col,
-        catalog_file,
         n_per_catalog_shard,
+        catalog_file,
         pbar_loc,
     )
 
@@ -700,16 +699,23 @@ def test_catalog_to_markers_radec():
     rows_per_col = np.inf
     catalog_file = os.path.join(out_dir, "test_catalog_radec.cat")
     catalog_delim = " "
+    n_per_catalog_shard = 250000
     pbar_loc = 0
 
     convert.catalog_to_markers(
-        wcs_file, out_dir, catalog_delim, rows_per_col, catalog_file, pbar_loc
+        wcs_file,
+        out_dir,
+        catalog_delim,
+        rows_per_col,
+        n_per_catalog_shard,
+        catalog_file,
+        pbar_loc,
     )
     expected_json, expcted_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_radec.cat.js")
     )
     actual_json, actual_name = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_radec.cat.js")
+        os.path.join(out_dir, "js", "test_catalog_radec_0.cat.js")
     )
 
     helpers.tear_down()
@@ -732,11 +738,18 @@ def test_catalog_to_markers_fails():
     rows_per_col = np.inf
     catalog_delim = " "
     catalog_file = os.path.join(out_dir, "test_catalog_fails.cat")
+    n_per_catalog_shard = 250000
     pbar_loc = 0
 
     with pytest.raises(ValueError) as excinfo:
         convert.catalog_to_markers(
-            wcs_file, out_dir, catalog_delim, rows_per_col, catalog_file, pbar_loc
+            wcs_file,
+            out_dir,
+            catalog_delim,
+            rows_per_col,
+            n_per_catalog_shard,
+            catalog_file,
+            pbar_loc,
         )
 
     helpers.tear_down()
@@ -807,6 +820,36 @@ def test_tile_img_mpl_serial():
     helpers.enable_tqdm()
 
     assert dirs_match
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_tile_img_pil_serial_exists(capsys):
+    """Test convert.tile_img skips tiling"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    pbar_loc = 0
+    min_zoom = 0
+    image_engine = convert.IMG_ENGINE_PIL
+
+    os.mkdir(os.path.join(out_dir, "test_tiling_image"))
+
+    convert.tile_img(
+        test_image,
+        pbar_loc,
+        min_zoom=min_zoom,
+        image_engine=image_engine,
+        out_dir=out_dir,
+    )
+
+    captured = capsys.readouterr()
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert "test_tiling_image.jpg already tiled. Skipping tiling." in captured.out
 
 
 @pytest.mark.unit
@@ -901,7 +944,7 @@ def test_files_to_map():
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
     # helpers.tear_down()
-    # helpers.enable_tqdm()
+    helpers.enable_tqdm()
 
     assert dirs_match
 

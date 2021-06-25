@@ -517,6 +517,8 @@ def tile_img(
     if name not in os.listdir(out_dir):
         os.mkdir(tile_dir)
 
+    make_dirs(tile_dir, min_zoom, max_zoom)
+
     tile_params = chain.from_iterable(
         [
             slice_idx_generator(array.shape, z, 256 * (2 ** i))
@@ -789,8 +791,8 @@ def catalog_to_markers(
     out_dir: str,
     catalog_delim: str,
     rows_per_col: int,
-    catalog_file: str,
     n_per_catalog_shard: int,
+    catalog_file: str,
     pbar_loc: int,
 ) -> None:
     """Transform ``catalog_file`` into a json collection for mapping
@@ -805,6 +807,7 @@ def catalog_to_markers(
     Returns:
         None
     """
+    print(catalog_file)
     _, fname = os.path.split(catalog_file)
     out_location = os.path.join(out_dir, "js")
     if os.path.exists(out_location) and get_marker_file_name(
