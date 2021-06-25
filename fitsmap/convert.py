@@ -723,7 +723,6 @@ def line_to_json(
     css = [
         "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
         "tr { line-height: 7pt; }",
-        "td { width: " + str(col_width) + "%; }",
         "table { width: 100%; }",
         "img { height: 50%; width: auto; }",
     ]
@@ -1023,7 +1022,14 @@ def files_to_map(
 
     ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
-    cartographer.chart(out_dir, title, map_layer_names, marker_file_names)
+    
+    if cat_wcs_fits_file is not None:
+        cat_wcs = WCS(cat_wcs_fits_file)
+    else:
+        cat_wcs = None
+        
+    cartographer.chart(out_dir, title, map_layer_names, marker_file_names, 
+                       cat_wcs)
     print("Done.")
 
 
