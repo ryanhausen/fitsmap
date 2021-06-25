@@ -59,8 +59,12 @@ IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
 MPL_CMAP = "gray"
 
+# Linear stretch, almost minmax
+# See astropy.visualization.simple_norm
+MPL_NORM_KWARGS = dict(stretch='linear', min_percent=0.1, max_percent=99.9)
+
 # MPL SINGLETON ENGINE =========================================================
-mpl_f, mpl_img, mpl_alpha_f = None, None, None
+mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 # ==============================================================================
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
@@ -305,9 +309,6 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
 
 
 def make_tile_mpl(
-    vmin: float,
-    vmax: float,
-    norm : None,
     out_dir: str,
     array: np.ndarray,
     job: Tuple[int, int, int, slice, slice],
@@ -315,8 +316,6 @@ def make_tile_mpl(
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using Matplotlib.
 
     Args:
-        vmin (float): The global minimum used to scale local values when
-        vmax (float): The global maximum used to scale local values when
         out_dir (str): The directory to save tile in
         array (np.ndarray): Array to extract a slice from
         job (Tuple[int, int, int, slice, slice]): A tuple containing z, y, x,
@@ -325,7 +324,6 @@ def make_tile_mpl(
                                                   the coordinates, and (dim0_slices,
                                                   and dim1_slices) are slice
                                                   objects that extract the tile.
-
     Returns:
         None
     """
@@ -341,6 +339,8 @@ def make_tile_mpl(
     global mpl_f
     global mpl_img
     global mpl_alpha_f
+    global mpl_norm
+    
     if mpl_f:
         # this is a singleton and starts out as null
         mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
@@ -359,17 +359,14 @@ def make_tile_mpl(
                 origin="lower",
                 cmap=cmap,
                 interpolation="nearest",
-                norm=norm
+                norm=mpl_norm
             )
-            if norm is None:
-                img_kwargs['vmin'] = vmin
-                img_kwargs['vmax'] = vmax
                 
             mpl_alpha_f = lambda arr: arr
         else:
             img_kwargs = dict(interpolation="nearest", 
                               origin="lower",
-                              norm=norm)
+                              norm=mpl_norm)
 
             def adjust_pixels(arr):
                 img = arr.copy()
@@ -457,7 +454,7 @@ def tile_img(
     image_engine: str = IMG_ENGINE_PIL,
     out_dir: str = ".",
     mp_procs: int = 0,
-    norm_kwargs: dict = None
+    norm_kwargs: dict = MPL_NORM_KWARGS
 ) -> None:
     """Extracts tiles from the array at ``file_location``.
 
@@ -476,7 +473,9 @@ def tile_img(
         mp_procs (int): The number of multiprocessing processes to use for
                         generating tiles.
         norm_kwargs (dict): Optional normalization keyword arguments passed to 
-                            `astropy.visualization.simple_norm`
+                            `astropy.visualization.simple_norm`.  If ``None``,
+                            then defaults ton linear scaling clipped to the 
+                            array minimum/mximum values.
     Returns:
         None
     """
@@ -489,17 +488,21 @@ def tile_img(
     # reset mpl vars just in case they have been set by another img
     global mpl_f
     global mpl_img
+    global mpl_norm
+    
     if mpl_f:
         mpl_f = None
         mpl_img = None
 
     # get image
     array = get_array(file_location)
-    arr_min, arr_max = np.nanmin(array), np.nanmax(array)
     if norm_kwargs is None:
-        norm = None
+        # Explicit minmax
+        arr_min, arr_max = np.nanmin(array), np.nanmax(array)
+        mpl_norm = simple_norm(array, stretch='linear', min_cut=arr_min,
+                               max_cut=arr_max)
     else:
-        norm = simple_norm(array, **norm_kwargs)
+        mpl_norm = simple_norm(array, **norm_kwargs)
         
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
@@ -524,7 +527,7 @@ def tile_img(
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
     if image_engine == IMG_ENGINE_MPL:
-        make_tile = partial(make_tile_mpl, arr_min, arr_max, norm, tile_dir)
+        make_tile = partial(make_tile_mpl, tile_dir)
     else:
         make_tile = partial(make_tile_pil, tile_dir)
 
@@ -561,8 +564,10 @@ def tile_img(
                 ),
             )
         )
-
-
+    
+    if image_engine == IMG_ENGINE_MPL:
+        plt.close('all')
+        
 def get_map_layer_name(file_location: str) -> str:
     """Tranforms a ``file_location`` into the javascript layer name.
 
@@ -723,6 +728,7 @@ def line_to_json(
     css = [
         "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
         "tr { line-height: 7pt; }",
+        # "td { width: " + str(col_width) + "%; }",
         "table { width: 100%; }",
         "img { height: 50%; width: auto; }",
     ]
@@ -932,7 +938,7 @@ def files_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
-    norm_kwargs: dict = None,
+    norm_kwargs: dict = MPL_NORM_KWARGS,
     rows_per_column: int = np.inf,
 ):
     """Converts a list of files into a LeafletJS map.
@@ -1046,7 +1052,7 @@ def dir_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
-    norm_kwargs: dict = None,
+    norm_kwargs: dict = MPL_NORM_KWARGS,
     rows_per_column: int = np.inf,
 ):
     """Converts a list of files into a LeafletJS map.

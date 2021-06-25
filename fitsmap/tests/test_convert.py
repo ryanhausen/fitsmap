@@ -467,11 +467,11 @@ def test_line_to_json_xy():
         b=-1,
         theta=-1,
         catalog_id="1",
+        widest_col=4,
+        n_rows=5,
+        n_cols=2,
         include_img=False,
         cat_path="catalog_assets",
-        n_cols=2,
-        n_rows=5,
-        widest_col=4,
     )
 
     actual_json = convert.line_to_json(
@@ -485,8 +485,10 @@ def test_line_to_json_xy():
     )
 
     helpers.tear_down()
-
-    assert expected_json == actual_json
+    
+    assert len(expected_json) == len(actual_json)
+    for k in expected_json:
+        assert expected_json[k] == actual_json[k]
 
 
 @pytest.mark.unit
@@ -532,7 +534,12 @@ def test_line_to_json_ra_dec():
 
     helpers.tear_down()
 
-    assert expected_json == actual_json
+    assert len(expected_json) == len(actual_json)
+    for k in expected_json:
+        if isinstance(actual_json[k], str):
+            assert actual_json[k] == expected_json[k]
+        else:
+            assert np.allclose(actual_json[k], expected_json[k])
 
 
 @pytest.mark.unit
@@ -562,7 +569,7 @@ def test_make_tile_mpl():
 
     os.makedirs(os.path.join(out_dir, "0/0/"))
 
-    convert.make_tile_mpl(vmin, vmax, out_dir, test_arr, test_job)
+    convert.make_tile_mpl(out_dir, test_arr, test_job)
 
     actual_img = np.array(Image.open(os.path.join(out_dir, "0/0/0.png")))
 
@@ -624,7 +631,7 @@ def test_catalog_to_markers_radec():
     convert.catalog_to_markers(
         wcs_file, out_dir, catalog_delim, rows_per_col, catalog_file, pbar_loc
     )
-    expected_json, expcted_name = helpers.cat_to_json(
+    expected_json, expected_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_radec.cat.js")
     )
     actual_json, actual_name = helpers.cat_to_json(
@@ -634,8 +641,16 @@ def test_catalog_to_markers_radec():
     helpers.tear_down()
     helpers.enable_tqdm()
 
-    assert expected_json == actual_json
-    assert expcted_name == actual_name
+    #assert expected_json == actual_json
+    assert len(expected_json) == len(actual_json)
+    for i, row in enumerate(expected_json):
+        for k in row:
+            if isinstance(row[k], str):
+                assert actual_json[i][k] == row[k]
+            else:
+                assert np.allclose(actual_json[i][k], row[k])
+                
+    assert expected_name == actual_name
 
 
 @pytest.mark.unit
@@ -714,6 +729,7 @@ def test_tile_img_mpl_serial():
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
+        norm_kwargs=None
     )
 
     expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")

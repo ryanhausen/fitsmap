@@ -80,7 +80,7 @@ def test_layer_dict_to_str():
             "minZoom: " + str(layer_dict["min_zoom"]) + ",",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ",",
             "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + ",",
-            "}).addTo(map);",
+            "});",
         ]
     )
 
@@ -193,21 +193,21 @@ def test_leaflet_map_js():
         max_native_zoom=max_zoom,
     )
 
-    acutal_map_js = c.leaflet_map_js([layer_dict])
+    actual_map_js = c.leaflet_map_js([layer_dict])
 
     expected_map_js = "\n".join(
         [
-            '    var map = L.map("map", {',
+            '\n    var map = L.map("map", {',
             "        crs: L.CRS.FitsMap,",
             "        zoom: " + str(min_zoom) + ",",
             "        minZoom: " + str(min_zoom) + ",",
-            "        center: [-126, 126],",
             "        preferCanvas: true,",
-            "    });",
+            "        layers: test,",
+            "    });\n",
         ]
     )
 
-    assert expected_map_js == acutal_map_js
+    assert expected_map_js == actual_map_js
 
 
 @pytest.mark.unit
@@ -362,6 +362,7 @@ def test_build_html():
             '   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
             extra_css,
             "   <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",
+            "   <script type='text/javascript' src='https://code.jquery.com/jquery-3.6.0.slim.min.js' charset='utf-8'></script>",
             extra_js,
             "   <style>",
             "       html, body {",
@@ -405,8 +406,10 @@ def test_chart():
             range(2),
         )
     )
-
-    c.chart(out_dir, title, [map_layer_names], [marker_file_names])
+    
+    wcs = None
+    
+    c.chart(out_dir, title, [map_layer_names], [marker_file_names], wcs)
 
     expected_html = os.path.join(out_dir, "test_index.html")
     actual_html = os.path.join(out_dir, "index.html")

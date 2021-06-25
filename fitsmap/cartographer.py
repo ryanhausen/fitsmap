@@ -32,6 +32,11 @@ from itertools import repeat
 from functools import partial, reduce
 from typing import List
 
+# None defaults here mean width/heigh will be 
+# calculated based on table column properties
+MARKER_HTML_WIDTH = None
+MARKER_HTML_HEIGHT = None
+
 MARKER_SEARCH_JS = "\n".join(
     [
         "    var marker_layers = L.layerGroup(markers);",
@@ -87,8 +92,11 @@ def chart(
 
     # build leafletjs js string
     js_layers = "\n".join(map(layer_dict_to_str, layer_dicts))
-
-    js_markers = markers_to_js(marker_file_names) if marker_file_names else ""
+    
+    if marker_file_names:
+        js_markers = markers_to_js(marker_file_names)
+    else:
+        js_markers = "    var markers = null;\n"
 
     js_crs = leaflet_crs_js(layer_dicts)
 
@@ -238,6 +246,17 @@ def markers_to_js(marker_file_names: List[str]) -> str:
     cluster_text = "        L.markerClusterGroup({ }),"
     marker_list_text = "        [],"
 
+    if MARKER_HTML_WIDTH is None:
+        var_marker_width = "            var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';"
+    else:
+        var_marker_width = "            var width = '{0}';".format(MARKER_HTML_WIDTH)
+    
+    if MARKER_HTML_HEIGHT is None:
+        var_marker_height = "            var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';"
+    else:
+        var_marker_height = "            var height = '{0}';".format(MARKER_HTML_HEIGHT)
+        
+        
     js = [
         "    var markers = [",
         *list(repeat(cluster_text, len(marker_file_names))),
@@ -275,9 +294,9 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "        for (j = 0; j < collection.length; j++){",
         "            src = collection[j];",
         "",
-        "            var width = '900px';",
+        var_marker_width,
         "            var include_img = src.include_img ? 2 : 1;",
-        "            var height = '800px';",
+        var_marker_height,
         "",
         '            let p = L.popup({ maxWidth: "auto" })',
         "                     .setLatLng([src.y, src.x])",
@@ -343,6 +362,7 @@ def leaflet_wcs_js(img_wcs: object) -> str:
     """
     Functions for translating image and sky coordinates
     """
+    import numpy as np
     
     wcs_js = """
     
@@ -432,9 +452,11 @@ def leaflet_wcs_js(img_wcs: object) -> str:
     }
 
     clearOverlays = function(){
-        for(i = 0; i < markers.length; i++) {
-            overlays[labels[i]].remove();
-            console.log('clear overlays: ' + labels[i])
+        if (markers !== null){
+            for(i = 0; i < markers.length; i++) {
+                overlays[labels[i]].remove();
+                console.log('clear overlays: ' + labels[i])
+            }
         }
     }
 
