@@ -20,10 +20,10 @@
 """Tests convert.py"""
 
 import os
+from typing import Iterable
 import warnings
 
 import numpy as np
-import py
 import pytest
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -33,6 +33,28 @@ from skimage.data import camera
 
 import fitsmap.convert as convert
 import fitsmap.tests.helpers as helpers
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_SharedProcBarIter_attrs():
+    vals = iter(range(10))
+    mTQDM = helpers.MockTQDM()
+    pbar = convert.ShardedProcBarIter(vals, mTQDM)
+
+    assert vals == pbar.iter
+    assert mTQDM == pbar.proc_bar
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_SharedProcBarIter_is_iter():
+    vals = iter(range(10))
+    mTQDM = helpers.MockTQDM()
+    pbar = convert.ShardedProcBarIter(vals, mTQDM)
+    i_pbar = iter(pbar)
+
+    assert next(i_pbar) == 0
 
 
 @pytest.mark.unit
@@ -103,6 +125,18 @@ def test_digit_to_string():
 
     for expected, actual in zip(strings, map(convert.digit_to_string, digits)):
         assert expected == actual
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_build_digit_to_string_fails():
+    """test cartographer.build_digit_to_string"""
+    digit = -1
+
+    with pytest.raises(ValueError) as excinfo:
+        convert.digit_to_string(digit)
+
+    assert "Only digits 0-9 are supported" in str(excinfo.value)
 
 
 @pytest.mark.unit
@@ -227,6 +261,24 @@ def test_slice_idx_generator_z5():
 
 @pytest.mark.unit
 @pytest.mark.convert
+def test_slice_idx_generator_raises():
+    """Test convert.slice_idx_generator raises StopIteration.
+
+    The given shape (4305, 9791) breaks iterative schemes that don't properly
+    seperate tiles. Was a bug.
+    """
+    shape = (250, 250)
+    zoom = 5
+    tile_size = 256
+
+    with pytest.raises(StopIteration) as excinfo:
+        given = convert.slice_idx_generator(shape, zoom, tile_size)
+
+    assert excinfo
+
+
+@pytest.mark.unit
+@pytest.mark.convert
 def test_balance_array_2d():
     """Test convert.balance_array"""
 
@@ -280,6 +332,26 @@ def test_get_array_fits():
     helpers.tear_down()
 
     np.testing.assert_equal(expected_array, actual_array)
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_get_array_fits_fails():
+    """Test convert.get_array"""
+
+    helpers.setup()
+
+    # make test array
+    tmp = np.zeros((3), dtype=np.float32)
+    out_path = os.path.join(helpers.TEST_PATH, "test.fits")
+    fits.PrimaryHDU(data=tmp).writeto(out_path)
+
+    with pytest.raises(ValueError) as excinfo:
+        convert.get_array(out_path)
+
+    helpers.tear_down()
+
+    assert "FitsMap only supports 2D" in str(excinfo.value)
 
 
 @pytest.mark.unit
@@ -574,6 +646,7 @@ def test_make_tile_mpl():
     helpers.tear_down()
 
 
+# TODO: RESUME HERE WITH A SHARDED VERSION OF THIS TEST
 @pytest.mark.unit
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
@@ -587,17 +660,24 @@ def test_catalog_to_markers_xy():
     rows_per_col = np.inf
     catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
     catalog_delim = " "
+    n_per_catalog_shard = 250000
     pbar_loc = 0
 
     convert.catalog_to_markers(
-        wcs_file, out_dir, catalog_delim, rows_per_col, catalog_file, pbar_loc
+        wcs_file,
+        out_dir,
+        catalog_delim,
+        rows_per_col,
+        catalog_file,
+        n_per_catalog_shard,
+        pbar_loc,
     )
 
     expected_json, expected_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_xy.cat.js")
     )
     actual_json, actual_name = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_xy.cat.js")
+        os.path.join(out_dir, "js", "test_catalog_xy_0.cat.js")
     )
 
     helpers.tear_down()

@@ -34,6 +34,11 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 TQDM_ENV_VAR = "DISBALE_TQDM"
 
 
+class MockTQDM:
+    def update(self):
+        pass
+
+
 def setup(with_data=False):
     """Builds testing structure"""
 

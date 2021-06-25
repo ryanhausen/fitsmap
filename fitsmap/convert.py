@@ -68,8 +68,8 @@ MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 class ShardedProcBarIter:
     """Maintains a single tqdm progress bar over multiple catalog shards.
 
-    This is a helper class that keeps a single tqdm progress bar object for 
-    multiple shards of the same catalog. 
+    This is a helper class that keeps a single tqdm progress bar object for
+    multiple shards of the same catalog.
 
     Attributes:
         iter (Iterable): the iterable that will be sharded
@@ -220,7 +220,7 @@ def get_array(file_location: str) -> np.ndarray:
     if ext == ".fits":
         array = fits.getdata(file_location)
         shape = array.shape
-        if len(shape) > 2:
+        if len(shape) != 2:
             raise ValueError("FitsMap only supports 2D FITS files.")
     else:
         array = np.flipud(imread(file_location))
@@ -231,6 +231,7 @@ def get_array(file_location: str) -> np.ndarray:
         elif len(array.shape) == 2:
             shape = array.shape
         else:
+            # TODO: not sure this is ever reachable
             raise ValueError("FitsMap only supports 2D and 3D images.")
 
     return balance_array(array)
@@ -971,7 +972,7 @@ def files_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
-        n_per_catalog_shard (int): The number of catalog entries per shard. 
+        n_per_catalog_shard (int): The number of catalog entries per shard.
                                    Large catalogs can block the web page loading.
                                    Catalogs are sharded into multiple smaller
                                    files that can be processed asynchronously
@@ -1099,7 +1100,7 @@ def dir_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
-        n_per_catalog_shard (int): The number of catalog entries per shard. 
+        n_per_catalog_shard (int): The number of catalog entries per shard.
                                    Large catalogs can block the web page loading.
                                    Catalogs are sharded into multiple smaller
                                    files that can be processed asynchronously
