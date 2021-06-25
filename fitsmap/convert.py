@@ -1106,6 +1106,8 @@ def dir_to_map(
     
     if filelist is None:
         file_listing = os.listdir(directory)
+        file_listing.sort()
+        
     else:
         file_listing = []
         for f in filelist:
