@@ -125,6 +125,24 @@ clustering the markers. The ``js`` directory contains the json converted
 catalog sources. Finally, ``index.html`` is the webpage that contains the map.
 To use the map, simply open ``index.html`` with your favorite browser.
 
+If you want to specify the files that get used to generate the map you can use
+function |files_to_map|:
+
+.. code-block:: python
+
+    from fitsmap import convert
+
+    paths_to_files = [
+        ...,
+    ]
+
+    convert.files_to_map.(
+        paths_to_files,
+        out_dir="path/to/data/map",
+        cat_wcs_fits_file="path/to/header_file.fits",
+    )
+
+
 Parallelization *(Linux/Mac Only)*
 **********************************
 
