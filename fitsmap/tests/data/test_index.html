@@ -44,7 +44,6 @@
     function loadNextLayer(event) {
         if (asyncLayers.length > 0){
             nextLayer = asyncLayers.pop()
-            nextLayer[1].addTo(map);
             nextLayer[1].on("load", loadNextLayer);
             layerControl.addBaseLayer(nextLayer[1], nextLayer[0]);
         }
@@ -187,12 +186,12 @@
                 let marker;
                 if (src.a==-1){
                     marker = L.circleMarker([src.y, src.x], {
-                        catalog_id: labels[i] + ':' + src.catalog_id + ':',
+                        catalog_id: panes[i] + ':' + src.catalog_id + ':',
                         color: colors[i % colors.length]
                     }).bindPopup(p);
                 } else {
                     marker = L.ellipse([src.y, src.x], [src.a, src.b], (src.theta * (180/Math.PI) * -1), {
-                        catalog_id: labels[i] + ':' + src.catalog_id + ':',
+                        catalog_id: panes[i] + ':' + src.catalog_id + ':',
                         color: colors[i % colors.length]
                     }).bindPopup(p);
                 }
