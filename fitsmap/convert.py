@@ -28,7 +28,7 @@ import shutil
 import string
 import sys
 from functools import partial
-from itertools import chain, count, filterfalse, product, repeat
+from itertools import chain, count, filterfalse, islice, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
 from pathlib import Path
 from queue import Empty
@@ -49,7 +49,6 @@ import fitsmap.cartographer as cartographer
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
-
 Shape = Tuple[int, int]
 
 IMG_FORMATS = ["fits", "jpg", "png"]
@@ -63,6 +62,30 @@ mpl_f, mpl_img, mpl_alpha_f = None, None, None
 # ==============================================================================
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
+
+
+class ShardedProcBarIter:
+    """Maintains a single tqdm progress bar over multiple catalog shards.
+
+    This is a helper class that keeps a single tqdm progress bar object for
+    multiple shards of the same catalog.
+
+    Attributes:
+        iter (Iterable): the iterable that will be sharded
+        proc_bar (tqdm): the tqdm object
+    """
+
+    def __init__(self, iter: Iterable, proc_bar: tqdm):
+
+        self.iter = iter
+        self.proc_bar = proc_bar
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.proc_bar.update()
+        return next(self.iter)
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -196,7 +219,7 @@ def get_array(file_location: str) -> np.ndarray:
     if ext == ".fits":
         array = fits.getdata(file_location)
         shape = array.shape
-        if len(shape) > 2:
+        if len(shape) != 2:
             raise ValueError("FitsMap only supports 2D FITS files.")
     else:
         array = np.flipud(imread(file_location))
@@ -207,6 +230,7 @@ def get_array(file_location: str) -> np.ndarray:
         elif len(array.shape) == 2:
             shape = array.shape
         else:
+            # TODO: not sure this is ever reachable
             raise ValueError("FitsMap only supports 2D and 3D images.")
 
     return balance_array(array)
@@ -343,10 +367,7 @@ def make_tile_mpl(
         # this is a singleton and starts out as null
         mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
         mpl_f.savefig(
-            img_path,
-            dpi=256,
-            bbox_inches=0,
-            facecolor=(0, 0, 0, 0),
+            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
         )
     else:
         if len(array.shape) == 2:
@@ -388,10 +409,7 @@ def make_tile_mpl(
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
         mpl_f.savefig(
-            img_path,
-            dpi=256,
-            bbox_inches=0,
-            facecolor=(0, 0, 0, 0),
+            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
         )
 
 
@@ -602,12 +620,7 @@ def line_to_cols(raw_col_vals: str):
     ]
 
     # make ra and dec lowercase for ease of access
-    raw_cols = list(
-        map(
-            lambda s: s.lower() if s in change_case else s,
-            raw_col_vals,
-        )
-    )
+    raw_cols = list(map(lambda s: s.lower() if s in change_case else s, raw_col_vals,))
 
     # if header line starts with a '#' exclude it
     if raw_cols[0] == "#":
@@ -658,7 +671,6 @@ def line_to_json(
         a = -1
         b = -1
         theta = -1
-
 
     # The default catalog convention is that the lower left corner is (1, 1)
     # The default leaflet convention is that the lower left corner is (0, 0)
@@ -778,6 +790,7 @@ def catalog_to_markers(
     out_dir: str,
     catalog_delim: str,
     rows_per_col: int,
+    n_per_catalog_shard: int,
     catalog_file: str,
     pbar_loc: int,
 ) -> None:
@@ -866,25 +879,29 @@ def catalog_to_markers(
         catalog_img_path,
     )
 
-    json_markers_file = os.path.join(out_dir, "js", cat_file)
-    with open(json_markers_file, "w") as j:
-        j.write("var " + js_safe_file_name + " = ")
-        json.dump(
-            list(
-                map(
-                    line_func,
-                    tqdm(
-                        csv_reader,
-                        position=pbar_loc,
-                        desc="Converting " + catalog_file,
-                        disable=bool(os.getenv("DISBALE_TQDM", False)),
-                    ),
-                )
-            ),
-            j,
-            indent=2,
+    bar = tqdm(
+        position=pbar_loc,
+        desc="Converting " + catalog_file,
+        disable=bool(os.getenv("DISBALE_TQDM", False)),
+    )
+
+    cat_file = lambda n: cat_file_root + f"_{n}.cat.js"
+    for shard in count():
+        catalog_data = list(
+            map(
+                line_func,
+                islice(ShardedProcBarIter(csv_reader, bar), n_per_catalog_shard),
+            )
         )
-        j.write(";")
+
+        if len(catalog_data) > 0:
+            json_markers_file = os.path.join(out_dir, "js", cat_file(shard))
+            with open(json_markers_file, "w") as j:
+                j.write("var " + js_safe_file_name + f"_{shard}" + " = ")
+                json.dump(catalog_data, j, indent=2)
+                j.write(";")
+        else:
+            break
     f.close()
 
 
@@ -921,6 +938,7 @@ def files_to_map(
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
     rows_per_column: int = np.inf,
+    n_per_catalog_shard: int = 250000,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -949,6 +967,17 @@ def files_to_map(
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
                             overall array.
+        rows_per_column (int): If converting a catalog, the number of items in
+                               have in each column of the marker popup.
+                               By default produces all values in a single
+                               column. Setting this value can make it easier to
+                               work with catalogs that have a lot of values for
+                               each object.
+        n_per_catalog_shard (int): The number of catalog entries per shard.
+                                   Large catalogs can block the web page loading.
+                                   Catalogs are sharded into multiple smaller
+                                   files that can be processed asynchronously
+                                   after the page is rendered.
     Returns:
         None
     """
@@ -976,7 +1005,6 @@ def files_to_map(
     img_job_f = partial(tile_img, **img_f_kwargs)
 
     cat_files = filter_on_extension(files, CAT_FORMAT)
-    marker_file_names = list(map(get_marker_file_name, cat_files))
 
     if len(cat_files) > 0:
         cat_job_f = partial(
@@ -985,6 +1013,7 @@ def files_to_map(
             out_dir,
             catalog_delim,
             rows_per_column,
+            n_per_catalog_shard,
         )
     else:
         cat_job_f = None
@@ -1006,6 +1035,10 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
+    marker_file_names = sorted(
+        filter(lambda s: ".cat.js" in s, os.listdir(os.path.join(out_dir, "js")))
+    )
+
     ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
     cartographer.chart(out_dir, title, map_layer_names, marker_file_names)
@@ -1025,6 +1058,7 @@ def dir_to_map(
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
     rows_per_column: int = np.inf,
+    n_per_catalog_shard: int = 250000,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -1067,6 +1101,11 @@ def dir_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
+        n_per_catalog_shard (int): The number of catalog entries per shard.
+                                   Large catalogs can block the web page loading.
+                                   Catalogs are sharded into multiple smaller
+                                   files that can be processed asynchronously
+                                   after the page is rendered.
     Returns:
         None
 
@@ -1078,10 +1117,7 @@ def dir_to_map(
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
-            filterfalse(
-                exclude_predicate,
-                os.listdir(directory),
-            ),
+            filterfalse(exclude_predicate, os.listdir(directory),),
         )
     )
 
@@ -1102,4 +1138,5 @@ def dir_to_map(
         tile_size=tile_size,
         image_engine=image_engine,
         rows_per_column=rows_per_column,
+        n_per_catalog_shard=n_per_catalog_shard,
     )

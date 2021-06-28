@@ -1,4 +1,4 @@
-var test_catalog_xy_cat_var = [
+var test_catalog_xy_cat_var_0 = [
   {
     "x": 289.5,
     "y": 300.5,
