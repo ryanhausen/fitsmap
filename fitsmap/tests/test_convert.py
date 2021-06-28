@@ -20,10 +20,8 @@
 """Tests convert.py"""
 
 import os
-import warnings
 
 import numpy as np
-import py
 import pytest
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -33,6 +31,28 @@ from skimage.data import camera
 
 import fitsmap.convert as convert
 import fitsmap.tests.helpers as helpers
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_SharedProcBarIter_attrs():
+    vals = iter(range(10))
+    mTQDM = helpers.MockTQDM()
+    pbar = convert.ShardedProcBarIter(vals, mTQDM)
+
+    assert vals == pbar.iter
+    assert mTQDM == pbar.proc_bar
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_SharedProcBarIter_is_iter():
+    vals = iter(range(10))
+    mTQDM = helpers.MockTQDM()
+    pbar = convert.ShardedProcBarIter(vals, mTQDM)
+    i_pbar = iter(pbar)
+
+    assert next(i_pbar) == 0
 
 
 @pytest.mark.unit
@@ -103,6 +123,18 @@ def test_digit_to_string():
 
     for expected, actual in zip(strings, map(convert.digit_to_string, digits)):
         assert expected == actual
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_build_digit_to_string_fails():
+    """test cartographer.build_digit_to_string"""
+    digit = -1
+
+    with pytest.raises(ValueError) as excinfo:
+        convert.digit_to_string(digit)
+
+    assert "Only digits 0-9 are supported" in str(excinfo.value)
 
 
 @pytest.mark.unit
@@ -227,6 +259,24 @@ def test_slice_idx_generator_z5():
 
 @pytest.mark.unit
 @pytest.mark.convert
+def test_slice_idx_generator_raises():
+    """Test convert.slice_idx_generator raises StopIteration.
+
+    The given shape (4305, 9791) breaks iterative schemes that don't properly
+    seperate tiles. Was a bug.
+    """
+    shape = (250, 250)
+    zoom = 5
+    tile_size = 256
+
+    with pytest.raises(StopIteration) as excinfo:
+        given = convert.slice_idx_generator(shape, zoom, tile_size)
+
+    assert excinfo
+
+
+@pytest.mark.unit
+@pytest.mark.convert
 def test_balance_array_2d():
     """Test convert.balance_array"""
 
@@ -280,6 +330,26 @@ def test_get_array_fits():
     helpers.tear_down()
 
     np.testing.assert_equal(expected_array, actual_array)
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_get_array_fits_fails():
+    """Test convert.get_array"""
+
+    helpers.setup()
+
+    # make test array
+    tmp = np.zeros((3), dtype=np.float32)
+    out_path = os.path.join(helpers.TEST_PATH, "test.fits")
+    fits.PrimaryHDU(data=tmp).writeto(out_path)
+
+    with pytest.raises(ValueError) as excinfo:
+        convert.get_array(out_path)
+
+    helpers.tear_down()
+
+    assert "FitsMap only supports 2D" in str(excinfo.value)
 
 
 @pytest.mark.unit
@@ -428,6 +498,7 @@ def test_line_to_cols():
     expected_cols[1] = "ra"
 
     assert expected_cols == actual_cols
+
 
 @pytest.mark.unit
 @pytest.mark.convert
@@ -586,17 +657,24 @@ def test_catalog_to_markers_xy():
     rows_per_col = np.inf
     catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
     catalog_delim = " "
+    n_per_catalog_shard = 250000
     pbar_loc = 0
 
     convert.catalog_to_markers(
-        wcs_file, out_dir, catalog_delim, rows_per_col, catalog_file, pbar_loc
+        wcs_file,
+        out_dir,
+        catalog_delim,
+        rows_per_col,
+        n_per_catalog_shard,
+        catalog_file,
+        pbar_loc,
     )
 
     expected_json, expected_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_xy.cat.js")
     )
     actual_json, actual_name = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_xy.cat.js")
+        os.path.join(out_dir, "js", "test_catalog_xy_0.cat.js")
     )
 
     helpers.tear_down()
@@ -619,16 +697,23 @@ def test_catalog_to_markers_radec():
     rows_per_col = np.inf
     catalog_file = os.path.join(out_dir, "test_catalog_radec.cat")
     catalog_delim = " "
+    n_per_catalog_shard = 250000
     pbar_loc = 0
 
     convert.catalog_to_markers(
-        wcs_file, out_dir, catalog_delim, rows_per_col, catalog_file, pbar_loc
+        wcs_file,
+        out_dir,
+        catalog_delim,
+        rows_per_col,
+        n_per_catalog_shard,
+        catalog_file,
+        pbar_loc,
     )
     expected_json, expcted_name = helpers.cat_to_json(
         os.path.join(out_dir, "expected_test_catalog_radec.cat.js")
     )
     actual_json, actual_name = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_radec.cat.js")
+        os.path.join(out_dir, "js", "test_catalog_radec_0.cat.js")
     )
 
     helpers.tear_down()
@@ -636,6 +721,56 @@ def test_catalog_to_markers_radec():
 
     assert expected_json == actual_json
     assert expcted_name == actual_name
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_catalog_to_markers_xy_sharded():
+    """Test convert.catalog_to_markers using xy coords"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    wcs_file = os.path.join(out_dir, "test_image.fits")
+    rows_per_col = np.inf
+    catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
+    catalog_delim = " "
+    n_per_catalog_shard = 4
+    pbar_loc = 0
+
+    convert.catalog_to_markers(
+        wcs_file,
+        out_dir,
+        catalog_delim,
+        rows_per_col,
+        n_per_catalog_shard,
+        catalog_file,
+        pbar_loc,
+    )
+
+    expected_json_0, expected_name_0 = helpers.cat_to_json(
+        os.path.join(out_dir, "expected_test_catalog_xy_0.cat.js")
+    )
+    expected_json_1, expected_name_1 = helpers.cat_to_json(
+        os.path.join(out_dir, "expected_test_catalog_xy_1.cat.js")
+    )
+
+    actual_json_0, actual_name_0 = helpers.cat_to_json(
+        os.path.join(out_dir, "js", "test_catalog_xy_0.cat.js")
+    )
+
+    actual_json_1, actual_name_1 = helpers.cat_to_json(
+        os.path.join(out_dir, "js", "test_catalog_xy_1.cat.js")
+    )
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert expected_json_0 == actual_json_0
+    assert expected_json_1 == actual_json_1
+    assert expected_name_0 == actual_name_0
+    assert expected_name_1 == actual_name_1
 
 
 @pytest.mark.unit
@@ -651,11 +786,18 @@ def test_catalog_to_markers_fails():
     rows_per_col = np.inf
     catalog_delim = " "
     catalog_file = os.path.join(out_dir, "test_catalog_fails.cat")
+    n_per_catalog_shard = 250000
     pbar_loc = 0
 
     with pytest.raises(ValueError) as excinfo:
         convert.catalog_to_markers(
-            wcs_file, out_dir, catalog_delim, rows_per_col, catalog_file, pbar_loc
+            wcs_file,
+            out_dir,
+            catalog_delim,
+            rows_per_col,
+            n_per_catalog_shard,
+            catalog_file,
+            pbar_loc,
         )
 
     helpers.tear_down()
@@ -695,6 +837,7 @@ def test_tile_img_pil_serial():
 
     assert dirs_match
 
+
 @pytest.mark.unit
 @pytest.mark.convert
 def test_tile_img_mpl_serial():
@@ -725,6 +868,36 @@ def test_tile_img_mpl_serial():
     helpers.enable_tqdm()
 
     assert dirs_match
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_tile_img_pil_serial_exists(capsys):
+    """Test convert.tile_img skips tiling"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    pbar_loc = 0
+    min_zoom = 0
+    image_engine = convert.IMG_ENGINE_PIL
+
+    os.mkdir(os.path.join(out_dir, "test_tiling_image"))
+
+    convert.tile_img(
+        test_image,
+        pbar_loc,
+        min_zoom=min_zoom,
+        image_engine=image_engine,
+        out_dir=out_dir,
+    )
+
+    captured = capsys.readouterr()
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert "test_tiling_image.jpg already tiled. Skipping tiling." in captured.out
 
 
 @pytest.mark.unit
@@ -814,12 +987,22 @@ def test_files_to_map():
     )
 
     expected_dir = with_path("expected_test_web")
+
+    # inject current version in to test_index.html
+    version = helpers.get_version()
+    raw_path = os.path.join(expected_dir, "index.html")
+    with open(raw_path, "r") as f:
+        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+
+    with open(raw_path, "w") as f:
+        f.writelines(converted)
+
     actual_dir = with_path("test_web")
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    # helpers.tear_down()
-    # helpers.enable_tqdm()
+    helpers.tear_down()
+    helpers.enable_tqdm()
 
     assert dirs_match
 
