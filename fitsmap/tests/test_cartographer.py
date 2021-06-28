@@ -564,7 +564,8 @@ def test_build_html():
             js,
             "    </script>",
             "</body>",
-            "</html>",
+            f"<!--Made with fitsmap v{helpers.get_version()}-->",
+            "</html>\n",
         ]
     )
 
@@ -659,8 +660,17 @@ def test_chart():
 
     c.chart(out_dir, title, [map_layer_names], [marker_file_names])
 
-    expected_html = os.path.join(out_dir, "test_index.html")
+    # inject current version in to test_index.html
+    version = helpers.get_version()
+    raw_path = os.path.join(out_dir, "test_index.html")
+    with open(raw_path, "r") as f:
+        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+
+    with open(raw_path, "w") as f:
+        f.writelines(converted)
+
     actual_html = os.path.join(out_dir, "index.html")
+    expected_html = os.path.join(out_dir, "test_index.html")
 
     files_match = filecmp.cmp(expected_html, actual_html)
 

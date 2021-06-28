@@ -32,6 +32,9 @@ from itertools import count, repeat
 from functools import partial, reduce
 from typing import Dict, List
 
+import fitsmap
+
+
 MARKER_SEARCH_JS = "\n".join(
     [
         "    // search function =========================================================",
@@ -525,10 +528,16 @@ def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
         js,
         "    </script>",
         "</body>",
-        "</html>",
+        f"<!--Made with fitsmap v{get_version()}-->",
+        "</html>\n",
     ]
 
     return "\n".join(html)
+
+
+def get_version():
+    with open(os.path.join(fitsmap.__path__[0], "__version__.py"), "r") as f:
+        return f.readline().strip().replace('"', "")
 
 
 def digit_to_string(digit: int) -> str:

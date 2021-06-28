@@ -69,7 +69,7 @@ files or PNG files that represent multiple bands of the same area of the sky,
 along with a catalog of sources within that area. For example, the directory
 might look like:
 
-::
+.. code-block::
 
   - path/to/data/
     - F125W.png
@@ -99,7 +99,7 @@ markers. In this example, one of the FITS files in the directory is used.
 
 Equivalently, using the FitsMap command line interface:
 
-::
+.. code-block::
 
   fitsmap dir --out_dir /path/to/data/map \
               --cat_wcs_fits_file "path/to/header_file.fits" \
@@ -110,7 +110,7 @@ Run ``fitsmap --help`` for more information
 
 Once FitsMap is finished, the following will have been generated:
 
-::
+.. code-block::
 
   - path/to/data/map/
     - css/

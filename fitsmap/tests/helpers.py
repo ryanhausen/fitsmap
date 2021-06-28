@@ -146,3 +146,11 @@ def compare_file_directories(dir1, dir2):
         return sub_match and len(dir_compare.diff_files) == 0
 
     return recursive_diff(filecmp.dircmp(dir1, dir2))
+
+
+def get_version():
+    here = os.path.dirname(os.path.realpath(__file__))
+    version_lcocation = os.path.join(here, "../__version__.py")
+
+    with open(version_lcocation, "r") as f:
+        return f.readline().strip().replace('"', "")
