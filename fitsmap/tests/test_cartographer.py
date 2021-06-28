@@ -21,7 +21,6 @@
 
 import filecmp
 import os
-import py
 
 import pytest
 

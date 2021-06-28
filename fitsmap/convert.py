@@ -49,7 +49,6 @@ import fitsmap.cartographer as cartographer
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
-
 Shape = Tuple[int, int]
 
 IMG_FORMATS = ["fits", "jpg", "png"]
@@ -807,7 +806,6 @@ def catalog_to_markers(
     Returns:
         None
     """
-    print(catalog_file)
     _, fname = os.path.split(catalog_file)
     out_location = os.path.join(out_dir, "js")
     if os.path.exists(out_location) and get_marker_file_name(

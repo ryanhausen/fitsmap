@@ -20,8 +20,6 @@
 """Tests convert.py"""
 
 import os
-from typing import Iterable
-import warnings
 
 import numpy as np
 import pytest
