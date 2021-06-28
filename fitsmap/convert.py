@@ -69,6 +69,13 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 
+POPUP_CSS = [
+    "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
+    "tr { line-height: 7pt; }",
+    # "td { width: " + str(col_width) + "%; }",
+    "table { width: 100%; }",
+    "img { height: 50%; width: auto; }",
+]
 
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
@@ -725,14 +732,6 @@ def line_to_json(
     # Every pair is two columns
     col_width = 100 / (2 * n_cols)
 
-    css = [
-        "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
-        "tr { line-height: 7pt; }",
-        # "td { width: " + str(col_width) + "%; }",
-        "table { width: 100%; }",
-        "img { height: 50%; width: auto; }",
-    ]
-
     src_img_path = os.path.join(catalog_img_path, f"{src_id}{catalog_img_ext}")
     if os.path.exists(src_img_path):
         to_f = os.path.join(catalog_assets_path, f"{src_id}{catalog_img_ext}")
@@ -748,7 +747,7 @@ def line_to_json(
             "<html>",
             "<head>",
             "<style>",
-            *css,
+            *POPUP_CSS,
             "</style>",
             "</head>",
             "<body>",
