@@ -728,6 +728,56 @@ def test_catalog_to_markers_radec():
 @pytest.mark.unit
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_catalog_to_markers_xy_sharded():
+    """Test convert.catalog_to_markers using xy coords"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    wcs_file = os.path.join(out_dir, "test_image.fits")
+    rows_per_col = np.inf
+    catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
+    catalog_delim = " "
+    n_per_catalog_shard = 4
+    pbar_loc = 0
+
+    convert.catalog_to_markers(
+        wcs_file,
+        out_dir,
+        catalog_delim,
+        rows_per_col,
+        n_per_catalog_shard,
+        catalog_file,
+        pbar_loc,
+    )
+
+    expected_json_0, expected_name_0 = helpers.cat_to_json(
+        os.path.join(out_dir, "expected_test_catalog_xy_0.cat.js")
+    )
+    expected_json_1, expected_name_1 = helpers.cat_to_json(
+        os.path.join(out_dir, "expected_test_catalog_xy_1.cat.js")
+    )
+
+    actual_json_0, actual_name_0 = helpers.cat_to_json(
+        os.path.join(out_dir, "js", "test_catalog_xy_0.cat.js")
+    )
+
+    actual_json_1, actual_name_1 = helpers.cat_to_json(
+        os.path.join(out_dir, "js", "test_catalog_xy_1.cat.js")
+    )
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert expected_json_0 == actual_json_0
+    assert expected_json_1 == actual_json_1
+    assert expected_name_0 == actual_name_0
+    assert expected_name_1 == actual_name_1
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_catalog_to_markers_fails():
     """Test convert.catalog_to_markers using xy coords"""
     helpers.disbale_tqdm()

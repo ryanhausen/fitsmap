@@ -142,6 +142,8 @@ function |files_to_map|:
         cat_wcs_fits_file="path/to/header_file.fits",
     )
 
+This will produce a map in ``out_dir`` using the files that were passed in using
+the ``paths_to_files`` variables.
 
 Parallelization *(Linux/Mac Only)*
 **********************************
@@ -160,7 +162,7 @@ The settings for parallelization are set using the following keyword arguments:
 
 Note that if you use parallelization you need to wrap your code like so:
 
-.. code-block::python
+.. code-block:: python
 
     from fitsmap import convert
 
