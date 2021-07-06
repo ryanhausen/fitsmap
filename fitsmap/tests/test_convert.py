@@ -1002,7 +1002,7 @@ def test_files_to_map():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    # helpers.tear_down()
+    helpers.tear_down()
     helpers.enable_tqdm()
 
     assert dirs_match
