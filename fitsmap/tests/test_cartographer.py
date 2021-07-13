@@ -21,6 +21,7 @@
 
 import filecmp
 import os
+from astropy.wcs.wcs import WCS
 
 import pytest
 
@@ -285,7 +286,13 @@ def test_leaflet_map_set_view():
     """test cartographer.leaflet_map_set_view"""
 
     actual = c.leaflet_map_set_view()
-    expected = '    map.fitWorld({"maxZoom":map.getMinZoom()});'
+    expected = "\n".join([
+        '    if (urlParam("zoom")==null){',
+        '        map.fitWorld({"maxZoom":map.getMinZoom()});',
+        "    } else{",
+        "        panFromUrl(map);",
+        "    }",
+    ])
 
     assert expected == actual
 
@@ -640,7 +647,7 @@ def test_make_fname_js_safe_no_change():
 
 @pytest.mark.integration
 @pytest.mark.cartographer
-def test_chart():
+def test_chart_no_wcs():
     """test cartographer.chart"""
 
     helpers.setup(with_data=True)
@@ -649,6 +656,7 @@ def test_chart():
     title = "test"
     map_layer_names = "test_layer"
     marker_file_names = "test_marker"
+    wcs = None
 
     list(
         map(
@@ -657,7 +665,7 @@ def test_chart():
         )
     )
 
-    c.chart(out_dir, title, [map_layer_names], [marker_file_names])
+    c.chart(out_dir, title, [map_layer_names], [marker_file_names], wcs)
 
     # inject current version in to test_index.html
     version = helpers.get_version()
@@ -670,6 +678,47 @@ def test_chart():
 
     actual_html = os.path.join(out_dir, "index.html")
     expected_html = os.path.join(out_dir, "test_index.html")
+
+    files_match = filecmp.cmp(expected_html, actual_html)
+
+    helpers.tear_down()
+
+    assert files_match
+
+
+@pytest.mark.integration
+@pytest.mark.cartographer
+def test_chart_with_wcs():
+    """test cartographer.chart"""
+
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    title = "test"
+    map_layer_names = "test_layer"
+    marker_file_names = "test_marker"
+    wcs = WCS(os.path.join(out_dir, "test_image.fits"))
+
+    list(
+        map(
+            lambda r: os.makedirs(os.path.join(out_dir, map_layer_names, str(r))),
+            range(2),
+        )
+    )
+
+    c.chart(out_dir, title, [map_layer_names], [marker_file_names], wcs)
+
+    # inject current version in to test_index.html
+    version = helpers.get_version()
+    raw_path = os.path.join(out_dir, "test_index_wcs.html")
+    with open(raw_path, "r") as f:
+        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+
+    with open(raw_path, "w") as f:
+        f.writelines(converted)
+
+    actual_html = os.path.join(out_dir, "index.html")
+    expected_html = os.path.join(out_dir, "test_index_wcs.html")
 
     files_match = filecmp.cmp(expected_html, actual_html)
 

@@ -40,6 +40,7 @@ import numpy as np
 import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
+from astropy.visualization import mpl_normalize, simple_norm
 from imageio import imread
 from PIL import Image
 from tqdm import tqdm
@@ -58,10 +59,42 @@ IMG_ENGINE_MPL = "MPL"
 MPL_CMAP = "gray"
 
 # MPL SINGLETON ENGINE =========================================================
-mpl_f, mpl_img, mpl_alpha_f = None, None, None
+mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 # ==============================================================================
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
+
+POPUP_CSS = [
+    "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
+    "tr { line-height: 7pt; }",
+    "td { width: " + "COL_WIDTH" + "%; }",
+    "table { width: 100%; }",
+    "img { height: 50%; width: auto; }",
+]
+
+
+class ShardedProcBarIter:
+    """Maintains a single tqdm progress bar over multiple catalog shards.
+
+    This is a helper class that keeps a single tqdm progress bar object for
+    multiple shards of the same catalog.
+
+    Attributes:
+        iter (Iterable): the iterable that will be sharded
+        proc_bar (tqdm): the tqdm object
+    """
+
+    def __init__(self, iter: Iterable, proc_bar: tqdm):
+        self.iter = iter
+        self.proc_bar = proc_bar
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.proc_bar.update()
+        return next(self.iter)
+
 
 
 class ShardedProcBarIter:
@@ -328,8 +361,6 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
 
 
 def make_tile_mpl(
-    vmin: float,
-    vmax: float,
     out_dir: str,
     array: np.ndarray,
     job: Tuple[int, int, int, slice, slice],
@@ -337,8 +368,6 @@ def make_tile_mpl(
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using Matplotlib.
 
     Args:
-        vmin (float): The global minimum used to scale local values when
-        vmax (float): The global maximum used to scale local values when
         out_dir (str): The directory to save tile in
         array (np.ndarray): Array to extract a slice from
         job (Tuple[int, int, int, slice, slice]): A tuple containing z, y, x,
@@ -347,7 +376,6 @@ def make_tile_mpl(
                                                   the coordinates, and (dim0_slices,
                                                   and dim1_slices) are slice
                                                   objects that extract the tile.
-
     Returns:
         None
     """
@@ -363,6 +391,8 @@ def make_tile_mpl(
     global mpl_f
     global mpl_img
     global mpl_alpha_f
+    global mpl_norm
+
     if mpl_f:
         # this is a singleton and starts out as null
         mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
@@ -377,13 +407,15 @@ def make_tile_mpl(
             img_kwargs = dict(
                 origin="lower",
                 cmap=cmap,
-                vmin=vmin,
-                vmax=vmax,
                 interpolation="nearest",
+                norm=mpl_norm
             )
+
             mpl_alpha_f = lambda arr: arr
         else:
-            img_kwargs = dict(interpolation="nearest", origin="lower")
+            img_kwargs = dict(interpolation="nearest",
+                              origin="lower",
+                              norm=mpl_norm)
 
             def adjust_pixels(arr):
                 img = arr.copy()
@@ -468,6 +500,7 @@ def tile_img(
     image_engine: str = IMG_ENGINE_PIL,
     out_dir: str = ".",
     mp_procs: int = 0,
+    norm_kwargs: dict = {}
 ) -> None:
     """Extracts tiles from the array at ``file_location``.
 
@@ -485,6 +518,10 @@ def tile_img(
         out_dir (str): The root directory to save the tiles in
         mp_procs (int): The number of multiprocessing processes to use for
                         generating tiles.
+        norm_kwargs (dict): Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. The default is
+                            linear scaling using min/max values. See documentation
+                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
 
     Returns:
         None
@@ -498,13 +535,15 @@ def tile_img(
     # reset mpl vars just in case they have been set by another img
     global mpl_f
     global mpl_img
+    global mpl_norm
+
     if mpl_f:
         mpl_f = None
         mpl_img = None
 
     # get image
     array = get_array(file_location)
-    arr_min, arr_max = np.nanmin(array), np.nanmax(array)
+    mpl_norm = simple_norm(array, **norm_kwargs)
 
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
@@ -529,7 +568,7 @@ def tile_img(
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
     if image_engine == IMG_ENGINE_MPL:
-        make_tile = partial(make_tile_mpl, arr_min, arr_max, tile_dir)
+        make_tile = partial(make_tile_mpl, tile_dir)
     else:
         make_tile = partial(make_tile_pil, tile_dir)
 
@@ -567,6 +606,8 @@ def tile_img(
             )
         )
 
+    if image_engine == IMG_ENGINE_MPL:
+        plt.close('all')
 
 def get_map_layer_name(file_location: str) -> str:
     """Tranforms a ``file_location`` into the javascript layer name.
@@ -717,15 +758,7 @@ def line_to_json(
         pass
 
     # Every pair is two columns
-    col_width = 100 / (2 * n_cols)
-
-    css = [
-        "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
-        "tr { line-height: 7pt; }",
-        "td { width: " + str(col_width) + "%; }",
-        "table { width: 100%; }",
-        "img { height: 50%; width: auto; }",
-    ]
+    col_width = str(100 / (2 * n_cols))
 
     src_img_path = os.path.join(catalog_img_path, f"{src_id}{catalog_img_ext}")
     if os.path.exists(src_img_path):
@@ -742,7 +775,7 @@ def line_to_json(
             "<html>",
             "<head>",
             "<style>",
-            *css,
+            *list(map(lambda s: s.replace("COL_WIDTH", col_width), POPUP_CSS)),
             "</style>",
             "</head>",
             "<body>",
@@ -795,14 +828,12 @@ def catalog_to_markers(
     pbar_loc: int,
 ) -> None:
     """Transform ``catalog_file`` into a json collection for mapping
-
     Args:
         wcs_file (str): path to fits file used to interpret catalog
         out_dir (str): path to save the json collection in
         catalog_delim (str): delimiter to use when parsing catalog
         catalog_file (str): path to catalog file
         pbar_loc (int): the index to draw the tqdm bar in
-
     Returns:
         None
     """
@@ -844,7 +875,6 @@ def catalog_to_markers(
 
     cat_file_root = Path(catalog_file).stem
     js_safe_file_name = make_fname_js_safe(cat_file_root) + "_cat_var"
-    cat_file = cat_file_root + ".cat.js"
 
     if "js" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "js"))
@@ -937,6 +967,7 @@ def files_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     n_per_catalog_shard: int = 250000,
 ):
@@ -967,6 +998,13 @@ def files_to_map(
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
                             overall array.
+<<<<<<< HEAD
+=======
+        norm_kwargs (dict): Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. The default is
+                            linear scaling using min/max values. See documentation
+                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+>>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
         rows_per_column (int): If converting a catalog, the number of items in
                                have in each column of the marker popup.
                                By default produces all values in a single
@@ -998,6 +1036,7 @@ def files_to_map(
         image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=procs_per_task,
+        norm_kwargs=norm_kwargs
     )
 
     img_files = filter_on_extension(files, IMG_FORMATS)
@@ -1041,7 +1080,14 @@ def files_to_map(
 
     ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
-    cartographer.chart(out_dir, title, map_layer_names, marker_file_names)
+
+    if cat_wcs_fits_file is not None:
+        cat_wcs = WCS(cat_wcs_fits_file)
+    else:
+        cat_wcs = None
+
+    cartographer.chart(out_dir, title, map_layer_names, marker_file_names,
+                       cat_wcs)
     print("Done.")
 
 
@@ -1057,6 +1103,7 @@ def dir_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
+    norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     n_per_catalog_shard: int = 250000,
 ):
@@ -1095,6 +1142,10 @@ def dir_to_map(
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
                             overall array.
+        norm_kwargs (dict): Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. The default is
+                            linear scaling using min/max values. See documentation
+                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
         rows_per_column (int): If converting a catalog, the number of items in
                                have in each column of the marker popup.
                                By default produces all values in a single
@@ -1106,6 +1157,10 @@ def dir_to_map(
                                    Catalogs are sharded into multiple smaller
                                    files that can be processed asynchronously
                                    after the page is rendered.
+<<<<<<< HEAD
+=======
+
+>>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
     Returns:
         None
 
@@ -1113,7 +1168,6 @@ def dir_to_map(
         ValueError if the dir is empty, there are no convertable files or if
         ``exclude_predicate`` exlcudes all files
     """
-
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
@@ -1123,11 +1177,11 @@ def dir_to_map(
 
     if len(dir_files) == 0:
         raise ValueError(
-            "No files in `directory` or `exlcude_predicate exlucdes everything"
+            "No files in `directory` or `exclude_predicate` excludes everything"
         )
 
     files_to_map(
-        dir_files,
+        sorted(dir_files),
         out_dir=out_dir,
         min_zoom=min_zoom,
         title=title,
@@ -1137,6 +1191,7 @@ def dir_to_map(
         cat_wcs_fits_file=cat_wcs_fits_file,
         tile_size=tile_size,
         image_engine=image_engine,
+        norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
         n_per_catalog_shard=n_per_catalog_shard,
     )
