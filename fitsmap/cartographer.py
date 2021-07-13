@@ -32,10 +32,6 @@ from itertools import repeat
 from functools import partial, reduce
 from typing import Dict, List
 
-<<<<<<< HEAD
-import fitsmap
-
-=======
 import numpy as np
 from astropy.wcs import WCS
 
@@ -45,7 +41,6 @@ import fitsmap
 # calculated based on table column properties
 MARKER_HTML_WIDTH = None
 MARKER_HTML_HEIGHT = None
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
 
 MARKER_SEARCH_JS = "\n".join(
     [
@@ -72,15 +67,11 @@ MARKER_SEARCH_JS = "\n".join(
 LAYER_ATTRIBUTION = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
 
 def chart(
-<<<<<<< HEAD
-    out_dir: str, title: str, map_layer_names: List[str], marker_file_names: List[str],
-=======
     out_dir: str,
     title: str,
     map_layer_names: List[str],
     marker_file_names: List[str],
     wcs: WCS
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -113,11 +104,8 @@ def chart(
 
     js_add_layer_control = add_layer_control(layer_dicts[0])
 
-<<<<<<< HEAD
-=======
     js_leaflet_wcs = leaflet_wcs_js(wcs)
 
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
     js_set_map = leaflet_map_set_view()
 
     js = "\n".join(
@@ -132,10 +120,7 @@ def chart(
             js_markers,
             js_marker_search,
             js_add_layer_control,
-<<<<<<< HEAD
-=======
             js_leaflet_wcs,
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
             js_set_map,
         ]
     )
@@ -185,7 +170,6 @@ def add_layer_control(layer: dict):
         "    layerControl.addTo(map);",
     ]
 
-<<<<<<< HEAD
     return "\n".join(js)
 
 
@@ -217,39 +201,6 @@ def js_async_layers(async_layers: List[Dict]) -> str:
     return "\n".join(js)
 
 
-=======
-    return "\n".join(js)
-
-
-# TODO: This should be factored into a map call to a single format function
-def js_async_layers(async_layers: List[Dict]) -> str:
-    """Converts all layers after the first one into layers that area loaded async"""
-
-    def layer_fmt(l: dict):
-        return "".join(
-            [
-                '        ["',
-                l["name"],
-                '", L.tileLayer("',
-                l["directory"],
-                '",{ attribution:"',
-                LAYER_ATTRIBUTION,
-                '", minZoom:',
-                str(l["min_zoom"]),
-                ", maxZoom:",
-                str(l["max_zoom"]),
-                ", maxNativeZoom:",
-                str(l["max_native_zoom"]),
-                "})],",
-            ]
-        )
-
-    js = ["    asyncLayers = [", *list(map(layer_fmt, async_layers)), "    ];"]
-
-    return "\n".join(js)
-
-
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
 def js_load_next_layer() -> str:
     return "\n".join(
         [
@@ -314,9 +265,6 @@ def leaflet_map_js(tile_layers: List[dict]):
 
 
 def leaflet_map_set_view():
-<<<<<<< HEAD
-    return '    map.fitWorld({"maxZoom":map.getMinZoom()});'
-=======
     js = [
         '    if (urlParam("zoom")==null){',
         '        map.fitWorld({"maxZoom":map.getMinZoom()});',
@@ -326,7 +274,6 @@ def leaflet_map_set_view():
     ]
 
     return "\n".join(js)
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
 
 
 # TODO: Maybe break this up into handling single marker files?
@@ -352,8 +299,6 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         return "        '<span style=\"color:red\">{}</span>::0/'+ {} +'-0%',".format(
             name, cnt
         )
-<<<<<<< HEAD
-=======
 
 
     if MARKER_HTML_WIDTH:
@@ -366,7 +311,6 @@ def markers_to_js(marker_file_names: List[str]) -> str:
     else:
         var_marker_height = "                var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';"
 
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
 
     js = [
         "    // catalogs ================================================================",
@@ -423,17 +367,10 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "",
         "            if (completetion==1 && current_iter==total_iter){",
         '                layerControl._layers[i].name = html_name.replace("red", "black");',
-<<<<<<< HEAD
         "            }",
         "            else {",
         '                layerControl._layers[i].name = html_name + "::" + current_iter + "/" + total_iter + "-" + Math.floor(completetion*100) + "%";',
         "            }",
-=======
-        "            }",
-        "            else {",
-        '                layerControl._layers[i].name = html_name + "::" + current_iter + "/" + total_iter + "-" + Math.floor(completetion*100) + "%";',
-        "            }",
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
         "            layerControl._update();",
         "",
         "            // if we have finished processing move on to the next shard/catalog",
@@ -456,21 +393,12 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "",
         "    for (var i = 0; i < markers.length; i++){",
         "        layerControl.addOverlay(markers[i], labels[i]);",
-<<<<<<< HEAD
         "    }",
         "",
         "    function add_marker_collections(event){",
         "        add_marker_collections_f(collection_idx.length-1);",
         "    }",
         "",
-=======
-        "    }",
-        "",
-        "    function add_marker_collections(event){",
-        "        add_marker_collections_f(collection_idx.length-1);",
-        "    }",
-        "",
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
         "    function add_marker_collections_f(i){",
         "        //console.log('i is currently ', i);",
         "        if (i >= 0){",
@@ -500,15 +428,9 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         "            for (j = 0; j < collec.length; j++){",
         "                src = collec[j];",
         "",
-<<<<<<< HEAD
-        "                var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';",
-        "                var include_img = src.include_img ? 2 : 1;",
-        "                var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';",
-=======
         var_marker_width,
         "                var include_img = src.include_img ? 2 : 1;",
         var_marker_height,
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
         "",
         '                let p = L.popup({ maxWidth: "auto" })',
         "                         .setLatLng([src.y, src.x])",

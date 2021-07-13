@@ -998,13 +998,10 @@ def files_to_map(
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
                             overall array.
-<<<<<<< HEAD
-=======
         norm_kwargs (dict): Optional normalization keyword arguments passed to
                             `astropy.visualization.simple_norm`. The default is
                             linear scaling using min/max values. See documentation
                             for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
         rows_per_column (int): If converting a catalog, the number of items in
                                have in each column of the marker popup.
                                By default produces all values in a single
@@ -1157,10 +1154,6 @@ def dir_to_map(
                                    Catalogs are sharded into multiple smaller
                                    files that can be processed asynchronously
                                    after the page is rendered.
-<<<<<<< HEAD
-=======
-
->>>>>>> f13dec5e236ec6a3d904902271e9dd5bfffd5b59
     Returns:
         None
 
