@@ -50,7 +50,6 @@ import fitsmap.cartographer as cartographer
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
-
 Shape = Tuple[int, int]
 
 IMG_FORMATS = ["fits", "jpg", "png"]
@@ -95,8 +94,7 @@ class ShardedProcBarIter:
     def __next__(self):
         self.proc_bar.update()
         return next(self.iter)
-
-
+      
 
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
@@ -240,6 +238,7 @@ def get_array(file_location: str) -> np.ndarray:
         elif len(array.shape) == 2:
             shape = array.shape
         else:
+            # TODO: not sure this is ever reachable
             raise ValueError("FitsMap only supports 2D and 3D images.")
 
     return balance_array(array)
@@ -373,10 +372,7 @@ def make_tile_mpl(
         # this is a singleton and starts out as null
         mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
         mpl_f.savefig(
-            img_path,
-            dpi=256,
-            bbox_inches=0,
-            facecolor=(0, 0, 0, 0),
+            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
         )
     else:
         if len(array.shape) == 2:
@@ -420,10 +416,7 @@ def make_tile_mpl(
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
         mpl_f.savefig(
-            img_path,
-            dpi=256,
-            bbox_inches=0,
-            facecolor=(0, 0, 0, 0),
+            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
         )
 
 
@@ -643,12 +636,7 @@ def line_to_cols(raw_col_vals: str):
     ]
 
     # make ra and dec lowercase for ease of access
-    raw_cols = list(
-        map(
-            lambda s: s.lower() if s in change_case else s,
-            raw_col_vals,
-        )
-    )
+    raw_cols = list(map(lambda s: s.lower() if s in change_case else s, raw_col_vals,))
 
     # if header line starts with a '#' exclude it
     if raw_cols[0] == "#":
@@ -699,7 +687,6 @@ def line_to_json(
         a = -1
         b = -1
         theta = -1
-
 
     # The default catalog convention is that the lower left corner is (1, 1)
     # The default leaflet convention is that the lower left corner is (0, 0)
@@ -1142,7 +1129,6 @@ def dir_to_map(
                                    Catalogs are sharded into multiple smaller
                                    files that can be processed asynchronously
                                    after the page is rendered.
-
     Returns:
         None
 
@@ -1153,10 +1139,7 @@ def dir_to_map(
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
-            filterfalse(
-                exclude_predicate,
-                os.listdir(directory),
-            ),
+            filterfalse(exclude_predicate, os.listdir(directory),),
         )
     )
 

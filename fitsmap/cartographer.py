@@ -79,7 +79,6 @@ def chart(
     * Designed for internal use. Any method/variable can be deprecated/changed *
     * without consideration.                                                   *
     ****************************************************************************
-
     """
 
     # convert layer names into a single javascript string
