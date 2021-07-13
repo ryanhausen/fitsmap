@@ -225,10 +225,10 @@
     layerControl.addTo(map);
 
     // WCS functionality =======================================================
-    const is_ra_dec = 0;
-    const crpix = [1, 1];
-    const crval = [0, 0];
-    const cdmatrix = [[1, 0], [0, 1]];
+    const is_ra_dec = 1;
+    const crpix = [4299.13105, 7040.18849];
+    const crval = [53.122751, -27.805089];
+    const cdmatrix = [[-1.38888917e-05, 0.0], [0.0, 1.38888917e-05]];
 
     urlParam = function(name){
         // Parse parameters from window.location,

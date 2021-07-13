@@ -605,6 +605,9 @@ def test_line_to_json_ra_dec():
 
     assert expected_json == actual_json
 
+# this needs to be top-level to be pickle-able in test_async_worker_completes
+def mock_f(v1, v2):
+    pass
 
 @pytest.mark.unit
 @pytest.mark.convert
@@ -612,7 +615,7 @@ def test_async_worker_completes():
     """Test convert.async_worker"""
 
     q = JoinableQueue()
-    q.put((lambda v1, v2: None, ["v1", "v2"]))
+    q.put((mock_f, ["v1", "v2"]))
 
     convert.async_worker(q)
 
@@ -628,12 +631,10 @@ def test_make_tile_mpl():
     out_dir = helpers.TEST_PATH
     test_arr = np.arange(100 * 100).reshape([100, 100])
     test_job = (0, 0, 0, slice(0, 100), slice(0, 100))
-    vmin = test_arr.min()
-    vmax = test_arr.max()
 
     os.makedirs(os.path.join(out_dir, "0/0/"))
 
-    convert.make_tile_mpl(vmin, vmax, out_dir, test_arr, test_job)
+    convert.make_tile_mpl(out_dir, test_arr, test_job)
 
     actual_img = np.array(Image.open(os.path.join(out_dir, "0/0/0.png")))
 
