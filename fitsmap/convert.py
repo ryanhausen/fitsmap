@@ -28,7 +28,7 @@ import shutil
 import string
 import sys
 from functools import partial
-from itertools import chain, count, filterfalse, product, repeat
+from itertools import chain, count, filterfalse, islice, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
 from pathlib import Path
 from queue import Empty
@@ -40,7 +40,7 @@ import numpy as np
 import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.visualization import simple_norm    
+from astropy.visualization import mpl_normalize, simple_norm
 from imageio import imread
 from PIL import Image
 from tqdm import tqdm
@@ -59,10 +59,6 @@ IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
 MPL_CMAP = "gray"
 
-# Linear stretch, almost minmax
-# See astropy.visualization.simple_norm
-MPL_NORM_KWARGS = dict(stretch='linear', min_percent=0.1, max_percent=99.9)
-
 # MPL SINGLETON ENGINE =========================================================
 mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 # ==============================================================================
@@ -72,10 +68,35 @@ MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 POPUP_CSS = [
     "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
     "tr { line-height: 7pt; }",
-    # "td { width: " + str(col_width) + "%; }",
+    "td { width: " + "COL_WIDTH" + "%; }",
     "table { width: 100%; }",
     "img { height: 50%; width: auto; }",
 ]
+
+
+class ShardedProcBarIter:
+    """Maintains a single tqdm progress bar over multiple catalog shards.
+
+    This is a helper class that keeps a single tqdm progress bar object for
+    multiple shards of the same catalog.
+
+    Attributes:
+        iter (Iterable): the iterable that will be sharded
+        proc_bar (tqdm): the tqdm object
+    """
+
+    def __init__(self, iter: Iterable, proc_bar: tqdm):
+        self.iter = iter
+        self.proc_bar = proc_bar
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        self.proc_bar.update()
+        return next(self.iter)
+
+
 
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
@@ -208,7 +229,7 @@ def get_array(file_location: str) -> np.ndarray:
     if ext == ".fits":
         array = fits.getdata(file_location)
         shape = array.shape
-        if len(shape) > 2:
+        if len(shape) != 2:
             raise ValueError("FitsMap only supports 2D FITS files.")
     else:
         array = np.flipud(imread(file_location))
@@ -347,7 +368,7 @@ def make_tile_mpl(
     global mpl_img
     global mpl_alpha_f
     global mpl_norm
-    
+
     if mpl_f:
         # this is a singleton and starts out as null
         mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
@@ -368,10 +389,10 @@ def make_tile_mpl(
                 interpolation="nearest",
                 norm=mpl_norm
             )
-                
+
             mpl_alpha_f = lambda arr: arr
         else:
-            img_kwargs = dict(interpolation="nearest", 
+            img_kwargs = dict(interpolation="nearest",
                               origin="lower",
                               norm=mpl_norm)
 
@@ -461,7 +482,7 @@ def tile_img(
     image_engine: str = IMG_ENGINE_PIL,
     out_dir: str = ".",
     mp_procs: int = 0,
-    norm_kwargs: dict = MPL_NORM_KWARGS
+    norm_kwargs: dict = {}
 ) -> None:
     """Extracts tiles from the array at ``file_location``.
 
@@ -479,10 +500,11 @@ def tile_img(
         out_dir (str): The root directory to save the tiles in
         mp_procs (int): The number of multiprocessing processes to use for
                         generating tiles.
-        norm_kwargs (dict): Optional normalization keyword arguments passed to 
-                            `astropy.visualization.simple_norm`.  If ``None``,
-                            then defaults ton linear scaling clipped to the 
-                            array minimum/mximum values.
+        norm_kwargs (dict): Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. The default is
+                            linear scaling using min/max values. See documentation
+                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+
     Returns:
         None
     """
@@ -496,21 +518,15 @@ def tile_img(
     global mpl_f
     global mpl_img
     global mpl_norm
-    
+
     if mpl_f:
         mpl_f = None
         mpl_img = None
 
     # get image
     array = get_array(file_location)
-    if norm_kwargs is None:
-        # Explicit minmax
-        arr_min, arr_max = np.nanmin(array), np.nanmax(array)
-        mpl_norm = simple_norm(array, stretch='linear', min_cut=arr_min,
-                               max_cut=arr_max)
-    else:
-        mpl_norm = simple_norm(array, **norm_kwargs)
-        
+    mpl_norm = simple_norm(array, **norm_kwargs)
+
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
     max_zoom = zooms[1]
@@ -571,10 +587,10 @@ def tile_img(
                 ),
             )
         )
-    
+
     if image_engine == IMG_ENGINE_MPL:
         plt.close('all')
-        
+
 def get_map_layer_name(file_location: str) -> str:
     """Tranforms a ``file_location`` into the javascript layer name.
 
@@ -730,7 +746,7 @@ def line_to_json(
         pass
 
     # Every pair is two columns
-    col_width = 100 / (2 * n_cols)
+    col_width = str(100 / (2 * n_cols))
 
     src_img_path = os.path.join(catalog_img_path, f"{src_id}{catalog_img_ext}")
     if os.path.exists(src_img_path):
@@ -747,7 +763,7 @@ def line_to_json(
             "<html>",
             "<head>",
             "<style>",
-            *POPUP_CSS,
+            *list(map(lambda s: s.replace("COL_WIDTH", col_width), POPUP_CSS)),
             "</style>",
             "</head>",
             "<body>",
@@ -795,18 +811,17 @@ def catalog_to_markers(
     out_dir: str,
     catalog_delim: str,
     rows_per_col: int,
+    n_per_catalog_shard: int,
     catalog_file: str,
     pbar_loc: int,
 ) -> None:
     """Transform ``catalog_file`` into a json collection for mapping
-
     Args:
         wcs_file (str): path to fits file used to interpret catalog
         out_dir (str): path to save the json collection in
         catalog_delim (str): delimiter to use when parsing catalog
         catalog_file (str): path to catalog file
         pbar_loc (int): the index to draw the tqdm bar in
-
     Returns:
         None
     """
@@ -848,7 +863,6 @@ def catalog_to_markers(
 
     cat_file_root = Path(catalog_file).stem
     js_safe_file_name = make_fname_js_safe(cat_file_root) + "_cat_var"
-    cat_file = cat_file_root + ".cat.js"
 
     if "js" not in os.listdir(out_dir):
         os.mkdir(os.path.join(out_dir, "js"))
@@ -883,25 +897,29 @@ def catalog_to_markers(
         catalog_img_path,
     )
 
-    json_markers_file = os.path.join(out_dir, "js", cat_file)
-    with open(json_markers_file, "w") as j:
-        j.write("var " + js_safe_file_name + " = ")
-        json.dump(
-            list(
-                map(
-                    line_func,
-                    tqdm(
-                        csv_reader,
-                        position=pbar_loc,
-                        desc="Converting " + catalog_file,
-                        disable=bool(os.getenv("DISBALE_TQDM", False)),
-                    ),
-                )
-            ),
-            j,
-            indent=2,
+    bar = tqdm(
+        position=pbar_loc,
+        desc="Converting " + catalog_file,
+        disable=bool(os.getenv("DISBALE_TQDM", False)),
+    )
+
+    cat_file = lambda n: cat_file_root + f"_{n}.cat.js"
+    for shard in count():
+        catalog_data = list(
+            map(
+                line_func,
+                islice(ShardedProcBarIter(csv_reader, bar), n_per_catalog_shard),
+            )
         )
-        j.write(";")
+
+        if len(catalog_data) > 0:
+            json_markers_file = os.path.join(out_dir, "js", cat_file(shard))
+            with open(json_markers_file, "w") as j:
+                j.write("var " + js_safe_file_name + f"_{shard}" + " = ")
+                json.dump(catalog_data, j, indent=2)
+                j.write(";")
+        else:
+            break
     f.close()
 
 
@@ -937,8 +955,9 @@ def files_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Tuple[int, int] = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
-    norm_kwargs: dict = MPL_NORM_KWARGS,
+    norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
+    n_per_catalog_shard: int = 250000,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -967,6 +986,21 @@ def files_to_map(
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
                             overall array.
+        norm_kwargs (dict): Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. The default is
+                            linear scaling using min/max values. See documentation
+                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+        rows_per_column (int): If converting a catalog, the number of items in
+                               have in each column of the marker popup.
+                               By default produces all values in a single
+                               column. Setting this value can make it easier to
+                               work with catalogs that have a lot of values for
+                               each object.
+        n_per_catalog_shard (int): The number of catalog entries per shard.
+                                   Large catalogs can block the web page loading.
+                                   Catalogs are sharded into multiple smaller
+                                   files that can be processed asynchronously
+                                   after the page is rendered.
     Returns:
         None
     """
@@ -995,7 +1029,6 @@ def files_to_map(
     img_job_f = partial(tile_img, **img_f_kwargs)
 
     cat_files = filter_on_extension(files, CAT_FORMAT)
-    marker_file_names = list(map(get_marker_file_name, cat_files))
 
     if len(cat_files) > 0:
         cat_job_f = partial(
@@ -1004,6 +1037,7 @@ def files_to_map(
             out_dir,
             catalog_delim,
             rows_per_column,
+            n_per_catalog_shard,
         )
     else:
         cat_job_f = None
@@ -1025,22 +1059,25 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
+    marker_file_names = sorted(
+        filter(lambda s: ".cat.js" in s, os.listdir(os.path.join(out_dir, "js")))
+    )
+
     ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
-    
+
     if cat_wcs_fits_file is not None:
         cat_wcs = WCS(cat_wcs_fits_file)
     else:
         cat_wcs = None
-        
-    cartographer.chart(out_dir, title, map_layer_names, marker_file_names, 
+
+    cartographer.chart(out_dir, title, map_layer_names, marker_file_names,
                        cat_wcs)
     print("Done.")
 
 
 def dir_to_map(
     directory: str,
-    filelist: List[str] = None,
     out_dir: str = ".",
     exclude_predicate: Callable = lambda f: False,
     min_zoom: int = 0,
@@ -1051,8 +1088,9 @@ def dir_to_map(
     cat_wcs_fits_file: str = None,
     tile_size: Shape = [256, 256],
     image_engine: str = IMG_ENGINE_PIL,
-    norm_kwargs: dict = MPL_NORM_KWARGS,
+    norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
+    n_per_catalog_shard: int = 250000,
 ):
     """Converts a list of files into a LeafletJS map.
 
@@ -1089,12 +1127,22 @@ def dir_to_map(
                             IMG_ENGINE_MPL uses matplotlib and is slower but can
                             scales the tiles according to the min/max of the
                             overall array.
+        norm_kwargs (dict): Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. The default is
+                            linear scaling using min/max values. See documentation
+                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
         rows_per_column (int): If converting a catalog, the number of items in
                                have in each column of the marker popup.
                                By default produces all values in a single
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
+        n_per_catalog_shard (int): The number of catalog entries per shard.
+                                   Large catalogs can block the web page loading.
+                                   Catalogs are sharded into multiple smaller
+                                   files that can be processed asynchronously
+                                   after the page is rendered.
+
     Returns:
         None
 
@@ -1102,27 +1150,12 @@ def dir_to_map(
         ValueError if the dir is empty, there are no convertable files or if
         ``exclude_predicate`` exlcudes all files
     """
-    
-    if filelist is None:
-        file_listing = os.listdir(directory)
-        file_listing.sort()
-        
-    else:
-        file_listing = []
-        for f in filelist:
-            if os.path.exists(os.path.join(directory, f)):
-                file_listing.append(f)
-        
-        if len(file_listing) == 0:
-            msg = "No files from {0} found in directory '{1}'"
-            raise ValueError(msg.format(filelist, directory))
-            
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
             filterfalse(
                 exclude_predicate,
-                file_listing,
+                os.listdir(directory),
             ),
         )
     )
@@ -1131,9 +1164,9 @@ def dir_to_map(
         raise ValueError(
             "No files in `directory` or `exclude_predicate` excludes everything"
         )
-        
+
     files_to_map(
-        dir_files,
+        sorted(dir_files),
         out_dir=out_dir,
         min_zoom=min_zoom,
         title=title,
@@ -1145,4 +1178,5 @@ def dir_to_map(
         image_engine=image_engine,
         norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
+        n_per_catalog_shard=n_per_catalog_shard,
     )
