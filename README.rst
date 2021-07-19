@@ -145,6 +145,24 @@ function |files_to_map|:
 This will produce a map in ``out_dir`` using the files that were passed in using
 the ``paths_to_files`` variables.
 
+
+Saveable Views
+**************
+
+FitsMap stores the current view (location/zoom) in the url. You can then
+share the view with others by sharing the url.
+
+
+Async Loading
+*************
+
+All layers/catalogs are loaded asynchronously. For small catalogs this won't
+be noticeable, but for large catalogs you can monitor the loading by expanding
+the layers menu in the top right corner of the map. Large catalogs are sharded
+into multiple sub-catalogs which are loaded one at a time. Catalogs are shown
+in red until they are completely loaded afterwhich the text is changed to black.
+
+
 Parallelization *(Linux/Mac Only)*
 **********************************
 

@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2020 Ryan Hausen
+# Copyright 2021 Ryan Hausen
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -32,7 +32,7 @@ from itertools import chain, count, filterfalse, islice, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
 from pathlib import Path
 from queue import Empty
-from typing import Callable, Iterable, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -40,7 +40,7 @@ import numpy as np
 import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
-from astropy.visualization import mpl_normalize, simple_norm
+from astropy.visualization import simple_norm
 from imageio import imread
 from PIL import Image
 from tqdm import tqdm
@@ -116,7 +116,10 @@ def build_path(z, y, x, out_dir) -> str:
     return img_path
 
 
+# TODO: This function exists in cartographer, refactor to a common import
 def digit_to_string(digit: int) -> str:
+    """Converts an integer into its word representation"""
+
     if digit == 0:
         return "zero"
     elif digit == 1:
@@ -141,6 +144,7 @@ def digit_to_string(digit: int) -> str:
         raise ValueError("Only digits 0-9 are supported")
 
 
+# TODO: This function exists in cartographer, refactor to a common import
 def make_fname_js_safe(fname: str) -> str:
     """Converts a string filename to a javascript safe identifier."""
 
@@ -592,7 +596,7 @@ def get_map_layer_name(file_location: str) -> str:
     return name
 
 
-def get_marker_file_name(file_location: str):
+def get_marker_file_name(file_location: str) -> str:
     """Tranforms a ``file_location`` into the javascript marker file name.
 
     Args:
@@ -604,7 +608,7 @@ def get_marker_file_name(file_location: str):
     return os.path.split(file_location)[1] + ".js"
 
 
-def line_to_cols(raw_col_vals: str):
+def line_to_cols(raw_col_vals: str) -> List[str]:
     """Transform a raw text line of column names into a list of column names
 
     Args:
@@ -647,7 +651,7 @@ def line_to_json(
     catalog_assets_path: str,
     catalog_img_path: str,
     src_vals: str,
-):
+) -> Dict[str, Any]:
     """Transform a raw text line attribute values into a JSON marker
 
     Args:
@@ -906,7 +910,7 @@ def catalog_to_markers(
     f.close()
 
 
-def async_worker(q: JoinableQueue):
+def async_worker(q: JoinableQueue) -> None:
     """Function for async task processesing.
 
     Args:
@@ -941,7 +945,7 @@ def files_to_map(
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     n_per_catalog_shard: int = 250000,
-):
+) -> None:
     """Converts a list of files into a LeafletJS map.
 
     Args:
@@ -1073,7 +1077,7 @@ def dir_to_map(
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     n_per_catalog_shard: int = 250000,
-):
+) -> None:
     """Converts a list of files into a LeafletJS map.
 
     Args:
