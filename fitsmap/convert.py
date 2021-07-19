@@ -94,7 +94,7 @@ class ShardedProcBarIter:
     def __next__(self):
         self.proc_bar.update()
         return next(self.iter)
-      
+
 
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
@@ -336,9 +336,7 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
 
 
 def make_tile_mpl(
-    out_dir: str,
-    array: np.ndarray,
-    job: Tuple[int, int, int, slice, slice],
+    out_dir: str, array: np.ndarray, job: Tuple[int, int, int, slice, slice],
 ) -> None:
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using Matplotlib.
 
@@ -380,17 +378,12 @@ def make_tile_mpl(
             cmap.set_bad(color=(0, 0, 0, 0))
 
             img_kwargs = dict(
-                origin="lower",
-                cmap=cmap,
-                interpolation="nearest",
-                norm=mpl_norm
+                origin="lower", cmap=cmap, interpolation="nearest", norm=mpl_norm
             )
 
             mpl_alpha_f = lambda arr: arr
         else:
-            img_kwargs = dict(interpolation="nearest",
-                              origin="lower",
-                              norm=mpl_norm)
+            img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
 
             def adjust_pixels(arr):
                 img = arr.copy()
@@ -475,7 +468,7 @@ def tile_img(
     image_engine: str = IMG_ENGINE_PIL,
     out_dir: str = ".",
     mp_procs: int = 0,
-    norm_kwargs: dict = {}
+    norm_kwargs: dict = {},
 ) -> None:
     """Extracts tiles from the array at ``file_location``.
 
@@ -582,7 +575,8 @@ def tile_img(
         )
 
     if image_engine == IMG_ENGINE_MPL:
-        plt.close('all')
+        plt.close("all")
+
 
 def get_map_layer_name(file_location: str) -> str:
     """Tranforms a ``file_location`` into the javascript layer name.
@@ -812,11 +806,13 @@ def catalog_to_markers(
     Returns:
         None
     """
+
     _, fname = os.path.split(catalog_file)
     out_location = os.path.join(out_dir, "js")
-    if os.path.exists(out_location) and get_marker_file_name(
-        catalog_file
-    ) in os.listdir(out_location):
+    check_name = get_marker_file_name(catalog_file).replace(".cat.js", "")
+    if os.path.exists(out_location) and any(
+        map(lambda fname: fname.startswith(check_name), os.listdir(out_location))
+    ):
         print(f"{fname} already converted to js. Skipping conversion.")
         return
 
@@ -1008,7 +1004,7 @@ def files_to_map(
         image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=procs_per_task,
-        norm_kwargs=norm_kwargs
+        norm_kwargs=norm_kwargs,
     )
 
     img_files = filter_on_extension(files, IMG_FORMATS)
@@ -1058,8 +1054,7 @@ def files_to_map(
     else:
         cat_wcs = None
 
-    cartographer.chart(out_dir, title, map_layer_names, marker_file_names,
-                       cat_wcs)
+    cartographer.chart(out_dir, title, map_layer_names, marker_file_names, cat_wcs)
     print("Done.")
 
 

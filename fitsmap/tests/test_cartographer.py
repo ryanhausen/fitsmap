@@ -286,13 +286,15 @@ def test_leaflet_map_set_view():
     """test cartographer.leaflet_map_set_view"""
 
     actual = c.leaflet_map_set_view()
-    expected = "\n".join([
-        '    if (urlParam("zoom")==null){',
-        '        map.fitWorld({"maxZoom":map.getMinZoom()});',
-        "    } else{",
-        "        panFromUrl(map);",
-        "    }",
-    ])
+    expected = "\n".join(
+        [
+            '    if (urlParam("zoom")==null){',
+            '        map.fitWorld({"maxZoom":map.getMinZoom()});',
+            "    } else{",
+            "        panFromUrl(map);",
+            "    }",
+        ]
+    )
 
     assert expected == actual
 

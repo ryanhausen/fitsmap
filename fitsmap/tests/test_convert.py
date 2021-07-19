@@ -605,9 +605,11 @@ def test_line_to_json_ra_dec():
 
     assert expected_json == actual_json
 
+
 # this needs to be top-level to be pickle-able in test_async_worker_completes
 def mock_f(v1, v2):
     pass
+
 
 @pytest.mark.unit
 @pytest.mark.convert

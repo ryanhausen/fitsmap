@@ -66,12 +66,13 @@ MARKER_SEARCH_JS = "\n".join(
 
 LAYER_ATTRIBUTION = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
 
+
 def chart(
     out_dir: str,
     title: str,
     map_layer_names: List[str],
     marker_file_names: List[str],
-    wcs: WCS
+    wcs: WCS,
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -82,8 +83,9 @@ def chart(
     """
 
     # convert layer names into a single javascript string
-    layer_zooms = lambda l: [0] + list(map(int, os.listdir(os.path.join(out_dir, l))))
+    layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
     zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, map_layer_names)))
+    zooms = [0] if len(zooms) == 0 else zooms
     convert_layer_name_func = partial(layer_name_to_dict, min(zooms), max(zooms))
     layer_dicts = list(map(convert_layer_name_func, map_layer_names))
 
@@ -300,7 +302,6 @@ def markers_to_js(marker_file_names: List[str]) -> str:
             name, cnt
         )
 
-
     if MARKER_HTML_WIDTH:
         var_marker_width = f"                var width = '{MARKER_HTML_WIDTH}';"
     else:
@@ -310,7 +311,6 @@ def markers_to_js(marker_file_names: List[str]) -> str:
         var_marker_height = f"                var height = '{MARKER_HTML_HEIGHT}';"
     else:
         var_marker_height = "                var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';"
-
 
     js = [
         "    // catalogs ================================================================",
@@ -496,101 +496,103 @@ def build_conditional_css(out_dir: str) -> str:
 def leaflet_wcs_js(img_wcs: WCS) -> str:
     """Functions for translating image and sky coordinates."""
 
-    wcs_js = "\n".join([
-        "",
-        "    // WCS functionality =======================================================",
-        "    const is_ra_dec = _IS_RA_DEC;",
-        "    const crpix = _CRPIX;",
-        "    const crval = _CRVAL;",
-        "    const cdmatrix = _CD;",
-        "",
-        "    urlParam = function(name){",
-        "        // Parse parameters from window.location,",
-        "        // e.g., .../index.html?zoom=8",
-        "        // urlParam(zoom) = 8",
-        "        var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);",
-        "        if (results==null){",
-        "            return null;",
-        "        }",
-        "        else{",
-        "            return decodeURI(results[1]) || 0;",
-        "        }",
-        "    }",
-        "",
-        "    pixToSky = function(xy){",
-        "        // Convert from zero-index pixel to sky coordinate assuming",
-        "        // simple North-up WCS",
-        "        if (xy.hasOwnProperty('lng')){",
-        "            var dx = xy.lng - crpix[0] + 1;",
-        "            var dy = xy.lat - crpix[1] + 1;",
-        "        } else {",
-        "            var dx = xy[0] - crpix[0] + 1;",
-        "            var dy = xy[1] - crpix[1] + 1;",
-        "        }",
-        "        var dra = dx * cdmatrix[0][0];",
-        "        var ddec = dy * cdmatrix[1][1];",
-        "        // some catalogs are stored in image coords x/y, not ra/dec. When",
-        "        // `is_ra_dec`==1 we are doing calculation in ra/dec when `is_ra_dec`==0",
-        "        // then we're working in image coords and so multiply by 0 so",
-        "        // cos(0)==1",
-        "        var ra = crval[0] + dra / Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
-        "        var dec = crval[1] + ddec;",
-        "        return [ra, dec];",
-        "    }",
-        "",
-        "    skyToPix = function(rd){",
-        "        // Convert from sky to zero-index pixel coordinate assuming",
-        "        // simple North-up WCS",
-        "        var dx = (rd[0] - crval[0]) * Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
-        "        var dy = (rd[1] - crval[1]);",
-        "        var x = crpix[0] - 1 + dx / cdmatrix[0][0];",
-        "        var y = crpix[1] - 1 + dy / cdmatrix[1][1];",
-        "        return [x,y];",
-        "    }",
-        "",
-        "    skyToLatLng = function(rd){",
-        "        // Convert from sky to Leaflet.latLng coordinate assuming",
-        "        // simple North-up WCS",
-        "        var xy = skyToPix(rd);",
-        "        return L.latLng(xy[1], xy[0]);",
-        "    }",
-        "",
-        "    panToSky = function(rd, zoom, map){",
-        "        // Pan map to celestial coordinates",
-        "        var ll = skyToLatLng(rd)",
-        "        map.setZoom(zoom);",
-        "        map.panTo(ll, zoom);",
-        "        //console.log('pan to: ' + rd + ' / ll: ' + ll.lng + ',' + ll.lat);",
-        "    }",
-        "",
-        "    panFromUrl = function(map){",
-        "        // Pan map based on ra/dec/[zoom] variables in location bar",
-        "        var ra = urlParam('ra');",
-        "        var dec = urlParam('dec');",
-        "        var zoom = urlParam('zoom') || map.getMinZoom();",
-        "        if ((ra !== null) & (dec !== null)) {",
-        "            panToSky([ra,dec], zoom, map);",
-        "        } else {",
-        "            // Pan to crval",
-        "            panToSky(crval, zoom, map);",
-        "        }",
-        "    }",
-        "",
-        "    updateLocationBar = function(){",
-        "        var rd = pixToSky(map.getCenter());",
-        "        //console.log(rd);",
-        "        var params = 'ra=' + rd[0].toFixed(7);",
-        "        params += '&dec=' + rd[1].toFixed(7);",
-        "        params += '&zoom=' + map.getZoom();",
-        "        //console.log(params);",
-        "        var param_url = window.location.href.split('?')[0] + '?' + params;",
-        "        window.history.pushState('', '', param_url);",
-        "    }",
-        "",
-        "    map.on('moveend', updateLocationBar);",
-        "    map.on('zoomend', updateLocationBar);",
-        "    // WCS functionality =======================================================",
-    ])
+    wcs_js = "\n".join(
+        [
+            "",
+            "    // WCS functionality =======================================================",
+            "    const is_ra_dec = _IS_RA_DEC;",
+            "    const crpix = _CRPIX;",
+            "    const crval = _CRVAL;",
+            "    const cdmatrix = _CD;",
+            "",
+            "    urlParam = function(name){",
+            "        // Parse parameters from window.location,",
+            "        // e.g., .../index.html?zoom=8",
+            "        // urlParam(zoom) = 8",
+            "        var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);",
+            "        if (results==null){",
+            "            return null;",
+            "        }",
+            "        else{",
+            "            return decodeURI(results[1]) || 0;",
+            "        }",
+            "    }",
+            "",
+            "    pixToSky = function(xy){",
+            "        // Convert from zero-index pixel to sky coordinate assuming",
+            "        // simple North-up WCS",
+            "        if (xy.hasOwnProperty('lng')){",
+            "            var dx = xy.lng - crpix[0] + 1;",
+            "            var dy = xy.lat - crpix[1] + 1;",
+            "        } else {",
+            "            var dx = xy[0] - crpix[0] + 1;",
+            "            var dy = xy[1] - crpix[1] + 1;",
+            "        }",
+            "        var dra = dx * cdmatrix[0][0];",
+            "        var ddec = dy * cdmatrix[1][1];",
+            "        // some catalogs are stored in image coords x/y, not ra/dec. When",
+            "        // `is_ra_dec`==1 we are doing calculation in ra/dec when `is_ra_dec`==0",
+            "        // then we're working in image coords and so multiply by 0 so",
+            "        // cos(0)==1",
+            "        var ra = crval[0] + dra / Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
+            "        var dec = crval[1] + ddec;",
+            "        return [ra, dec];",
+            "    }",
+            "",
+            "    skyToPix = function(rd){",
+            "        // Convert from sky to zero-index pixel coordinate assuming",
+            "        // simple North-up WCS",
+            "        var dx = (rd[0] - crval[0]) * Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
+            "        var dy = (rd[1] - crval[1]);",
+            "        var x = crpix[0] - 1 + dx / cdmatrix[0][0];",
+            "        var y = crpix[1] - 1 + dy / cdmatrix[1][1];",
+            "        return [x,y];",
+            "    }",
+            "",
+            "    skyToLatLng = function(rd){",
+            "        // Convert from sky to Leaflet.latLng coordinate assuming",
+            "        // simple North-up WCS",
+            "        var xy = skyToPix(rd);",
+            "        return L.latLng(xy[1], xy[0]);",
+            "    }",
+            "",
+            "    panToSky = function(rd, zoom, map){",
+            "        // Pan map to celestial coordinates",
+            "        var ll = skyToLatLng(rd)",
+            "        map.setZoom(zoom);",
+            "        map.panTo(ll, zoom);",
+            "        //console.log('pan to: ' + rd + ' / ll: ' + ll.lng + ',' + ll.lat);",
+            "    }",
+            "",
+            "    panFromUrl = function(map){",
+            "        // Pan map based on ra/dec/[zoom] variables in location bar",
+            "        var ra = urlParam('ra');",
+            "        var dec = urlParam('dec');",
+            "        var zoom = urlParam('zoom') || map.getMinZoom();",
+            "        if ((ra !== null) & (dec !== null)) {",
+            "            panToSky([ra,dec], zoom, map);",
+            "        } else {",
+            "            // Pan to crval",
+            "            panToSky(crval, zoom, map);",
+            "        }",
+            "    }",
+            "",
+            "    updateLocationBar = function(){",
+            "        var rd = pixToSky(map.getCenter());",
+            "        //console.log(rd);",
+            "        var params = 'ra=' + rd[0].toFixed(7);",
+            "        params += '&dec=' + rd[1].toFixed(7);",
+            "        params += '&zoom=' + map.getZoom();",
+            "        //console.log(params);",
+            "        var param_url = window.location.href.split('?')[0] + '?' + params;",
+            "        window.history.pushState('', '', param_url);",
+            "    }",
+            "",
+            "    map.on('moveend', updateLocationBar);",
+            "    map.on('zoomend', updateLocationBar);",
+            "    // WCS functionality =======================================================",
+        ]
+    )
 
     if img_wcs:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "1")
@@ -601,12 +603,17 @@ def leaflet_wcs_js(img_wcs: WCS) -> str:
             wcs_js = wcs_js.replace("_CD", str(img_wcs.wcs.cd.tolist()))
         else:
             # Manual "CD" matrix
-            delta = img_wcs.all_pix2world([img_wcs.wcs.crpix,
-                                        img_wcs.wcs.crpix+np.array([1,0]),
-                                        img_wcs.wcs.crpix+np.array([0,1])], 0)
+            delta = img_wcs.all_pix2world(
+                [
+                    img_wcs.wcs.crpix,
+                    img_wcs.wcs.crpix + np.array([1, 0]),
+                    img_wcs.wcs.crpix + np.array([0, 1]),
+                ],
+                0,
+            )
 
-            _cd = np.array([delta[1,:]-delta[0,:], delta[2,:]-delta[0,:]])
-            _cd[0,:] *= np.cos(img_wcs.wcs.crval[1]/180*np.pi)
+            _cd = np.array([delta[1, :] - delta[0, :], delta[2, :] - delta[0, :]])
+            _cd[0, :] *= np.cos(img_wcs.wcs.crval[1] / 180 * np.pi)
             wcs_js = wcs_js.replace("_CD", str(_cd.tolist()))
     else:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "0")
