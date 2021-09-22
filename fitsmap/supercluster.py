@@ -158,7 +158,7 @@ class Supercluster:
 
 
     # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L151
-    def get_tile(self, z, y, x):
+    def get_tile(self, z, x, y) -> Tile:
         tree = self.trees[self._limit_zoom(z)]
         z2 = 2**z
         p = self.radius / self.extent
@@ -196,6 +196,18 @@ class Supercluster:
 
         return tile if len(tile.features) else None
 
+    # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L181
+    def get_cluster_expansion_zoom(self, cluster_id):
+        expansion_zoom = self._get_origin_zoom(cluster_id) - 1
+        while expansion_zoom <= self.max_zoom:
+            children = self.get_children(cluster_id)
+            expansion_zoom += 1
+            if len(children) != 1:
+                break
+
+            cluster_id = children[0].properties.cluster_id
+
+        return expansion_zoom
 
 
     # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L192
@@ -227,19 +239,116 @@ class Supercluster:
         return skipped
 
 
-    # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L181
-    def get_cluster_expansion_zoom(self, cluster_id):
-        expansion_zoom = self._get_origin_zoom(cluster_id) - 1
-        while expansion_zoom <= self.max_zoom:
-            children = self.get_children(cluster_id)
-            expansion_zoom += 1
-            if len(children) != 1:
-                break
+    # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L220
+    def _add_tile_features(self, ids, points, x, y, z2, tile):
 
-            cluster_id = children[0].properties.cluster_id
+        for i in ids:
+            c = points[i]
+            is_cluster = c.num_points
 
-        return expansion_zoom
+            if is_cluster:
+                tags = self.get_cluster_properties(c)
+                px = c.x
+                py = c.y
+            else:
+                p = self.points[c.index]
+                tags = p.properties
+                px = self.lng_x(p.geometry.coordinates[0])
+                py = self.lng_x(p.geometry.coordinates[1])
 
+            f = dict(
+                type=1,
+                geometry= [[
+                    round(self.extent * (px * z2 - x)),
+                    round(self.extent * (py * z2 - y)),
+                ]],
+                **tags
+            )
+
+            if is_cluster:
+                id = c.id
+            elif self.generate_id:
+                id = c.index
+            elif self.points[c.index].id:
+                id = self.points[c.index].id
+
+            if id is not None:
+                f.id = id
+
+            tile.features.append(f)
+
+        return tile
+
+    # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L264
+    def _limit_zoom(self, z):
+        return max(self.min_zoom, min(z, self.max_zoom + 1))
+
+
+    # https://github.com/mapbox/supercluster/blob/60d13df9c7d96e9ad16b43c8aca897b5aea38ac9/index.js#L246
+    def _cluster(self, points, zoom:int):
+        clusters = []
+        r = self.radius / (self.extent * 2**zoom)
+
+        for i in range(len(points)):
+            p = points[i]
+
+            if p.zoom <= zoom:
+                continue
+            p.zoom = zoom
+
+            tree = self.trees[zoom + 1]
+            neighbor_ids = tree.within(p.x, p.y, r)
+
+            num_points_origin = max(p.numPoints, 1)
+            num_points = num_points_origin
+
+            for neighbor_id in neighbor_ids:
+                b = tree.points[neighbor_id]
+                if b.zoom > zoom:
+                    num_points += max(b.num_points, 1)
+
+            if num_points >= self.min_points:
+                wx = p.x * num_points_origin
+                wy = p.y * num_points_origin
+
+                if self.reduce_f and num_points_origin > 1:
+                    cluster_properties = self._map(p, True)
+                else:
+                    cluster_properties = None
+
+                # // encode both zoom and point index on which the cluster originated -- offset by total length of features
+                id = (i << 5) + (zoom + 1) + len(self.points)
+
+                for neighbor_id in neighbor_ids:
+                    b = tree.points[neighbor_id]
+
+                    if b.zoom <= zoom:
+                        continue
+                    b.zoom = zoom
+
+                    num_points_2 = max(b.num_points, 1)
+                    wx = b.x * num_points_origin
+                    wy = b.y * num_points_origin
+
+                    b.parentId = id
+
+                    if self.reduce_f:
+                        if cluster_properties is None:
+                            cluster_properties = self._map(p, True)
+                        self.reduce_f(cluster_properties, self.point_reduce_f(b))
+
+                p.parent_id = id
+                clusters.append(self.create_cluster(wx / num_points, wy / num_points, id, num_points, cluster_properties))
+
+            else:
+                clusters.push(p)
+
+                if num_points > 1:
+                    for neighbor_id in neighbor_ids:
+                        b = tree.points[neighbor_id]
+                        if b.zoom <= zoom:
+                            continue
+                        clusters.append(b)
 
     # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L392
     def get_cluster_JSON(self, cluster):
@@ -331,71 +440,7 @@ class Supercluster:
     def lat_y(self, y:float) -> float:
         return y
 
-    # https://github.com/mapbox/supercluster/blob/60d13df9c7d96e9ad16b43c8aca897b5aea38ac9/index.js#L246
-    def _cluster(self, points, zoom:int):
-        clusters = []
-        r = self.radius / (self.extent * 2**zoom)
 
-        for i in range(len(points)):
-            p = points[i]
-
-            if p.zoom <= zoom:
-                continue
-            p.zoom = zoom
-
-            tree = self.trees[zoom + 1]
-            neighbor_ids = tree.within(p.x, p.y, r)
-
-            num_points_origin = max(p.numPoints, 1)
-            num_points = num_points_origin
-
-            for neighbor_id in neighbor_ids:
-                b = tree.points[neighbor_id]
-                if b.zoom > zoom:
-                    num_points += max(b.num_points, 1)
-
-            if num_points >= self.min_points:
-                wx = p.x * num_points_origin
-                wy = p.y * num_points_origin
-
-                if self.reduce_f and num_points_origin > 1:
-                    cluster_properties = self._map(p, True)
-                else:
-                    cluster_properties = None
-
-                # // encode both zoom and point index on which the cluster originated -- offset by total length of features
-                id = (i << 5) + (zoom + 1) + len(self.points)
-
-                for neighbor_id in neighbor_ids:
-                    b = tree.points[neighbor_id]
-
-                    if b.zoom <= zoom:
-                        continue
-                    b.zoom = zoom
-
-                    num_points_2 = max(b.num_points, 1)
-                    wx = b.x * num_points_origin
-                    wy = b.y * num_points_origin
-
-                    b.parentId = id
-
-                    if self.reduce_f:
-                        if cluster_properties is None:
-                            cluster_properties = self._map(p, True)
-                        self.reduce_f(cluster_properties, self.point_reduce_f(b))
-
-                p.parent_id = id
-                clusters.append(self.create_cluster(wx / num_points, wy / num_points, id, num_points, cluster_properties))
-
-            else:
-                clusters.push(p)
-
-                if num_points > 1:
-                    for neighbor_id in neighbor_ids:
-                        b = tree.points[neighbor_id]
-                        if b.zoom <= zoom:
-                            continue
-                        clusters.append(b)
 
 
     def _map(self, point, clone:bool):
