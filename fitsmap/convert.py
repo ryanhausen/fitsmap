@@ -43,6 +43,7 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from imageio import imread
 from PIL import Image
+from supercluster import Supercluster
 from tqdm import tqdm
 
 import fitsmap.utils as utils
@@ -725,7 +726,7 @@ def line_to_json(
 
 def process_catalog_file_chunk(
     process_f:Callable,
-    update_f:Callable,
+    queue:Queue,
     fname:str,
     delimiter:str,
     start:int,
@@ -747,7 +748,7 @@ def process_catalog_file_chunk(
         raw_lines.append(f.readline())
         json_lines.append(process_f(next(reader)))
         current = f.tell()
-        update_f()
+        queue.put(1)
 
     return json_lines
 
@@ -762,14 +763,21 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
             f.write(" ".join([token.strip() for token in line.split()]) + "\n")
 
 
-#https://stackoverflow.com/a/43064544
-#https://stackoverflow.com/a/3843313
-def catalog_worker_init(q:Queue):
-    f.q = q
-
 def procbar_listener(q:Queue, bar:tqdm) -> None:
     for _ in iter(q.get, None):
         bar.update()
+
+
+def make_marker_tile(
+    cluster:Supercluster,
+    out_dir:str,
+    z:int,
+    y:int,
+    x:int
+) -> None:
+
+    pass
+    # pick up here
 
 
 def tile_markers(
@@ -830,12 +838,10 @@ def tile_markers(
         os.path.dirname(catalog_file), catalog_layer_name + "_images"
     )
 
-
     if not os.path.exists(catalog_img_path) or len(os.listdir(catalog_img_path)) == 0:
         img_ext = None
     else:
         img_ext = os.path.splitext(os.listdir(catalog_img_path)[0])[1]
-
 
     line_func = partial(
         line_to_json,
@@ -853,15 +859,16 @@ def tile_markers(
         disable=bool(os.getenv("DISBALE_TQDM", False)),
     )
 
-    if mp_procs > 1:
-        update_f = lambda: f.q.put(1)
-    else:
-        update_f = lambda: bar.update()
-
+    # this queue manages a proc bar instance that can be shared among multiple
+    # processes, i have a feeling there is a better way to do this
+    q = mp.Queue()
+    mointor = mp.Process(target=procbar_listener, args=(q, bar))
+    mointor.start()
 
     process_f = partial(
         process_catalog_file_chunk,
         line_func,
+        q,
         catalog_file,
         catalog_delim,
     )
@@ -878,18 +885,32 @@ def tile_markers(
         # To keep the progress bar up to date we need an extra process that
         # montiors the queue for updates from the workers. The extra process
         # doesn't do much and so it shouldn't be a strain to add it.
-        q = mp.Queue()
-        mointor = mp.Process(target=procbar_listener, args=(q, bar))
-        mointor.start()
-        with Pool(mp_procs, catalog_worker_init, [q]) as p:
+
+        with Pool(mp_procs) as p:
             catalog_values = chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
-        # this kills the iter in the monitor process
-        q.put(None)
     else:
         catalog_values = process_f(0, catalog_file_size)
 
-    # keep going from here also need to make sure that the queue object is
-    # being handled properly with the progress bar update.
+    # this kills the iter in the monitor process
+    q.put(None)
+
+    # cluster the parsed sources
+    # need to get super cluster stuff in here
+    clusterer = Supercluster(
+        min_zoom=min_zoom,
+        max_zoom=max_zoom,
+        extent=tile_size,
+        alternate_CRS=(max_x, max_y),
+    ).load(catalog_values)
+
+
+    # tile the sources and save using protobuf
+    zs = range(min_zoom, max_zoom+1)
+    ys = [range(2**z) for z in zs]
+    xs = [range(2**z) for z in zs]
+    tile_idxs = chain.from_iterable(
+        [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
+    )
 
 
 
