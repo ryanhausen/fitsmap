@@ -260,7 +260,7 @@ class Supercluster:
                 py = c["y"]
             else:
                 p = self.points[c["index"]]
-                tags = p.get("properties", None)
+                tags = p.get("tags", None)
                 px = self.lng_x(p["geometry"]["coordinates"][0])
                 py = self.lat_y(p["geometry"]["coordinates"][1])
 
@@ -412,6 +412,7 @@ class Supercluster:
             zoom=np.inf,  # the last zoom the point was processed at
             index=id,  # index of the source feature in the original input array,
             parentId=-1,  # parent cluster id
+            tags = p["tags"] # additional properties not needed for clustering
         )
 
     # https://github.com/mapbox/supercluster/blob/60d13df9c7d96e9ad16b43c8aca897b5aea38ac9/index.js#L362

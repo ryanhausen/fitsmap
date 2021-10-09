@@ -33,6 +33,7 @@ from multiprocessing import JoinableQueue, Pool, Process
 from pathlib import Path
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, Iterable, List, Tuple
+from astropy import coordinates
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -710,17 +711,20 @@ def line_to_json(
         f.write(src_desc)
 
     return dict(
-        x=x,
-        y=y,
-        a=a,
-        b=b,
-        theta=theta,
-        catalog_id=src_id,
-        widest_col=longest_str,
-        n_rows=min(rows_per_col, n_src_rows),
-        n_cols=2 * n_cols,
-        include_img=include_img,
-        cat_path=os.path.basename(catalog_assets_path),
+        geometry=dict(
+            coordinates = [x, y],
+        ),
+        tags=dict(
+            a=a,
+            b=b,
+            theta=theta,
+            catalog_id=src_id,
+            widest_col=longest_str,
+            n_rows=min(rows_per_col, n_src_rows),
+            n_cols=2 * n_cols,
+            include_img=include_img,
+            cat_path=os.path.basename(catalog_assets_path),
+        ),
     )
 
 
@@ -775,6 +779,10 @@ def make_marker_tile(
     y:int,
     x:int
 ) -> None:
+
+    out_path = os.path.join(out_dir, str(z), str(y), f"{x}.pbf")
+    tile_sources = cluster.get_tile(z, y, x)
+
 
     pass
     # pick up here
@@ -911,6 +919,7 @@ def tile_markers(
     tile_idxs = chain.from_iterable(
         [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
     )
+
 
 
 
