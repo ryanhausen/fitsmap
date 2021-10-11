@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2021 Ryan Hausen and contributers
+# Copyright 2021 Ryan Hausen and contributors
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -28,9 +28,9 @@
 import os
 import shutil
 import string
-from itertools import repeat
+from itertools import count, repeat
 from functools import partial, reduce
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from astropy.wcs import WCS
@@ -73,6 +73,7 @@ def chart(
     map_layer_names: List[str],
     marker_file_names: List[str],
     wcs: WCS,
+    img_xy: Tuple[int,int],
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -81,6 +82,8 @@ def chart(
     * without consideration.                                                   *
     ****************************************************************************
     """
+    # TODO need to get these numbers
+    img_x, img_y = img_xy
 
     # convert layer names into a single javascript string
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
@@ -89,52 +92,29 @@ def chart(
     convert_layer_name_func = partial(layer_name_to_dict, min(zooms), max(zooms))
     layer_dicts = list(map(convert_layer_name_func, map_layer_names))
 
-    # build leafletjs js string
-    js_crs = leaflet_crs_js(layer_dicts)
+    # generated javascript =====================================================
+    with open(os.path.join(out_dir, "js", "worker.js"), "w") as f:
+        f.write(build_worker_js(img_x, img_y))
 
-    js_layer_control_declaration = leaflet_layer_control_declaration()
+    with open(os.path.join(out_dir, "js", "urlCoords.js"), "w") as f:
+        f.write(build_urlCoords_js(wcs))
 
-    js_first_layer = layer_dict_to_str(layer_dicts[0])
+    with open(os.path.join(out_dir, "js", "index.js"), "w") as f:
+        f.write(build_index_js(layer_dicts, marker_file_names))
+    # generated javascript =====================================================
 
-    js_async_layers_str = js_async_layers(layer_dicts[1:])
-
-    js_markers = markers_to_js(marker_file_names) if marker_file_names else ""
-
-    js_map = leaflet_map_js(layer_dicts)
-
-    js_marker_search = MARKER_SEARCH_JS if marker_file_names else ""
-
-    js_add_layer_control = add_layer_control(layer_dicts[0])
-
-    js_leaflet_wcs = leaflet_wcs_js(wcs)
-
-    js_set_map = leaflet_map_set_view()
-
-    js = "\n".join(
-        [
-            js_crs,
-            js_layer_control_declaration,
-            js_map,
-            js_first_layer,
-            js_async_layers_str,
-            js_load_next_layer(),
-            js_first_layer_listener(layer_dicts[0]),
-            js_markers,
-            js_marker_search,
-            js_add_layer_control,
-            js_leaflet_wcs,
-            js_set_map,
-        ]
-    )
-
+    # HTML file contents =======================================================
     extra_js = (
-        build_conditional_js(out_dir, marker_file_names) if marker_file_names else ""
+        build_conditional_js(out_dir) if marker_file_names else ""
     )
 
     extra_css = build_conditional_css(out_dir) if marker_file_names else ""
 
+    move_supporting_imgs(out_dir)
+
     with open(os.path.join(out_dir, "index.html"), "w") as f:
-        f.write(build_html(title, js, extra_js, extra_css))
+        f.write(build_html(title, extra_js, extra_css))
+    # HTML file contents =======================================================
 
 
 def layer_name_to_dict(min_zoom: int, max_zoom: int, name: str) -> dict:
@@ -153,88 +133,33 @@ def layer_dict_to_str(layer: dict) -> str:
     """Convert layer dict to layer str for including in HTML file."""
 
     layer_str = [
-        "    const " + layer["name"],
+        "const " + layer["name"],
         ' = L.tileLayer("' + layer["directory"] + '"',
         ", { ",
-        'attribution:"' + LAYER_ATTRIBUTION + '",',
-        "minZoom: " + str(layer["min_zoom"]) + ",",
-        "maxZoom: " + str(layer["max_zoom"]) + ",",
-        "maxNativeZoom: " + str(layer["max_native_zoom"]) + ",",
-        "}).addTo(map);",
+        'attribution:"' + LAYER_ATTRIBUTION + '", ',
+        "minZoom: " + str(layer["min_zoom"]) + ", ",
+        "maxZoom: " + str(layer["max_zoom"]) + ", ",
+        "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
+        "});",
     ]
 
     return "".join(layer_str)
 
 
-def add_layer_control(layer: dict):
-    js = [
-        f'    layerControl.addBaseLayer({layer["name"]}, "{layer["name"]}");',
-        "    layerControl.addTo(map);",
-    ]
-
-    return "\n".join(js)
-
-
-# TODO: This should be factored into a map call to a single format function
-def js_async_layers(async_layers: List[Dict]) -> str:
-    """Converts all layers after the first one into layers that area loaded async"""
-
-    def layer_fmt(l: dict):
-        return "".join(
-            [
-                '        ["',
-                l["name"],
-                '", L.tileLayer("',
-                l["directory"],
-                '",{ attribution:"',
-                LAYER_ATTRIBUTION,
-                '", minZoom:',
-                str(l["min_zoom"]),
-                ", maxZoom:",
-                str(l["max_zoom"]),
-                ", maxNativeZoom:",
-                str(l["max_native_zoom"]),
-                "})],",
-            ]
-        )
-
-    js = ["    asyncLayers = [", *list(map(layer_fmt, async_layers)), "    ];"]
-
-    return "\n".join(js)
-
-
-def js_load_next_layer() -> str:
-    return "\n".join(
-        [
-            "    function loadNextLayer(event) {",
-            "        if (asyncLayers.length > 0){",
-            "            nextLayer = asyncLayers.pop()",
-            '            nextLayer[1].on("load", loadNextLayer);',
-            "            layerControl.addBaseLayer(nextLayer[1], nextLayer[0]);",
-            "        }",
-            "    };",
-        ]
-    )
-
-
-def js_first_layer_listener(first_layer: dict) -> str:
-    return f'    {first_layer["name"]}.on("load", loadNextLayer);'
-
-
 def colors_js() -> str:
     js = [
-        "    let colors = [",
-        '        "#4C72B0",',
-        '        "#DD8452",',
-        '        "#55A868",',
-        '        "#C44E52",',
-        '        "#8172B3",',
-        '        "#937860",',
-        '        "#DA8BC3",',
-        '        "#8C8C8C",',
-        '        "#CCB974",',
-        '        "#64B5CD",',
-        "    ];",
+        "const colors = [",
+        '    "#4C72B0",',
+        '    "#DD8452",',
+        '    "#55A868",',
+        '    "#C44E52",',
+        '    "#8172B3",',
+        '    "#937860",',
+        '    "#DA8BC3",',
+        '    "#8C8C8C",',
+        '    "#CCB974",',
+        '    "#64B5CD",',
+        "];",
     ]
 
     return "\n".join(js)
@@ -246,220 +171,162 @@ def leaflet_crs_js(tile_layers: List[dict]) -> str:
     scale_factor = int(2 ** max_zoom)
 
     js = [
-        "    L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
-        f"        transformation: new L.Transformation(1/{scale_factor}, 0, -1/{scale_factor}, 256)",
-        "    });",
+        "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
+        f"    transformation: new L.Transformation(1/{scale_factor}, 0, -1/{scale_factor}, 256)",
+        "});",
     ]
 
     return "\n".join(js)
 
 
 def leaflet_map_js(tile_layers: List[dict]):
-    js = [
-        '    var map = L.map("map", {',
-        "        crs: L.CRS.FitsMap,",
-        "        minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
-        "        preferCanvas: true,",
-        "    });",
-    ]
+    js = "\n".join(
+        [
+            'var map = L.map("map", {',
+            "    crs: L.CRS.FitsMap,",
+            "    minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
+            "    preferCanvas: true,",
+            f"    layers: [{tile_layers[0]['name']}]",
+            "});",
+        ]
+    )
 
-    return "\n".join(js)
-
-
-def leaflet_map_set_view():
-    js = [
-        '    if (urlParam("zoom")==null){',
-        '        map.fitWorld({"maxZoom":map.getMinZoom()});',
-        "    } else{",
-        "        panFromUrl(map);",
-        "    }",
-    ]
-
-    return "\n".join(js)
+    return js
 
 
-# TODO: Maybe break this up into handling single marker files?
-def markers_to_js(marker_file_names: List[str]) -> str:
-    """Convert marker file names into marker javascript for the HTML file."""
+def marker_filenames_to_js(marker_file_names: List[str], num_image_layers:int) -> str:
 
-    deshard_name = lambda s: "_".join(s.replace(".cat.js", "").split("_")[:-1])
+    deshard_name = lambda s: "_".join(s.replace(".cat.json", "").split("_")[:-1])
     desharded_names = list(map(deshard_name, marker_file_names))
     unique_names = set(sorted(desharded_names))
     shard_counts = list(map(desharded_names.count, unique_names))
     names_counts = list(zip(unique_names, shard_counts))
+    n_catalogs = len(unique_names)
 
-    marker_list_f = lambda n: "        [" + ",".join(repeat("[]", n)) + "],"
-
-    def expand_name_counts(name_count):
-        name, cnt = name_count
-        fmt = lambda i: f"{make_fname_js_safe(name)}_cat_var_{i}"
-
-        return "        [" + ", ".join(map(fmt, range(cnt))) + "],"
-
-    def convert_name_count_to_label(name_count):
-        name, cnt = name_count
-        return "        '<span style=\"color:red\">{}</span>::0/'+ {} +'-0%',".format(
-            name, cnt
+    def make_fname_lists(name_count):
+        return (
+            "    ["
+            + ",".join(
+                map(lambda i: f'"../json/{name_count[0]}_{i}.cat.json"', range(name_count[1]))
+            )
+            + "]"
         )
 
-    if MARKER_HTML_WIDTH:
-        var_marker_width = f"                var width = '{MARKER_HTML_WIDTH}';"
-    else:
-        var_marker_width = "                var width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + 'em';"
+    marker_display_mask = "<span class='loading'><img class='loading' src='img/load.gif'></img>{}::Fetching[1/{}]</span>"
+    def name_to_layer(idx_namecount):
+        return '    [L.geoJSON(null, {{pointToLayer: (feat, latlng) => createClusterIcon({}, feat, latlng),}}), "{}"],'.format(
+            idx_namecount[0],
+            marker_display_mask.format(*idx_namecount[1])
+        )
 
-    if MARKER_HTML_HEIGHT:
-        var_marker_height = f"                var height = '{MARKER_HTML_HEIGHT}';"
-    else:
-        var_marker_height = "                var height = ((src.n_rows + 1) * 15 * (include_img)).toString() + 'em';"
 
-    js = [
-        "    // catalogs ================================================================",
-        "    // a preset list of colors to use for markers in different catalogs",
-        colors_js(),
-        "",
-        "    // each list will hold the markers. if a catalog is sharded then there",
-        "    // will be multiple lists in a each top-level list element.",
-        "    var markerList = [",
-        *list(map(marker_list_f, shard_counts)),
-        "    ];",
-        "",
-        "    // the variables containing the catalog information, this mirrors the",
-        "    // structre in `markerList`. the sources in these variables will be",
-        "    // converted into markers and then added to the corresponding array",
-        "    const collections = [",
-        *list(map(expand_name_counts, names_counts)),
-        "    ];" "",
-        "    var labels = [",
-        *list(map(convert_name_count_to_label, names_counts)),
-        "    ];",
-        "",
-        "    // `collections_idx` is a collection of indexes that can be popped to",
-        "    // asynchronously process the catalog data in `collections`",
-        "    collection_idx = []",
-        "    for (var i = 0; i < collections.length; i++){",
-        "        collection_idx.push([...Array(collections[i].length).keys()])",
-        "    }",
-        "",
-        "    // declare markers up here for scope",
-        "    var markers = [];",
-        "",
-        "    // this is a function that returns a callback function for the chunked",
-        "    // loading function of markerClusterGroups",
-        "    function update_f(i){",
-        '        //console.log("update_f", i);',
-        "",
-        "        // the markerClusterGroups callback function takes three arguments",
-        "        // nMarkers: number of markers processed so far",
-        "        // total:    total number of markers in shard",
-        "        // elapsed:  time elapsed (not used)",
-        "        return (nMarkers, total, elasped) => {",
-        "",
-        "            var completetion = total==0 ? 0 : nMarkers/total;",
-        "",
-        "            name_tag = layerControl._layers[i].name;",
-        '            split_values = name_tag.split("::");',
-        "            html_name = split_values[0];",
-        "            progress = split_values[1];",
-        "",
-        '            current_iter = parseInt(progress.split("/")[0]) + Math.floor(completetion);',
-        '            total_iter = parseInt(progress.split("/")[1].split("-")[0]);',
-        '            html_name = name_tag.split("::")[0];',
-        "",
-        "            if (completetion==1 && current_iter==total_iter){",
-        '                layerControl._layers[i].name = html_name.replace("red", "black");',
-        "            }",
-        "            else {",
-        '                layerControl._layers[i].name = html_name + "::" + current_iter + "/" + total_iter + "-" + Math.floor(completetion*100) + "%";',
-        "            }",
-        "            layerControl._update();",
-        "",
-        "            // if we have finished processing move on to the next shard/catalog",
-        "            if (completetion==1){",
-        "                add_marker_collections_f(i);",
-        "            }",
-        "        }",
-        "    };",
-        "",
-        "    const panes = [",
-        *list(map(lambda s: f'        "{s}",', unique_names)),
-        "    ];",
-        "    panes.forEach(i => {map.createPane(i).style.zIndex = 0;});",
-        "",
-        "    for (var i = 0; i < panes.length; i++){",
-        "        markers.push(",
-        "            L.markerClusterGroup({'chunkedLoading':true, 'chunkInterval':50, 'chunkDelay':50, 'chunkProgress':update_f(i), 'clusterPane':panes[i]}),",
-        "        );",
-        "    }",
-        "",
-        "    for (var i = 0; i < markers.length; i++){",
-        "        layerControl.addOverlay(markers[i], labels[i]);",
-        "    }",
-        "",
-        "    function add_marker_collections(event){",
-        "        add_marker_collections_f(collection_idx.length-1);",
-        "    }",
-        "",
-        "    function add_marker_collections_f(i){",
-        "        //console.log('i is currently ', i);",
-        "        if (i >= 0){",
-        "            if (collection_idx[i].length > 0) {",
-        "                j = collection_idx[i].pop();",
-        "                markers[i].addLayers(markerList[i][j]);",
-        "            } else {",
-        "                markers[i].options.chunkProgress = null;",
-        "                layerControl._update();",
-        "",
-        "                // this for some reason causes an error, but doesn't seem to",
-        "                // affect the map.",
-        "                map.getPane(panes[i]).style.zIndex=650;",
-        "                markers[i].remove();",
-        "",
-        "                add_marker_collections_f(i-1);",
-        "            }",
-        "        }",
-        "    };",
-        "",
-        "    for (i = 0; i < collections.length; i++){",
-        "        collection = collections[i];",
-        "        //console.log(i, collection);",
-        "",
-        "        for (ii = 0; ii < collection.length; ii++){",
-        "            collec = collection[ii];",
-        "            for (j = 0; j < collec.length; j++){",
-        "                src = collec[j];",
-        "",
-        var_marker_width,
-        "                var include_img = src.include_img ? 2 : 1;",
-        var_marker_height,
-        "",
-        '                let p = L.popup({ maxWidth: "auto" })',
-        "                         .setLatLng([src.y, src.x])",
-        '                         .setContent("<iframe src=\'catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html\' width=\'" + width + "\' height=\'" + height + "\'></iframe>");',
-        "",
-        "                let marker;",
-        "                if (src.a==-1){",
-        "                    marker = L.circleMarker([src.y, src.x], {",
-        "                        catalog_id: panes[i] + ':' + src.catalog_id + ':',",
-        "                        color: colors[i % colors.length]",
-        "                    }).bindPopup(p);",
-        "                } else {",
-        "                    marker = L.ellipse([src.y, src.x], [src.a, src.b], (src.theta * (180/Math.PI) * -1), {",
-        "                        catalog_id: panes[i] + ':' + src.catalog_id + ':',",
-        "                        color: colors[i % colors.length]",
-        "                    }).bindPopup(p);",
-        "                }",
-        "",
-        "                markerList[i][ii].push(marker);",
-        "            }",
-        "        }",
-        "    }",
-        "",
-        '    map.on("load", add_marker_collections);',
-        "    var marker_layers = L.layerGroup(markers);",
-        "    // =========================================================================",
-    ]
+    js = "\n".join(
+        [
+            "const catalogFileNames = [",
+            *list(map(make_fname_lists, names_counts)),
+            "];",
+            "",
+            "const catalogMarkers = [",
+            *list(map(name_to_layer, zip(count(), names_counts))),
+            "];",
+            "",
+            f"const catalogsLoaded = [{','.join(repeat('false', n_catalogs))}];" "",
+            "const catalogWorkers = [",
+            *list(repeat('    new Worker("js/worker.js"),', n_catalogs)),
+            "];",
+            "",
+            f"const nImageLayers = {num_image_layers};",
+            "for (let i = 0; i < catalogWorkers.length; i++){",
+            "    layerControl.addOverlay(...catalogMarkers[i]);",
+            "    catalogWorkers[i].onmessage = function(e) {",
+            "        if (e.data.ready) {",
+            "            catalogsLoaded[i] = true;",
+            "",
+            "            let catalogText = layerControl._layers[i + nImageLayers].name;",
+            '            catalogText = catalogText.replaceAll(/loading/g, "loading-complete")',
+            '                                     .replace("::Parsing", "");',
+            "            layerControl._layers[i + nImageLayers].name = catalogText;",
+            "            layerControl._update();"
+            "",
+            "            update();",
+            "        } else if (e.data.progress){",
+            "            let catalogText = layerControl._layers[i + nImageLayers].name;",
+           r"            let catalogIndex = parseInt(catalogText.match(/(?<=\[)(\d)(?=\/\d\])/)[0]);",
+           r"            let catlogTotal = parseInt(catalogText.match(/(?<=\[\d\/)(\d)(?=\])/)[0]);",
+           r"            catalogText = catalogText.replace(/(?<=\[)(\d)(?=\/\d\])/, (catalogIndex+1).toString()); // added",
+            "            if (catalogIndex+1>catlogTotal){",
+            '                catalogText = catalogText.replace("::Fetching", "::Parsing")',
+           r'                                         .replace(/\[\d\/\d]/, "");',
+            "            }",
+            "            layerControl._layers[i + nImageLayers].name = catalogText;",
+            "            layerControl._update();",
+            "        } else if (e.data.expansionZoom){",
+            "            map.flyTo(e.data.center, e.data.expansionZoom);",
+            "        } else {",
+            "            catalogMarkers[i][0].clearLayers();",
+            "            catalogMarkers[i][0].addData(e.data);",
+            "        }",
+            "    };",
+            "",
+            '    catalogWorkers.onerror = function(e) { console.log("ERROR:", e); }',
+            "    catalogWorkers[i].postMessage({fileNames: catalogFileNames[i]});",
+            "}",
+            "" "function createClusterIcon(colorIdx, feature, latlng) {",
+            "",
+            "    // create an icon for a single source",
+            "    if (!feature.properties.cluster){",
+            "        const src = feature.properties;",
+            '        const width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + "em";',
+            "        const include_img = src.include_img ? 2 : 1;",
+            '        const height = ((src.n_rows + 1) * 15 * (include_img)).toString() + "em";',
+            "",
+            '        const p = L.popup({ maxWidth: "auto" })',
+            "                 .setLatLng(latlng)",
+            '                 .setContent("<iframe src=\'catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html\' width=\'" + width + "\' height=\'" + height + "\'></iframe>");',
+            "",
+            "",
+            "        if (src.a==-1){",
+            "            return L.circleMarker(latlng, {",
+            "                color: colors[colorIdx % colors.length]",
+            "            }).bindPopup(p);",
+            "        } else {",
+            "            return L.ellipse(latlng, [src.a, src.b], (src.theta * (180/Math.PI) * -1), {",
+            "                color: colors[colorIdx % colors.length]",
+            "            }).bindPopup(p);",
+            "        }",
+            "",
+            "    }",
+            "",
+            "    // Create an icon for a cluster",
+            "    const count = feature.properties.point_count;",
+            "    const size =",
+            '        count < 100 ? "small" :',
+            '        count < 1000 ? "medium" : "large";',
+            "    const icon = L.divIcon({",
+            "        html: `<div><span>${  feature.properties.point_count_abbreviated  }</span></div>`,",
+            "        className: `marker-cluster marker-cluster-${size}`,",
+            "        iconSize: L.point(40, 40)",
+            "    });",
+            "",
+            "    return L.marker(latlng, {icon});",
+            "}",
+            "",
+            "function update() {",
+            "    all_loaded  = (accumulator, currentValue) => accumulator && currentValue;",
+            "    if (!all_loaded(catalogsLoaded, true)) return;",
+            "",
+            "    const bounds = map.getBounds();",
+            "    catalogWorkers.forEach(worker => {",
+            "        worker.postMessage({",
+            "            bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],",
+            "            zoom: map.getZoom()",
+            "        });",
+            "    });",
+            "}",
+        ]
+    )
 
-    return "\n".join(js)
+    return js
 
 
 def build_conditional_css(out_dir: str) -> str:
@@ -493,104 +360,248 @@ def build_conditional_css(out_dir: str) -> str:
     return "\n".join(map(lambda s: css_string.format(s), [search_css] + local_css))
 
 
-def leaflet_wcs_js(img_wcs: WCS) -> str:
-    """Functions for translating image and sky coordinates."""
+def build_conditional_js(out_dir: str) -> str:
 
+    support_dir = os.path.join(os.path.dirname(__file__), "support")
+    out_js_dir = os.path.join(out_dir, "js")
+
+    local_js_files = list(
+        filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir))
+    )
+
+    if not os.path.exists(out_js_dir):
+        os.mkdir(out_js_dir)
+
+    all(
+        map(
+            lambda f: shutil.copy2(
+                os.path.join(support_dir, f), os.path.join(out_js_dir, f)
+            ),
+            local_js_files,
+        )
+    )
+
+    leaflet_js = [
+        "    <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
+        "    <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
+    ]
+
+    js_string = "    <script src='js/{}'></script>"
+    local_js = list(
+        map(lambda s: js_string.format(s), local_js_files)
+    )
+
+    return "\n".join(leaflet_js + local_js)
+
+
+def move_supporting_imgs(out_dir: str) -> None:
+    support_dir = os.path.join(os.path.dirname(__file__), "support")
+    out_img_dir = os.path.join(out_dir, "img")
+
+    image_exts = [".png", ".jpg", ".gif", ".jpeg"]
+
+    local_image_files = list(
+        filter(lambda f: os.path.splitext(f)[1] in image_exts, os.listdir(support_dir))
+    )
+
+    if not os.path.exists(out_img_dir):
+        os.mkdir(out_img_dir)
+
+    all(
+        map(
+            lambda f: shutil.copy2(
+                os.path.join(support_dir, f), os.path.join(out_img_dir, f)
+            ),
+            local_image_files,
+        )
+    )
+
+def leaflet_layer_control_declaration(layer_dicts: List[Dict]) -> str:
+    layer_label_pairs = ",".join(
+        list(map(lambda l: '"{0}": {0}'.format(l["name"]), layer_dicts))
+    )
+
+    return f"const layerControl = L.control.layers({{ {layer_label_pairs} }}).addTo(map);"
+
+
+def build_worker_js(img_x: int, img_y: int):
+    js = "\n".join(
+        [
+            "// A catalog worker. The catalog worker is responsible for managing a single",
+            "// catalog in fitsmap.",
+            "// Based on https://github.com/mapbox/supercluster/blob/master/demo/worker.js",
+            "",
+            'importScripts("supercluster.js");',
+            "",
+            "const now = Date.now();",
+            "const catalogSources = {",
+            '    "type": "FeatureCollection",',
+            '    "features": []',
+            "};",
+            "",
+            "index = new Supercluster({",
+            "    log: true,",
+            "    radius: 128,",
+            "    extent: 256,",
+            "    maxZoom: 10,",
+            "    alternateCRS: true",
+            "});",
+            f"index.lngX = function lngX(lng) {{ return lng / {img_x}; }}",
+            f"index.latY = function latY(lat) {{ return lat / {img_y}; }}",
+            f"index.xLng = function xLng(x) {{ return x * {img_x}; }}",
+            f"index.yLat = function yLat(y) {{ return y * {img_y}; }}",
+            "",
+            "let ready = false;",
+            "self.onmessage = function (e) {",
+            "    // first run, we're loading data",
+            "    if (e.data.fileNames) {",
+            "        loadFiles(e.data.fileNames, () => {",
+            "            console.log(`loaded ${  catalogSources.features.length  } points JSON in ${  (Date.now() - now) / 1000  }s`);",
+            "",
+            "            index.load(catalogSources.features);",
+            "",
+            "            ready = true;",
+            '            //console.log("TILE:000", index.getTile(0, 0, 0));',
+            "",
+            "            postMessage({ready: true});",
+            "        });",
+            "    // get a cluster expansion clicked zoom",
+            "    } else if (ready && e.data.getClusterExpansionZoom) {",
+            "        postMessage({",
+            "            expansionZoom: index.getClusterExpansionZoom(e.data.getClusterExpansionZoom),",
+            "            center: e.data.center",
+            "        });",
+            "    // general zooming/panning",
+            "    } else if (ready && e.data) {",
+            "        postMessage(index.getClusters(e.data.bbox, e.data.zoom));",
+            "    }",
+            "};",
+            "",
+            "function loadFiles(fileNames, callback){",
+            "    // all done, build index",
+            "    if (fileNames.length == 0) {",
+            "        callback();",
+            "    // load the next file",
+            "    } else {",
+            "        fname = fileNames.pop();",
+            "        loadData(fname, (data) => {",
+            "            data.features.forEach((d) => catalogSources.features.push(d));",
+            "            postMessage({progress:1});",
+            "            loadFiles(fileNames, callback);",
+            "        });",
+            "    }",
+            "}",
+            "",
+            "// maybe switch this to fetch as in",
+            "// https://github.com/mapbox/supercluster/pull/170/files/95f293f60e14b1dc5f368eb6a5d8ba8e424bf387..5d727476a67ae94375838953eea65530df708d67",
+            "function loadData(url, callback){",
+            "    const xhr = new XMLHttpRequest();",
+            '    xhr.open("GET", url, true);',
+            '    xhr.responseType = "json";',
+            '    xhr.setRequestHeader("Accept", "application/json");',
+            "    xhr.onload = function () {",
+            "        if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300 && xhr.response) {",
+            "            callback(xhr.response);",
+            "        }",
+            "    };",
+            "    xhr.send();",
+            "}",
+        ]
+    )
+
+    return js
+
+
+def build_urlCoords_js(img_wcs: WCS) -> str:
     wcs_js = "\n".join(
         [
+            "const is_ra_dec = _IS_RA_DEC;",
+            "const crpix = _CRPIX;",
+            "const crval = _CRVAL;",
+            "const cdmatrix = _CD;",
             "",
-            "    // WCS functionality =======================================================",
-            "    const is_ra_dec = _IS_RA_DEC;",
-            "    const crpix = _CRPIX;",
-            "    const crval = _CRVAL;",
-            "    const cdmatrix = _CD;",
-            "",
-            "    urlParam = function(name){",
-            "        // Parse parameters from window.location,",
-            "        // e.g., .../index.html?zoom=8",
-            "        // urlParam(zoom) = 8",
-            "        var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);",
-            "        if (results==null){",
-            "            return null;",
-            "        }",
-            "        else{",
-            "            return decodeURI(results[1]) || 0;",
-            "        }",
+            "urlParam = function(name){",
+            "    // Parse parameters from window.location,",
+            "    // e.g., .../index.html?zoom=8",
+            "    // urlParam(zoom) = 8",
+            "    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);",
+            "    if (results==null){",
+            "        return null;",
             "    }",
-            "",
-            "    pixToSky = function(xy){",
-            "        // Convert from zero-index pixel to sky coordinate assuming",
-            "        // simple North-up WCS",
-            "        if (xy.hasOwnProperty('lng')){",
-            "            var dx = xy.lng - crpix[0] + 1;",
-            "            var dy = xy.lat - crpix[1] + 1;",
-            "        } else {",
-            "            var dx = xy[0] - crpix[0] + 1;",
-            "            var dy = xy[1] - crpix[1] + 1;",
-            "        }",
-            "        var dra = dx * cdmatrix[0][0];",
-            "        var ddec = dy * cdmatrix[1][1];",
-            "        // some catalogs are stored in image coords x/y, not ra/dec. When",
-            "        // `is_ra_dec`==1 we are doing calculation in ra/dec when `is_ra_dec`==0",
-            "        // then we're working in image coords and so multiply by 0 so",
-            "        // cos(0)==1",
-            "        var ra = crval[0] + dra / Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
-            "        var dec = crval[1] + ddec;",
-            "        return [ra, dec];",
+            "    else{",
+            "        return decodeURI(results[1]) || 0;",
             "    }",
+            "}",
             "",
-            "    skyToPix = function(rd){",
-            "        // Convert from sky to zero-index pixel coordinate assuming",
-            "        // simple North-up WCS",
-            "        var dx = (rd[0] - crval[0]) * Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
-            "        var dy = (rd[1] - crval[1]);",
-            "        var x = crpix[0] - 1 + dx / cdmatrix[0][0];",
-            "        var y = crpix[1] - 1 + dy / cdmatrix[1][1];",
-            "        return [x,y];",
+            "pixToSky = function(xy){",
+            "    // Convert from zero-index pixel to sky coordinate assuming",
+            "    // simple North-up WCS",
+            "    if (xy.hasOwnProperty('lng')){",
+            "        var dx = xy.lng - crpix[0] + 1;",
+            "        var dy = xy.lat - crpix[1] + 1;",
+            "    } else {",
+            "        var dx = xy[0] - crpix[0] + 1;",
+            "        var dy = xy[1] - crpix[1] + 1;",
             "    }",
+            "    var dra = dx * cdmatrix[0][0];",
+            "    var ddec = dy * cdmatrix[1][1];",
+            "    // some catalogs are stored in image coords x/y, not ra/dec. When",
+            "    // `is_ra_dec`==1 we are doing calculation in ra/dec when `is_ra_dec`==0",
+            "    // then we're working in image coords and so multiply by 0 so",
+            "    // cos(0)==1",
+            "    var ra = crval[0] + dra / Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
+            "    var dec = crval[1] + ddec;",
+            "    return [ra, dec];",
+            "}",
             "",
-            "    skyToLatLng = function(rd){",
-            "        // Convert from sky to Leaflet.latLng coordinate assuming",
-            "        // simple North-up WCS",
-            "        var xy = skyToPix(rd);",
-            "        return L.latLng(xy[1], xy[0]);",
+            "skyToPix = function(rd){",
+            "    // Convert from sky to zero-index pixel coordinate assuming",
+            "    // simple North-up WCS",
+            "    var dx = (rd[0] - crval[0]) * Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
+            "    var dy = (rd[1] - crval[1]);",
+            "    var x = crpix[0] - 1 + dx / cdmatrix[0][0];",
+            "    var y = crpix[1] - 1 + dy / cdmatrix[1][1];",
+            "    return [x,y];",
+            "}",
+            "",
+            "skyToLatLng = function(rd){",
+            "    // Convert from sky to Leaflet.latLng coordinate assuming",
+            "    // simple North-up WCS",
+            "    var xy = skyToPix(rd);",
+            "    return L.latLng(xy[1], xy[0]);",
+            "}",
+            "",
+            "panToSky = function(rd, zoom, map){",
+            "    // Pan map to celestial coordinates",
+            "    var ll = skyToLatLng(rd)",
+            "    map.setZoom(zoom);",
+            "    map.panTo(ll, zoom);",
+            "    //console.log('pan to: ' + rd + ' / ll: ' + ll.lng + ',' + ll.lat);",
+            "}",
+            "",
+            "panFromUrl = function(map){",
+            "    // Pan map based on ra/dec/[zoom] variables in location bar",
+            "    var ra = urlParam('ra');",
+            "    var dec = urlParam('dec');",
+            "    var zoom = urlParam('zoom') || map.getMinZoom();",
+            "    if ((ra !== null) & (dec !== null)) {",
+            "        panToSky([ra,dec], zoom, map);",
+            "    } else {",
+            "        // Pan to crval",
+            "        panToSky(crval, zoom, map);",
             "    }",
+            "}",
             "",
-            "    panToSky = function(rd, zoom, map){",
-            "        // Pan map to celestial coordinates",
-            "        var ll = skyToLatLng(rd)",
-            "        map.setZoom(zoom);",
-            "        map.panTo(ll, zoom);",
-            "        //console.log('pan to: ' + rd + ' / ll: ' + ll.lng + ',' + ll.lat);",
-            "    }",
-            "",
-            "    panFromUrl = function(map){",
-            "        // Pan map based on ra/dec/[zoom] variables in location bar",
-            "        var ra = urlParam('ra');",
-            "        var dec = urlParam('dec');",
-            "        var zoom = urlParam('zoom') || map.getMinZoom();",
-            "        if ((ra !== null) & (dec !== null)) {",
-            "            panToSky([ra,dec], zoom, map);",
-            "        } else {",
-            "            // Pan to crval",
-            "            panToSky(crval, zoom, map);",
-            "        }",
-            "    }",
-            "",
-            "    updateLocationBar = function(){",
-            "        var rd = pixToSky(map.getCenter());",
-            "        //console.log(rd);",
-            "        var params = 'ra=' + rd[0].toFixed(7);",
-            "        params += '&dec=' + rd[1].toFixed(7);",
-            "        params += '&zoom=' + map.getZoom();",
-            "        //console.log(params);",
-            "        var param_url = window.location.href.split('?')[0] + '?' + params;",
-            "        window.history.pushState('', '', param_url);",
-            "    }",
-            "",
-            "    map.on('moveend', updateLocationBar);",
-            "    map.on('zoomend', updateLocationBar);",
-            "    // WCS functionality =======================================================",
+            "updateLocationBar = function(){",
+            "    var rd = pixToSky(map.getCenter());",
+            "    //console.log(rd);",
+            "    var params = 'ra=' + rd[0].toFixed(7);",
+            "    params += '&dec=' + rd[1].toFixed(7);",
+            "    params += '&zoom=' + map.getZoom();",
+            "    //console.log(params);",
+            "    var param_url = window.location.href.split('?')[0] + '?' + params;",
+            "    window.history.pushState('', '', param_url);",
+            "}",
         ]
     )
 
@@ -624,45 +635,40 @@ def leaflet_wcs_js(img_wcs: WCS) -> str:
     return wcs_js
 
 
-def build_conditional_js(out_dir: str, marker_file_names: List[str]) -> str:
+def build_index_js(layer_dicts: List[Dict], marker_file_names: List[str]) -> str:
 
-    support_dir = os.path.join(os.path.dirname(__file__), "support")
-    out_js_dir = os.path.join(out_dir, "js")
-
-    local_js_files = list(
-        filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir))
+    js = "\n".join(
+        [
+            "// Image layers ================================================================",
+            *list(map(layer_dict_to_str, layer_dicts)),
+            "// Basic map setup =============================================================",
+            leaflet_crs_js(layer_dicts),
+            "",
+            leaflet_map_js(layer_dicts),
+            "",
+            leaflet_layer_control_declaration(layer_dicts),
+            "",
+            "// catalogs layers =============================================================",
+            colors_js(),
+            "",
+            marker_filenames_to_js(marker_file_names, len(layer_dicts)),
+            "" "",
+            'map.on("moveend", update);',
+            'map.on("moveend", updateLocationBar);',
+            'map.on("zoomend", updateLocationBar);',
+            "",
+            'if (urlParam("zoom")==null) {',
+            '    map.fitWorld({"maxZoom":map.getMinZoom()});',
+            "} else {",
+            "    panFromUrl(map);",
+            "}",
+        ]
     )
 
-    if not os.path.exists(out_js_dir):
-        os.mkdir(out_js_dir)
-
-    all(
-        map(
-            lambda f: shutil.copy2(
-                os.path.join(support_dir, f), os.path.join(out_js_dir, f)
-            ),
-            local_js_files,
-        )
-    )
-
-    leaflet_js = [
-        "    <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
-        "    <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
-    ]
-
-    js_string = "    <script src='js/{}'></script>"
-    local_js = list(
-        map(lambda s: js_string.format(s), marker_file_names + local_js_files)
-    )
-
-    return "\n".join(leaflet_js + local_js)
+    return js
 
 
-def leaflet_layer_control_declaration():
-    return "    var layerControl = L.control.layers();"
-
-
-def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
+def build_html(title: str, extra_js: str, extra_css: str) -> str:
     html = [
         "<!DOCTYPE html>",
         "<html>",
@@ -688,9 +694,8 @@ def build_html(title: str, js: str, extra_js: str, extra_css: str) -> str:
         "</head>",
         "<body>",
         '    <div id="map"></div>',
-        "    <script>",
-        js,
-        "    </script>",
+        '    <script src="js/urlCoords.js"></script>',
+        '    <script src="js/index.js"></script>',
         "</body>",
         f"<!--Made with fitsmap v{get_version()}-->",
         "</html>\n",

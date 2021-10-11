@@ -34,7 +34,9 @@ from pathlib import Path
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 from astropy import coordinates
+from google.protobuf.message import EncodeError
 
+import mapbox_vector_tile as mvt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -44,7 +46,7 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from imageio import imread
 from PIL import Image
-from supercluster import Supercluster
+from fitsmap.supercluster import Supercluster
 from tqdm import tqdm
 
 import fitsmap.utils as utils
@@ -746,11 +748,12 @@ def process_catalog_file_chunk(
     json_lines = []
 
     raw_lines = []
-    reader = csv.reader(raw_lines, delimiter=delimiter)
+    reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
     current = f.tell()
     while current < end:
-        raw_lines.append(f.readline())
-        json_lines.append(process_f(next(reader)))
+        raw_lines.append(f.readline().strip())
+        processed_lines = next(reader)
+        json_lines.append(process_f(processed_lines))
         current = f.tell()
         queue.put(1)
 
@@ -775,17 +778,35 @@ def procbar_listener(q:Queue, bar:tqdm) -> None:
 def make_marker_tile(
     cluster:Supercluster,
     out_dir:str,
-    z:int,
-    y:int,
-    x:int
+    zyx:Tuple[int, Tuple[int, int]],
 ) -> None:
+    z, (y, x) = zyx
+
+    if not os.path.exists(os.path.join(out_dir, str(z))):
+        os.mkdir(os.path.join(out_dir, str(z)))
+
+    if not os.path.exists(os.path.join(out_dir, str(z), str(y))):
+        os.mkdir(os.path.join(out_dir, str(z), str(y)))
 
     out_path = os.path.join(out_dir, str(z), str(y), f"{x}.pbf")
+
     tile_sources = cluster.get_tile(z, y, x)
 
+    if tile_sources:
+        tile_sources["name"] = "Points"
 
-    pass
-    # pick up here
+        for i in range(len(tile_sources["features"])):
+            tile_sources["features"][i]["geometry"] = "POINT({} {})".format(
+                *list(map(
+                    int,
+                    tile_sources["features"][i]["geometry"]
+                ))
+            )
+
+        encoded_tile = mvt.encode([tile_sources], extents=256)
+
+        with open(out_path, "wb") as f:
+            f.write(encoded_tile)
 
 
 def tile_markers(
@@ -795,6 +816,11 @@ def tile_markers(
     rows_per_col: int,
     mp_procs: int,
     prefer_xy:bool,
+    min_zoom:int,
+    max_zoom:int,
+    tile_size:int,
+    max_x:int,
+    max_y:int,
     catalog_file: str,
     pbar_loc: int,
 ) ->  None:
@@ -804,6 +830,8 @@ def tile_markers(
     if catalog_layer_name in os.listdir(out_dir):
         print(f"{fname} already tiled. Skipping tiling.")
         return
+    else:
+        os.mkdir(os.path.join(out_dir, catalog_layer_name))
 
     if catalog_delim == MIXED_WHITESPACE_DELIMITER:
         _simplify_mixed_ws(catalog_file)
@@ -920,41 +948,24 @@ def tile_markers(
         [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
     )
 
-
-
-
-
-
-
-
-
-    bar = tqdm(
-        position=pbar_loc,
-        desc="Converting " + catalog_file,
-        disable=bool(os.getenv("DISBALE_TQDM", False)),
+    tile_f = partial(
+        make_marker_tile,
+        clusterer,
+        os.path.join(out_dir, catalog_layer_name),
     )
 
-    cat_file = lambda n: cat_file_root + f"_{n}.cat.js"
-    for shard in count():
-        catalog_data = list(
-            map(
-                line_func,
-                islice(utils.ShardedProcBarIter(csv_reader, bar), n_per_catalog_shard),
-            )
-        )
-
-        if len(catalog_data) > 0:
-            json_markers_file = os.path.join(out_dir, "js", cat_file(shard))
-            with open(json_markers_file, "w") as j:
-                j.write("var " + js_safe_file_name + f"_{shard}" + " = ")
-                json.dump(catalog_data, j, indent=2)
-                j.write(";")
-        else:
-            break
-    f.close()
-
-
-
+    tracked_collection = tqdm(
+        tile_idxs,
+        position=pbar_loc,
+        desc="Tiling " + catalog_file,
+        disable=bool(os.getenv("DISBALE_TQDM", False)),
+    )
+    # continue here
+    if mp_procs > 1:
+        with Pool(mp_procs) as p:
+            p.imap_unordered(tile_f, tracked_collection)
+    else:
+        list(map(tile_f, tracked_collection))
 
 def catalog_to_markers(
     wcs_file: str,
@@ -1109,6 +1120,7 @@ def files_to_map(
     image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
+    prefer_xy:bool = False,
     n_per_catalog_shard: int = 250000,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
@@ -1188,14 +1200,24 @@ def files_to_map(
 
     cat_files = filter_on_extension(files, CAT_FORMAT)
 
+    max_x, max_y = utils.peek_image_info(img_files)
     if len(cat_files) > 0:
+        # get highlevel image info for cataloggin function
+        max_zoom = int(np.log2(max(max_x, max_y) / tile_size[0]))
+
         cat_job_f = partial(
-            catalog_to_markers,
+            tile_markers,
             cat_wcs_fits_file,
             out_dir,
             catalog_delim,
             rows_per_column,
             procs_per_task,
+            prefer_xy,
+            min_zoom,
+            max_zoom,
+            tile_size[0],
+            max_x,
+            max_y,
         )
     else:
         cat_job_f = None
@@ -1229,7 +1251,14 @@ def files_to_map(
     else:
         cat_wcs = None
 
-    cartographer.chart(out_dir, title, map_layer_names, marker_file_names, cat_wcs)
+    cartographer.chart(
+        out_dir,
+        title,
+        map_layer_names,
+        marker_file_names,
+        cat_wcs,
+        (max_x, max_y),
+    )
     print("Done.")
 
 

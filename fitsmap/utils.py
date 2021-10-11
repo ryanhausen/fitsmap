@@ -17,11 +17,14 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+from functools import reduce
 import string
-from typing import Iterable
+from itertools import chain, filterfalse
+from typing import Iterable, List, Tuple
 
+from astropy.io import fits
 from tqdm import tqdm
-
+from PIL import Image
 
 class ShardedProcBarIter:
     """Maintains a single tqdm progress bar over multiple catalog shards.
@@ -82,3 +85,63 @@ def make_fname_js_safe(fname: str) -> str:
         adj_for_digit = fname
 
     return adj_for_digit.replace(".", "_dot_").replace("-", "_")
+
+
+def get_fits_image_size(fits_file:str) -> Tuple[int, int]:
+    """Returns image size (x, y)
+
+    Args:
+        fits_file (str): fits file path
+
+    Returns:
+        Tuple[int, int]: returns the x and y dims of the input file
+    """
+    hdr = fits.getheader(fits_file)
+    return hdr["NAXIS1"], hdr["NAXIS2"]
+
+
+def get_standard_image_size(image_file:str) -> Tuple[int, int]:
+    """Returns image size (x, y)
+
+    Args:
+        image_file (str): image file path
+
+    Returns:
+        Tuple[int, int]: returns the x and y dims of the input file
+    """
+    with Image.open(image_file) as f:
+        size = f.size
+
+    return size
+
+
+def peek_image_info(img_file_names:List[str]) -> Tuple[int, int]:
+    """Gets image size values given passed image file names
+
+    Args:
+        img_file_names (List[str]): Input image files that are being tiled
+
+    Returns:
+        Tuple[int, int]: The `max x`, and `max y`
+    """
+
+    fits_sizes = list(map(
+        get_fits_image_size,
+        filter(lambda f: f.endswith("fits"), img_file_names),
+    ))
+
+    standard_sizes= list(map(
+        get_standard_image_size,
+        filterfalse(lambda f: f.endswith("fits"), img_file_names)
+    ))
+
+    max_x, max_y = reduce(
+        lambda x, y: (max(x[0], y[0]), max(x[1], y[1])),
+        chain.from_iterable([fits_sizes, standard_sizes]),
+        (0, 0)
+    )
+
+    return max_x, max_y
+
+
+

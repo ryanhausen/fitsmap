@@ -19,7 +19,7 @@
 import math
 from typing import Callable, Tuple
 import numpy as np
-from kdbush import KDBush
+from fitsmap.kdbush import KDBush
 
 
 class Supercluster:
@@ -267,12 +267,14 @@ class Supercluster:
             f = dict(
                 type=1,
                 geometry=[
-                    [
-                        round(self.extent * (px * z2 - x)),
-                        round(self.extent * (py * z2 - y)),
-                    ]
+                    round(self.extent * (px * z2 - x)),
+                    round(self.extent * (py * z2 - y)),
                 ],
-                tags=tags,
+                properties={
+                    "global_x" : px,
+                    "global_y" : py,
+                    **tags
+                },
             )
 
             if is_cluster:
