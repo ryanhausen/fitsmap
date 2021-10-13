@@ -64,19 +64,22 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
                         this.createClusterIcon(point.properties).addTo(map)
                     );
                 }
-            }).error(err => console.log(err));
+            }).catch(err => console.log(err));
         }
     },
 
 
     createTile: function (coords, done) {
-        console.log("in add", coords);
+        const bnds = this._pxBoundsToTileRange(this._getTiledPixelBounds(map.getCenter()));
+        const max_y = bnds.max.y;
+        const offset_y = max_y - coords.y;
+
         const resourceURL = this.options.tileURL
                           .replace("{z}", `${coords.z}`)
-                          .replace("{y}", `${coords.y}`)
+                          .replace("{y}", `${offset_y}`)
                           .replace("{x}", `${coords.x}`)
 
-        const key = `${coords.z},${coords.y},${coords.x}`
+        const key = `${coords.z},${offset_y},${coords.x}`
         fetch(resourceURL).then((r) => this.parseTileResponse(key, r)).catch((error) => {
             console.log(error);
         });
@@ -85,14 +88,31 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
     },
 
     clearItems: function(e){
-        console.log("in remove", e);
-
-        const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
-        if (key in this.tilePointCache){
-            for (let i = 0; i < this.tilePointCache[key].length; i++){
-                this.tilePointCache[key][i].remove();
+        // If we change zooms delete all from previous zoom
+        if (e.coords.z != map.getZoom() && map.getZoom() <= this.options.maxNativeZoom){
+            const keys = Object.keys(this.tilePointCache).filter(k => k[0]==`${e.coords.z}`);
+            for (let i = 0; i < keys.length; i++){
+                let key = keys[i];
+                for (let j = 0; j < this.tilePointCache[key].length; j++){
+                    this.tilePointCache[key][j].remove();
+                }
+                delete this.tilePointCache[key];
             }
-            delete this.tilePointCache[key];
+            
+        // If we're panning, then only delete what we have too
+        } else {
+            const bnds = this._pxBoundsToTileRange(this._getTiledPixelBounds(map.getCenter()));
+            const max_y = bnds.max.y;
+            const offset_y = max_y - e.coords.y;
+            
+            const key = `${e.coords.z},${offset_y},${e.coords.x}`
+
+            if (key in this.tilePointCache){
+                for (let i = 0; i < this.tilePointCache[key].length; i++){
+                    this.tilePointCache[key][i].remove();
+                }
+                delete this.tilePointCache[key];
+            }
         }
     }
 });

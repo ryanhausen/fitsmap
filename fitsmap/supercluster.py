@@ -188,6 +188,7 @@ class Supercluster:
         top = (y - p) / z2
         bottom = (y + 1 + p) / z2
 
+
         tile = self._add_tile_features(
             tree.range((x - p) / z2, top, (x + 1 + p) / z2, bottom),
             tree.points,

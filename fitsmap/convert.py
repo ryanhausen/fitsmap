@@ -537,7 +537,7 @@ def get_map_layer_name(file_location: str) -> str:
         The javascript name that will be used in the HTML map
     """
     _, fname = os.path.split(file_location)
-    name = os.path.splitext(fname)[0].replace(".", "_").replace("-", "_")
+    name = os.path.splitext(fname)[0].replace(".", "_").replace("-", "_").replace("(", "_").replace(")", "_")
     return name
 
 
@@ -937,7 +937,7 @@ def tile_markers(
     # need to get super cluster stuff in here
     clusterer = Supercluster(
         min_zoom=min_zoom,
-        max_zoom=max_zoom,
+        max_zoom=max_zoom-1,
         extent=tile_size,
         alternate_CRS=(max_x, max_y),
     ).load(catalog_values)
@@ -969,124 +969,6 @@ def tile_markers(
             p.imap_unordered(tile_f, tracked_collection)
     else:
         list(map(tile_f, tracked_collection))
-
-def catalog_to_markers(
-    wcs_file: str,
-    out_dir: str,
-    catalog_delim: str,
-    rows_per_col: int,
-    mp_procs: int,
-    catalog_file: str,
-    pbar_loc: int,
-) -> None:
-    """Transform ``catalog_file`` into a json collection for mapping
-    Args:
-        wcs_file (str): path to fits file used to interpret catalog
-        out_dir (str): path to save the json collection in
-        catalog_delim (str): delimiter to use when parsing catalog
-        catalog_file (str): path to catalog file
-        pbar_loc (int): the index to draw the tqdm bar in
-    Returns:
-        None
-    """
-
-    _, fname = os.path.split(catalog_file)
-    out_location = os.path.join(out_dir, "js")
-    check_name = get_marker_file_name(catalog_file).replace(".cat.js", "")
-    if os.path.exists(out_location) and any(
-        map(lambda fname: fname.startswith(check_name), os.listdir(out_location))
-    ):
-        print(f"{fname} already converted to js. Skipping conversion.")
-        return
-
-    if catalog_delim == MIXED_WHITESPACE_DELIMITER:
-        _simplify_mixed_ws(catalog_file)
-        catalog_delim = " "
-
-    f = open(catalog_file, "r", newline="")
-    csv_reader = csv.reader(f, delimiter=catalog_delim, skipinitialspace=True)
-    columns = line_to_cols(next(csv_reader))
-
-    ra_dec_coords = "ra" in columns and "dec" in columns
-    x_y_coords = "x" in columns and "y" in columns
-
-    if (not ra_dec_coords and not x_y_coords) or "id" not in columns:
-        err_msg = " ".join(
-            [
-                catalog_file + " is missing coordinate columns (ra/dec, xy),",
-                "an 'id' column, or all of the above",
-            ]
-        )
-        raise ValueError(err_msg)
-
-    if ra_dec_coords and (wcs_file is None):
-        err_msg = " ".join(
-            [catalog_file + " uses ra/dec coords, but a WCS file wasn't", "provided."]
-        )
-        raise ValueError(err_msg)
-
-    wcs = WCS(wcs_file) if wcs_file else None
-
-    cat_file_root = Path(catalog_file).stem
-    js_safe_file_name = utils.make_fname_js_safe(cat_file_root) + "_cat_var"
-
-    if "js" not in os.listdir(out_dir):
-        os.mkdir(os.path.join(out_dir, "js"))
-
-    if "css" not in os.listdir(out_dir):
-        os.mkdir(os.path.join(out_dir, "css"))
-
-    catalog_assets_parent_path = os.path.join(out_dir, "catalog_assets")
-    if "catalog_assets" not in os.listdir(out_dir):
-        os.mkdir(catalog_assets_parent_path)
-
-    catalog_assets_path = os.path.join(catalog_assets_parent_path, cat_file_root)
-    if cat_file_root not in os.listdir(catalog_assets_parent_path):
-        os.mkdir(catalog_assets_path)
-
-    catalog_img_path = os.path.join(
-        os.path.dirname(catalog_file), cat_file_root + "_images"
-    )
-
-    if not os.path.exists(catalog_img_path) or len(os.listdir(catalog_img_path)) == 0:
-        img_ext = None
-    else:
-        img_ext = os.path.splitext(os.listdir(catalog_img_path)[0])[1]
-
-    line_func = partial(
-        line_to_json,
-        wcs,
-        columns,
-        rows_per_col,
-        img_ext,
-        catalog_assets_path,
-        catalog_img_path,
-    )
-
-    bar = tqdm(
-        position=pbar_loc,
-        desc="Converting " + catalog_file,
-        disable=bool(os.getenv("DISBALE_TQDM", False)),
-    )
-
-    cat_file = lambda n: cat_file_root + f"_{n}.cat.js"
-    for shard in count():
-        catalog_data = list(
-            map(
-                line_func,
-                islice(utils.ShardedProcBarIter(csv_reader, bar), n_per_catalog_shard),
-            )
-        )
-
-        if len(catalog_data) > 0:
-            json_markers_file = os.path.join(out_dir, "js", cat_file(shard))
-            with open(json_markers_file, "w") as j:
-                j.write("var " + js_safe_file_name + f"_{shard}" + " = ")
-                json.dump(catalog_data, j, indent=2)
-                j.write(";")
-        else:
-            break
-    f.close()
 
 
 def async_worker(q: JoinableQueue) -> None:
@@ -1198,15 +1080,16 @@ def files_to_map(
     )
 
     img_files = filter_on_extension(files, IMG_FORMATS)
-    map_layer_names = list(map(get_map_layer_name, img_files))
+    img_layer_names = list(map(get_map_layer_name, img_files))
     img_job_f = partial(tile_img, **img_f_kwargs)
 
     cat_files = filter_on_extension(files, CAT_FORMAT)
+    cat_layer_names = list(map(get_map_layer_name, cat_files))
 
     max_x, max_y = utils.peek_image_info(img_files)
     if len(cat_files) > 0:
         # get highlevel image info for catalogging function
-        max_zoom = int(np.log2(max(max_x, max_y) / tile_size[0]))
+        max_zoom = int(np.log2(2**np.ceil(np.log2(max(max_x, max_y))) / 256))
 
         cat_job_f = partial(
             tile_markers,
@@ -1242,10 +1125,6 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
-    marker_file_names = sorted(
-        filter(lambda s: ".cat.js" in s, os.listdir(os.path.join(out_dir, "js")))
-    )
-
     ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
 
@@ -1257,10 +1136,9 @@ def files_to_map(
     cartographer.chart(
         out_dir,
         title,
-        map_layer_names,
-        marker_file_names,
+        img_layer_names,
+        cat_layer_names,
         cat_wcs,
-        (max_x, max_y),
     )
     print("Done.")
 

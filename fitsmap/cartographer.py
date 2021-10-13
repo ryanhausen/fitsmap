@@ -27,15 +27,14 @@
 
 import os
 import shutil
-import string
-from itertools import count, repeat
+from itertools import count, repeat, starmap
 from functools import partial, reduce
 from typing import Dict, List, Tuple
 
 import numpy as np
 from astropy.wcs import WCS
 
-import fitsmap
+import fitsmap.utils as utils
 
 # None defaults here mean width/height will be
 # calculated based on table column properties
@@ -70,10 +69,9 @@ LAYER_ATTRIBUTION = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>
 def chart(
     out_dir: str,
     title: str,
-    map_layer_names: List[str],
-    marker_file_names: List[str],
+    img_layer_names: List[str],
+    marker_layer_names: List[str],
     wcs: WCS,
-    img_xy: Tuple[int,int],
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -82,54 +80,57 @@ def chart(
     * without consideration.                                                   *
     ****************************************************************************
     """
-    # TODO need to get these numbers
-    img_x, img_y = img_xy
-
     # convert layer names into a single javascript string
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
-    zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, map_layer_names)))
+    zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)))
     zooms = [0] if len(zooms) == 0 else zooms
     convert_layer_name_func = partial(layer_name_to_dict, min(zooms), max(zooms))
-    layer_dicts = list(map(convert_layer_name_func, map_layer_names))
+    img_layer_dicts = list(starmap(convert_layer_name_func, zip(img_layer_names, repeat(None))))
+    cat_layer_dicts = list(starmap(convert_layer_name_func, zip(marker_layer_names, get_colors())))
 
     # generated javascript =====================================================
-    with open(os.path.join(out_dir, "js", "worker.js"), "w") as f:
-        f.write(build_worker_js(img_x, img_y))
-
     with open(os.path.join(out_dir, "js", "urlCoords.js"), "w") as f:
         f.write(build_urlCoords_js(wcs))
 
     with open(os.path.join(out_dir, "js", "index.js"), "w") as f:
-        f.write(build_index_js(layer_dicts, marker_file_names))
+        f.write(build_index_js(img_layer_dicts, cat_layer_dicts))
     # generated javascript =====================================================
 
     # HTML file contents =======================================================
     extra_js = (
-        build_conditional_js(out_dir) if marker_file_names else ""
+        build_conditional_js(out_dir) if cat_layer_dicts else ""
     )
 
-    extra_css = build_conditional_css(out_dir) if marker_file_names else ""
-
-    move_supporting_imgs(out_dir)
+    extra_css = build_conditional_css(out_dir)
 
     with open(os.path.join(out_dir, "index.html"), "w") as f:
         f.write(build_html(title, extra_js, extra_css))
     # HTML file contents =======================================================
 
 
-def layer_name_to_dict(min_zoom: int, max_zoom: int, name: str) -> dict:
+def layer_name_to_dict(
+    min_zoom: int,
+    max_zoom: int,
+    name: str,
+    color: str,
+) -> dict:
     """Convert layer name to dict for conversion."""
 
-    return dict(
+    layer_dict = dict(
         directory=name + "/{z}/{y}/{x}.png",
         name=name,
         min_zoom=min_zoom,
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
     )
+    if color:
+        layer_dict["color"] = color
+        layer_dict["directory"] = layer_dict["directory"].replace("png", "pbf")
+
+    return layer_dict
 
 
-def layer_dict_to_str(layer: dict) -> str:
+def img_layer_dict_to_str(layer: dict) -> str:
     """Convert layer dict to layer str for including in HTML file."""
 
     layer_str = [
@@ -146,23 +147,37 @@ def layer_dict_to_str(layer: dict) -> str:
     return "".join(layer_str)
 
 
-def colors_js() -> str:
-    js = [
-        "const colors = [",
-        '    "#4C72B0",',
-        '    "#DD8452",',
-        '    "#55A868",',
-        '    "#C44E52",',
-        '    "#8172B3",',
-        '    "#937860",',
-        '    "#DA8BC3",',
-        '    "#8C8C8C",',
-        '    "#CCB974",',
-        '    "#64B5CD",',
-        "];",
+def cat_layer_dict_to_str(layer: dict) -> str:
+    """Convert layer dict to layer str for including in HTML file."""
+
+    layer_str = [
+        "const " + layer["name"],
+        ' = L.gridLayer.tiledMarkers(',
+        "{ ",
+        'tileURL:"' + layer["directory"] + '", ',
+        'color: "' + layer["color"] + '", ',
+        "minZoom: " + str(layer["min_zoom"]) + ", ",
+        "maxZoom: " + str(layer["max_zoom"]) + ", ",
+        "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
+        "});",
     ]
 
-    return "\n".join(js)
+    return "".join(layer_str)
+
+
+def get_colors() -> List[str]:
+    return [
+        "#4C72B0",
+        "#DD8452",
+        "#55A868",
+        "#C44E52",
+        "#8172B3",
+        "#937860",
+        "#DA8BC3",
+        "#8C8C8C",
+        "#CCB974",
+        "#64B5CD",
+    ]
 
 
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
@@ -188,141 +203,6 @@ def leaflet_map_js(tile_layers: List[dict]):
             "    preferCanvas: true,",
             f"    layers: [{tile_layers[0]['name']}]",
             "});",
-        ]
-    )
-
-    return js
-
-
-def marker_filenames_to_js(marker_file_names: List[str], num_image_layers:int) -> str:
-
-    deshard_name = lambda s: "_".join(s.replace(".cat.json", "").split("_")[:-1])
-    desharded_names = list(map(deshard_name, marker_file_names))
-    unique_names = set(sorted(desharded_names))
-    shard_counts = list(map(desharded_names.count, unique_names))
-    names_counts = list(zip(unique_names, shard_counts))
-    n_catalogs = len(unique_names)
-
-    def make_fname_lists(name_count):
-        return (
-            "    ["
-            + ",".join(
-                map(lambda i: f'"../json/{name_count[0]}_{i}.cat.json"', range(name_count[1]))
-            )
-            + "]"
-        )
-
-    marker_display_mask = "<span class='loading'><img class='loading' src='img/load.gif'></img>{}::Fetching[1/{}]</span>"
-    def name_to_layer(idx_namecount):
-        return '    [L.geoJSON(null, {{pointToLayer: (feat, latlng) => createClusterIcon({}, feat, latlng),}}), "{}"],'.format(
-            idx_namecount[0],
-            marker_display_mask.format(*idx_namecount[1])
-        )
-
-
-    js = "\n".join(
-        [
-            "const catalogFileNames = [",
-            *list(map(make_fname_lists, names_counts)),
-            "];",
-            "",
-            "const catalogMarkers = [",
-            *list(map(name_to_layer, zip(count(), names_counts))),
-            "];",
-            "",
-            f"const catalogsLoaded = [{','.join(repeat('false', n_catalogs))}];" "",
-            "const catalogWorkers = [",
-            *list(repeat('    new Worker("js/worker.js"),', n_catalogs)),
-            "];",
-            "",
-            f"const nImageLayers = {num_image_layers};",
-            "for (let i = 0; i < catalogWorkers.length; i++){",
-            "    layerControl.addOverlay(...catalogMarkers[i]);",
-            "    catalogWorkers[i].onmessage = function(e) {",
-            "        if (e.data.ready) {",
-            "            catalogsLoaded[i] = true;",
-            "",
-            "            let catalogText = layerControl._layers[i + nImageLayers].name;",
-            '            catalogText = catalogText.replaceAll(/loading/g, "loading-complete")',
-            '                                     .replace("::Parsing", "");',
-            "            layerControl._layers[i + nImageLayers].name = catalogText;",
-            "            layerControl._update();"
-            "",
-            "            update();",
-            "        } else if (e.data.progress){",
-            "            let catalogText = layerControl._layers[i + nImageLayers].name;",
-           r"            let catalogIndex = parseInt(catalogText.match(/(?<=\[)(\d)(?=\/\d\])/)[0]);",
-           r"            let catlogTotal = parseInt(catalogText.match(/(?<=\[\d\/)(\d)(?=\])/)[0]);",
-           r"            catalogText = catalogText.replace(/(?<=\[)(\d)(?=\/\d\])/, (catalogIndex+1).toString()); // added",
-            "            if (catalogIndex+1>catlogTotal){",
-            '                catalogText = catalogText.replace("::Fetching", "::Parsing")',
-           r'                                         .replace(/\[\d\/\d]/, "");',
-            "            }",
-            "            layerControl._layers[i + nImageLayers].name = catalogText;",
-            "            layerControl._update();",
-            "        } else if (e.data.expansionZoom){",
-            "            map.flyTo(e.data.center, e.data.expansionZoom);",
-            "        } else {",
-            "            catalogMarkers[i][0].clearLayers();",
-            "            catalogMarkers[i][0].addData(e.data);",
-            "        }",
-            "    };",
-            "",
-            '    catalogWorkers.onerror = function(e) { console.log("ERROR:", e); }',
-            "    catalogWorkers[i].postMessage({fileNames: catalogFileNames[i]});",
-            "}",
-            "" "function createClusterIcon(colorIdx, feature, latlng) {",
-            "",
-            "    // create an icon for a single source",
-            "    if (!feature.properties.cluster){",
-            "        const src = feature.properties;",
-            '        const width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + "em";',
-            "        const include_img = src.include_img ? 2 : 1;",
-            '        const height = ((src.n_rows + 1) * 15 * (include_img)).toString() + "em";',
-            "",
-            '        const p = L.popup({ maxWidth: "auto" })',
-            "                 .setLatLng(latlng)",
-            '                 .setContent("<iframe src=\'catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html\' width=\'" + width + "\' height=\'" + height + "\'></iframe>");',
-            "",
-            "",
-            "        if (src.a==-1){",
-            "            return L.circleMarker(latlng, {",
-            "                color: colors[colorIdx % colors.length]",
-            "            }).bindPopup(p);",
-            "        } else {",
-            "            return L.ellipse(latlng, [src.a, src.b], (src.theta * (180/Math.PI) * -1), {",
-            "                color: colors[colorIdx % colors.length]",
-            "            }).bindPopup(p);",
-            "        }",
-            "",
-            "    }",
-            "",
-            "    // Create an icon for a cluster",
-            "    const count = feature.properties.point_count;",
-            "    const size =",
-            '        count < 100 ? "small" :',
-            '        count < 1000 ? "medium" : "large";',
-            "    const icon = L.divIcon({",
-            "        html: `<div><span>${  feature.properties.point_count_abbreviated  }</span></div>`,",
-            "        className: `marker-cluster marker-cluster-${size}`,",
-            "        iconSize: L.point(40, 40)",
-            "    });",
-            "",
-            "    return L.marker(latlng, {icon});",
-            "}",
-            "",
-            "function update() {",
-            "    all_loaded  = (accumulator, currentValue) => accumulator && currentValue;",
-            "    if (!all_loaded(catalogsLoaded, true)) return;",
-            "",
-            "    const bounds = map.getBounds();",
-            "    catalogWorkers.forEach(worker => {",
-            "        worker.postMessage({",
-            "            bbox: [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],",
-            "            zoom: map.getZoom()",
-            "        });",
-            "    });",
-            "}",
         ]
     )
 
@@ -381,9 +261,9 @@ def build_conditional_js(out_dir: str) -> str:
         )
     )
 
-    leaflet_js = [
-        "    <script src='https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster-src.js' crossorigin=''></script>",
-        "    <script src='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js' crossorigin=''></script>",
+    remote_js = [
+        '    <script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js", crossorigin=""></script>',
+        '    <script src="https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js" crossorigin=""></script>',
     ]
 
     js_string = "    <script src='js/{}'></script>"
@@ -391,125 +271,29 @@ def build_conditional_js(out_dir: str) -> str:
         map(lambda s: js_string.format(s), local_js_files)
     )
 
-    return "\n".join(leaflet_js + local_js)
+    return "\n".join(remote_js + local_js)
 
 
-def move_supporting_imgs(out_dir: str) -> None:
-    support_dir = os.path.join(os.path.dirname(__file__), "support")
-    out_img_dir = os.path.join(out_dir, "img")
-
-    image_exts = [".png", ".jpg", ".gif", ".jpeg"]
-
-    local_image_files = list(
-        filter(lambda f: os.path.splitext(f)[1] in image_exts, os.listdir(support_dir))
+def leaflet_layer_control_declaration(
+    img_layer_dicts: List[Dict],
+    cat_layer_dicts: List[Dict],
+) -> str:
+    img_layer_label_pairs = ",".join(
+        list(map(lambda l: '"{0}": {0}'.format(l["name"]), img_layer_dicts))
     )
 
-    if not os.path.exists(out_img_dir):
-        os.mkdir(out_img_dir)
-
-    all(
-        map(
-            lambda f: shutil.copy2(
-                os.path.join(support_dir, f), os.path.join(out_img_dir, f)
-            ),
-            local_image_files,
-        )
+    cat_layer_label_pairs = ",".join(
+        list(map(lambda l: '"{0}": {0}'.format(l["name"]), cat_layer_dicts))
     )
 
-def leaflet_layer_control_declaration(layer_dicts: List[Dict]) -> str:
-    layer_label_pairs = ",".join(
-        list(map(lambda l: '"{0}": {0}'.format(l["name"]), layer_dicts))
-    )
+    control_js = [
+        "const layerControl = L.control.layers(",
+        f"    {{ {img_layer_label_pairs} }},",
+        f"    {{ {cat_layer_label_pairs} }}",
+        ").addTo(map);"
+    ]
 
-    return f"const layerControl = L.control.layers({{ {layer_label_pairs} }}).addTo(map);"
-
-
-def build_worker_js(img_x: int, img_y: int):
-    js = "\n".join(
-        [
-            "// A catalog worker. The catalog worker is responsible for managing a single",
-            "// catalog in fitsmap.",
-            "// Based on https://github.com/mapbox/supercluster/blob/master/demo/worker.js",
-            "",
-            'importScripts("supercluster.js");',
-            "",
-            "const now = Date.now();",
-            "const catalogSources = {",
-            '    "type": "FeatureCollection",',
-            '    "features": []',
-            "};",
-            "",
-            "index = new Supercluster({",
-            "    log: true,",
-            "    radius: 128,",
-            "    extent: 256,",
-            "    maxZoom: 10,",
-            "    alternateCRS: true",
-            "});",
-            f"index.lngX = function lngX(lng) {{ return lng / {img_x}; }}",
-            f"index.latY = function latY(lat) {{ return lat / {img_y}; }}",
-            f"index.xLng = function xLng(x) {{ return x * {img_x}; }}",
-            f"index.yLat = function yLat(y) {{ return y * {img_y}; }}",
-            "",
-            "let ready = false;",
-            "self.onmessage = function (e) {",
-            "    // first run, we're loading data",
-            "    if (e.data.fileNames) {",
-            "        loadFiles(e.data.fileNames, () => {",
-            "            console.log(`loaded ${  catalogSources.features.length  } points JSON in ${  (Date.now() - now) / 1000  }s`);",
-            "",
-            "            index.load(catalogSources.features);",
-            "",
-            "            ready = true;",
-            '            //console.log("TILE:000", index.getTile(0, 0, 0));',
-            "",
-            "            postMessage({ready: true});",
-            "        });",
-            "    // get a cluster expansion clicked zoom",
-            "    } else if (ready && e.data.getClusterExpansionZoom) {",
-            "        postMessage({",
-            "            expansionZoom: index.getClusterExpansionZoom(e.data.getClusterExpansionZoom),",
-            "            center: e.data.center",
-            "        });",
-            "    // general zooming/panning",
-            "    } else if (ready && e.data) {",
-            "        postMessage(index.getClusters(e.data.bbox, e.data.zoom));",
-            "    }",
-            "};",
-            "",
-            "function loadFiles(fileNames, callback){",
-            "    // all done, build index",
-            "    if (fileNames.length == 0) {",
-            "        callback();",
-            "    // load the next file",
-            "    } else {",
-            "        fname = fileNames.pop();",
-            "        loadData(fname, (data) => {",
-            "            data.features.forEach((d) => catalogSources.features.push(d));",
-            "            postMessage({progress:1});",
-            "            loadFiles(fileNames, callback);",
-            "        });",
-            "    }",
-            "}",
-            "",
-            "// maybe switch this to fetch as in",
-            "// https://github.com/mapbox/supercluster/pull/170/files/95f293f60e14b1dc5f368eb6a5d8ba8e424bf387..5d727476a67ae94375838953eea65530df708d67",
-            "function loadData(url, callback){",
-            "    const xhr = new XMLHttpRequest();",
-            '    xhr.open("GET", url, true);',
-            '    xhr.responseType = "json";',
-            '    xhr.setRequestHeader("Accept", "application/json");',
-            "    xhr.onload = function () {",
-            "        if (xhr.readyState === 4 && xhr.status >= 200 && xhr.status < 300 && xhr.response) {",
-            "            callback(xhr.response);",
-            "        }",
-            "    };",
-            "    xhr.send();",
-            "}",
-        ]
-    )
-
-    return js
+    return "\n".join(control_js)
 
 
 def build_urlCoords_js(img_wcs: WCS) -> str:
@@ -635,25 +419,26 @@ def build_urlCoords_js(img_wcs: WCS) -> str:
     return wcs_js
 
 
-def build_index_js(layer_dicts: List[Dict], marker_file_names: List[str]) -> str:
+def build_index_js(image_layer_dicts: List[Dict], marker_layer_dicts: List[str]) -> str:
 
     js = "\n".join(
         [
             "// Image layers ================================================================",
-            *list(map(layer_dict_to_str, layer_dicts)),
+            *list(map(img_layer_dict_to_str, image_layer_dicts)),
+            "",
+            "// Marker layers ===============================================================",
+            *list(map(cat_layer_dict_to_str, marker_layer_dicts)),
+            "",
             "// Basic map setup =============================================================",
-            leaflet_crs_js(layer_dicts),
+            leaflet_crs_js(image_layer_dicts),
             "",
-            leaflet_map_js(layer_dicts),
+            leaflet_map_js(image_layer_dicts),
             "",
-            leaflet_layer_control_declaration(layer_dicts),
+            leaflet_layer_control_declaration(
+                image_layer_dicts,
+                marker_layer_dicts
+            ),
             "",
-            "// catalogs layers =============================================================",
-            colors_js(),
-            "",
-            marker_filenames_to_js(marker_file_names, len(layer_dicts)),
-            "" "",
-            'map.on("moveend", update);',
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
             "",
@@ -694,52 +479,12 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         "</head>",
         "<body>",
         '    <div id="map"></div>',
+        '    <script src="js/tiledMarkers.js"></script>',
         '    <script src="js/urlCoords.js"></script>',
         '    <script src="js/index.js"></script>',
         "</body>",
-        f"<!--Made with fitsmap v{get_version()}-->",
+        f"<!--Made with fitsmap v{utils.get_version()}-->",
         "</html>\n",
     ]
 
     return "\n".join(html)
-
-
-def get_version():
-    with open(os.path.join(fitsmap.__path__[0], "__version__.py"), "r") as f:
-        return f.readline().strip().replace('"', "")
-
-
-def digit_to_string(digit: int) -> str:
-    if digit == 0:
-        return "zero"
-    elif digit == 1:
-        return "one"
-    elif digit == 2:
-        return "two"
-    elif digit == 3:
-        return "three"
-    elif digit == 4:
-        return "four"
-    elif digit == 5:
-        return "five"
-    elif digit == 6:
-        return "six"
-    elif digit == 7:
-        return "seven"
-    elif digit == 8:
-        return "eight"
-    elif digit == 9:
-        return "nine"
-    else:
-        raise ValueError("Only digits 0-9 are supported")
-
-
-def make_fname_js_safe(fname: str) -> str:
-    """Converts a string filename to a javascript safe identifier."""
-
-    if fname[0] in string.digits:
-        adj_for_digit = digit_to_string(int(fname[0])) + fname[1:]
-    else:
-        adj_for_digit = fname
-
-    return adj_for_digit.replace(".", "_dot_").replace("-", "_")

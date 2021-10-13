@@ -17,14 +17,17 @@
 # COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-from functools import reduce
+import os
 import string
+from functools import reduce
 from itertools import chain, filterfalse
 from typing import Iterable, List, Tuple
 
 from astropy.io import fits
 from tqdm import tqdm
 from PIL import Image
+
+import fitsmap
 
 class ShardedProcBarIter:
     """Maintains a single tqdm progress bar over multiple catalog shards.
@@ -144,4 +147,7 @@ def peek_image_info(img_file_names:List[str]) -> Tuple[int, int]:
     return max_x, max_y
 
 
+def get_version():
+    with open(os.path.join(fitsmap.__path__[0], "__version__.py"), "r") as f:
+        return f.readline().strip().replace('"', "")
 
