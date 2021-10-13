@@ -803,6 +803,9 @@ def make_marker_tile(
                 ))
             )
 
+        with open(out_path.replace("pbf", "json"), "w") as f:
+            json.dump(tile_sources, f, indent=2)
+
         encoded_tile = mvt.encode([tile_sources], extents=256)
 
         with open(out_path, "wb") as f:
@@ -1202,7 +1205,7 @@ def files_to_map(
 
     max_x, max_y = utils.peek_image_info(img_files)
     if len(cat_files) > 0:
-        # get highlevel image info for cataloggin function
+        # get highlevel image info for catalogging function
         max_zoom = int(np.log2(max(max_x, max_y) / tile_size[0]))
 
         cat_job_f = partial(

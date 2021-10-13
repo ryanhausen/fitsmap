@@ -256,13 +256,13 @@ class Supercluster:
 
             if is_cluster:
                 tags = self.get_cluster_properties(c)
-                px = c["x"]
-                py = c["y"]
+                px = self.x_lng(c["x"])
+                py = self.y_lat(c["y"])
             else:
                 p = self.points[c["index"]]
                 tags = p.get("tags", None)
-                px = self.lng_x(p["geometry"]["coordinates"][0])
-                py = self.lat_y(p["geometry"]["coordinates"][1])
+                px = p["geometry"]["coordinates"][0]
+                py = p["geometry"]["coordinates"][1]
 
             f = dict(
                 type=1,
