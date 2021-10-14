@@ -13,7 +13,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
     },
 
     createClusterIcon: function(src) {
-        const latlng = L.latLng(src.global_x, src.global_y);
+        const latlng = L.latLng(src.global_y, src.global_x);
         if (!src.cluster){
             const width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + "em";
             const include_img = src.include_img ? 2 : 1;
@@ -22,6 +22,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             const p = L.popup({ maxWidth: "auto" })
                      .setLatLng(latlng)
                      .setContent("<iframe src='catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html' width='" + width + "' height='" + height + "'></iframe>");
+
             if (src.a==-1){
                 return L.circleMarker(latlng, {
                     color: this.options.color
@@ -44,8 +45,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             className: `marker-cluster marker-cluster-${size}`,
             iconSize: L.point(40, 40)
         });
-
-        return L.marker(latlng, {icon});
+        return L.marker(latlng, {icon}).bindPopup(`${src.global_y}, ${src.global_x}`);
     },
 
 
@@ -70,16 +70,17 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
 
 
     createTile: function (coords, done) {
-        const bnds = this._pxBoundsToTileRange(this._getTiledPixelBounds(map.getCenter()));
-        const max_y = bnds.max.y;
-        const offset_y = max_y - coords.y;
-
+        //const bnds = this._pxBoundsToTileRange(this._getTiledPixelBounds(map.getCenter()));
+        //const max_y = bnds.max.y;
+        //const offset_y = max_y - coords.y;
+        const offset_y = 2**coords.z - coords.y - 1
+        const offset_x = 2**coords.z - coords.x - 1
         const resourceURL = this.options.tileURL
                           .replace("{z}", `${coords.z}`)
                           .replace("{y}", `${offset_y}`)
-                          .replace("{x}", `${coords.x}`)
+                          .replace("{x}", `${coords.x + 1}`)
 
-        const key = `${coords.z},${offset_y},${coords.x}`
+        const key = `${coords.z},${coords.y},${coords.x}`
         fetch(resourceURL).then((r) => this.parseTileResponse(key, r)).catch((error) => {
             console.log(error);
         });
@@ -87,7 +88,8 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         return L.DomUtil.create('canvas', 'leaflet-tile');
     },
 
-    clearItems: function(e){
+    clearItemsOLD: function(e){
+        const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
         // If we change zooms delete all from previous zoom
         if (e.coords.z != map.getZoom() && map.getZoom() <= this.options.maxNativeZoom){
             const keys = Object.keys(this.tilePointCache).filter(k => k[0]==`${e.coords.z}`);
@@ -101,17 +103,23 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             
         // If we're panning, then only delete what we have too
         } else {
-            const bnds = this._pxBoundsToTileRange(this._getTiledPixelBounds(map.getCenter()));
-            const max_y = bnds.max.y;
-            const offset_y = max_y - e.coords.y;
             
-            const key = `${e.coords.z},${offset_y},${e.coords.x}`
-
+            const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
             if (key in this.tilePointCache){
                 for (let i = 0; i < this.tilePointCache[key].length; i++){
                     this.tilePointCache[key][i].remove();
                 }
                 delete this.tilePointCache[key];
+            }
+        }
+    },
+    
+    clearItems: function(e){
+        const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
+        if (this.tilePointCache[key]){
+            while (this.tilePointCache[key].length){
+                let p = this.tilePointCache[key].pop().remove();
+                p = null;
             }
         }
     }

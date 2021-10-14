@@ -732,13 +732,11 @@ def line_to_json(
 
 def process_catalog_file_chunk(
     process_f:Callable,
-    queue:Queue,
     fname:str,
     delimiter:str,
     start:int,
     end:int
 ) -> List[dict]:
-
     # newline="" for csv reader, see
     # https://docs.python.org/3/library/csv.html#csv.reader
     f = open(fname, "r", newline="")
@@ -750,15 +748,27 @@ def process_catalog_file_chunk(
     raw_lines = []
     reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
     current = f.tell()
+    update_every = 1000
+    count = 1
     while current < end:
         raw_lines.append(f.readline().strip())
         processed_lines = next(reader)
         json_lines.append(process_f(processed_lines))
         current = f.tell()
-        queue.put(1)
+        count += 1
+        if count % update_every==0:
+            process_catalog_file_chunk.q.put(count)
+            count = 1
+
+    if count > 1:
+        process_catalog_file_chunk.q.put(count)
 
     return json_lines
 
+# This allows the queue reference to be shared between processes
+# https://stackoverflow.com/a/3843313/2691018
+def process_catalog_file_chunk_init(q):
+    process_catalog_file_chunk.q = q
 
 
 def _simplify_mixed_ws(catalog_fname: str) -> None:
@@ -771,8 +781,12 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
 
 
 def procbar_listener(q:Queue, bar:tqdm) -> None:
-    for _ in iter(q.get, None):
-        bar.update()
+    while True:
+        update = q.get()
+        if update:
+            bar.update(n=update)
+        else:
+            break
 
 
 def make_marker_tile(
@@ -790,7 +804,7 @@ def make_marker_tile(
 
     out_path = os.path.join(out_dir, str(z), str(y), f"{x}.pbf")
 
-    tile_sources = cluster.get_tile(z, y, x)
+    tile_sources = cluster.get_tile(z, x, y)
 
     if tile_sources:
         tile_sources["name"] = "Points"
@@ -901,13 +915,12 @@ def tile_markers(
     # this queue manages a proc bar instance that can be shared among multiple
     # processes, i have a feeling there is a better way to do this
     q = mp.Queue()
-    mointor = mp.Process(target=procbar_listener, args=(q, bar))
-    mointor.start()
+    monitor = mp.Process(target=procbar_listener, args=(q, bar))
+    monitor.start()
 
     process_f = partial(
         process_catalog_file_chunk,
         line_func,
-        q,
         catalog_file,
         catalog_delim,
     )
@@ -925,13 +938,28 @@ def tile_markers(
         # montiors the queue for updates from the workers. The extra process
         # doesn't do much and so it shouldn't be a strain to add it.
 
-        with Pool(mp_procs) as p:
-            catalog_values = chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
+        with Pool(mp_procs, process_catalog_file_chunk_init, [q]) as p:
+            catalog_values = list(chain.from_iterable(p.starmap(process_f, file_chunk_pairs)))
     else:
+        process_catalog_file_chunk_init(q)
         catalog_values = process_f(0, catalog_file_size)
 
     # this kills the iter in the monitor process
     q.put(None)
+    monitor.join()
+    del monitor
+
+
+    bar = tqdm(
+        position=pbar_loc,
+        desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
+        disable=bool(os.getenv("DISBALE_TQDM", False)),
+        total=max_zoom+1 - min_zoom,
+    )
+
+    q = mp.Queue()
+    monitor = mp.Process(target=procbar_listener, args=(q, bar))
+    monitor.start()
 
     # cluster the parsed sources
     # need to get super cluster stuff in here
@@ -939,17 +967,28 @@ def tile_markers(
         min_zoom=min_zoom,
         max_zoom=max_zoom-1,
         extent=tile_size,
+        radius=max(max_x, max_y)/tile_size,
+        node_size=np.log2(len(catalog_values))*2,
         alternate_CRS=(max_x, max_y),
+        update_f=lambda: q.put(1),
+        log=True,
     ).load(catalog_values)
 
+    # this kills the iter in the monitor process
+    q.put(None)
+    monitor.join()
+    del monitor
 
     # tile the sources and save using protobuf
     zs = range(min_zoom, max_zoom+1)
     ys = [range(2**z) for z in zs]
     xs = [range(2**z) for z in zs]
-    tile_idxs = chain.from_iterable(
+    tile_idxs = list(chain.from_iterable(
         [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
-    )
+    ))
+
+    clusterer.update_f = None
+    clusterer.log = False
 
     tile_f = partial(
         make_marker_tile,
@@ -963,10 +1002,12 @@ def tile_markers(
         desc="Tiling " + catalog_file,
         disable=bool(os.getenv("DISBALE_TQDM", False)),
     )
-    # continue here
-    if mp_procs > 1:
+
+    # the super cluster object can be very large, so this may not be worth
+    # eating up memory, set to False
+    if False:
         with Pool(mp_procs) as p:
-            p.imap_unordered(tile_f, tracked_collection)
+            list(p.imap_unordered(tile_f, tracked_collection, chunksize=100))
     else:
         list(map(tile_f, tracked_collection))
 
@@ -1086,10 +1127,10 @@ def files_to_map(
     cat_files = filter_on_extension(files, CAT_FORMAT)
     cat_layer_names = list(map(get_map_layer_name, cat_files))
 
-    max_x, max_y = utils.peek_image_info(img_files)
+    max_dim = max(utils.peek_image_info(img_files))
     if len(cat_files) > 0:
         # get highlevel image info for catalogging function
-        max_zoom = int(np.log2(2**np.ceil(np.log2(max(max_x, max_y))) / 256))
+        max_zoom = int(np.log2(2**np.ceil(np.log2(max_dim)) / 256))
 
         cat_job_f = partial(
             tile_markers,
@@ -1102,8 +1143,8 @@ def files_to_map(
             min_zoom,
             max_zoom,
             tile_size[0],
-            max_x,
-            max_y,
+            max_dim,
+            max_dim,
         )
     else:
         cat_job_f = None

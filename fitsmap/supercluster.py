@@ -20,7 +20,12 @@ import math
 from typing import Callable, Tuple
 import numpy as np
 from fitsmap.kdbush import KDBush
+from tqdm import tqdm
 
+def default_map(i): return i
+def default_udpate_f(): pass
+def default_get_x(p): return p["x"]
+def default_get_y(p): return p["y"]
 
 class Supercluster:
     def __init__(
@@ -30,12 +35,13 @@ class Supercluster:
         min_points: int = 2,  # min points to form a cluster
         radius: float = 40,  # cluster radius in pixels
         extent: int = 512,  # tile extent
-        node_size: int = 64,  # size fo the kd-tree leaf mode, afftects performance
+        node_size: int = 64,  # size for the kd-tree leaf mode, afftects performance
         log: bool = False,  # whether to log timing info, set to None to disable
         generate_id: bool = False,  # whether to generate numeric ids for input features
         reduce: Callable = None,  # a reduce function for calculating custom cluster properties
-        map: Callable = lambda i: i,  # properties to use for individual points when running the `reduce`
-        alternate_CRS: Tuple[int,int] = () # if using a simple CRS set the tuple to [max_x, max_y]
+        map: Callable = default_map,  # properties to use for individual points when running the `reduce`
+        alternate_CRS: Tuple[int,int] = (), # if using a simple CRS set the tuple to [max_x, max_y]
+        update_f: Callable = default_udpate_f,
     ):
         self.min_zoom = min_zoom
         self.max_zoom = max_zoom
@@ -51,12 +57,10 @@ class Supercluster:
         # doesn't happen
         self.trees = np.zeros([max_zoom+2], dtype=object)
         self.alternate_CRS = alternate_CRS
+        self.update_f = update_f
 
     # https://github.com/mapbox/supercluster/blob/60d13df9c7d96e9ad16b43c8aca897b5aea38ac9/index.js#L31
     def load(self, points) -> "Supercluster":
-
-        if self.log:
-            print()
 
         self.points = points
 
@@ -65,16 +69,19 @@ class Supercluster:
             if points[i].get("geometry", []):
                 clusters.append(self.create_point_cluster(points[i], i))
 
+        if self.log:
+            self.update_f()
+
         self.trees[self.max_zoom+1] = KDBush(
             points=clusters,
             node_size=self.node_size,
             array_dtype=np.float32,
-            get_x=lambda p: p["x"],
-            get_y=lambda p: p["y"],
+            get_x=default_get_x,
+            get_y=default_get_y,
         )
 
         if self.log:
-            print()
+            self.update_f()
 
         # cluster points on max zoom, then cluster the results on previous zoom, etc.;
         # results in a cluster hierarchy across zoom levels
@@ -85,15 +92,12 @@ class Supercluster:
                 points=clusters,
                 node_size=self.node_size,
                 array_dtype=np.float32,
-                get_x=lambda p: p["x"],
-                get_y=lambda p: p["y"],
+                get_x=default_get_x,
+                get_y=default_get_y,
             )
 
             if self.log:
-                print()
-
-        if self.log:
-            print()
+                self.update_f()
 
         return self
 
@@ -434,9 +438,9 @@ class Supercluster:
         count = cluster["num_points"]
 
         if count >= 10000:
-            abbrev = f"{round(count) / 1000}k"
+            abbrev = f"{round(count / 1000)}k"
         elif count > 1000:
-            abbrev = f"{round(count / 100) / 10}k"
+            abbrev = f"{round(count / 100  / 10)}k"
         else:
             abbrev = count
 
@@ -466,7 +470,6 @@ class Supercluster:
             if sin in [-1, 1]:
                 y = -sin
             else:
-                print(lat, sin)
                 y = (0.5 - 0.25 * math.log((1 + sin) / (1 - sin)) / math.pi)
             return min(max(y, 0), 1)
 

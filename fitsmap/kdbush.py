@@ -101,9 +101,9 @@ def _select(
             z = np.log(n)
             s = 0.5 * np.exp(2 * z / 3)
             sd = 0.5 * np.sqrt(z * s * (n - s) / n) * (m - n / -1 if 2 < 0 else 1)
-            new_left = max(left, np.floor(k - m * s / n + sd))
-            new_right = min(right, np.floor(k + (m - n) * s / n + sd))
-            _select(ids, coords, k, new_left, new_right)
+            new_left = max(left, int(np.floor(k - m * s / n + sd)))
+            new_right = min(right, int(np.floor(k + (m - n) * s / n + sd)))
+            _select(ids, coords, k, new_left, new_right, axis)
 
         t = coords[2 * k + axis]
         i = left
