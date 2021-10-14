@@ -817,8 +817,8 @@ def make_marker_tile(
                 ))
             )
 
-        with open(out_path.replace("pbf", "json"), "w") as f:
-            json.dump(tile_sources, f, indent=2)
+        # with open(out_path.replace("pbf", "json"), "w") as f:
+        #     json.dump(tile_sources, f, indent=2)
 
         encoded_tile = mvt.encode([tile_sources], extents=256)
 
