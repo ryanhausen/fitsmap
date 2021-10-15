@@ -30,11 +30,8 @@ import sys
 from functools import partial
 from itertools import chain, count, filterfalse, islice, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
-from pathlib import Path
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, Iterable, List, Tuple
-from astropy import coordinates
-from google.protobuf.message import EncodeError
 
 import mapbox_vector_tile as mvt
 import matplotlib as mpl
@@ -822,17 +819,18 @@ def make_marker_tile(
         tile_sources["name"] = "Points"
 
         for i in range(len(tile_sources["features"])):
-            tile_sources["features"][i]["geometry"] = "POINT({} {})".format(
-                *list(map(
-                    int,
-                    tile_sources["features"][i]["geometry"]
-                ))
-            )
+            # tile_sources["features"][i]["geometry"] = "POINT({} {})".format(
+            #     *list(map(
+            #         int,
+            #         tile_sources["features"][i]["geometry"]
+            #     ))
+            # )
+            tile_sources["features"][i]["geometry"] = "POINT(0 0)" # we dont' use this
 
         # with open(out_path.replace("pbf", "json"), "w") as f:
         #     json.dump(tile_sources, f, indent=2)
 
-        encoded_tile = mvt.encode([tile_sources], extents=256)
+        encoded_tile = mvt.encode([tile_sources], extents=4096)
 
         with open(out_path, "wb") as f:
             f.write(encoded_tile)
