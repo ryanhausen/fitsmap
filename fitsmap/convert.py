@@ -748,7 +748,7 @@ def process_catalog_file_chunk(
     raw_lines = []
     reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
     current = f.tell()
-    update_every = 1000
+    update_every = 10000
     count = 1
     while current < end:
         raw_lines.append(f.readline().strip())
@@ -931,7 +931,7 @@ def tile_markers(
         # split the file by splitting the byte size of the file into even sized
         # chunks. We always read to the end of the first line so its ok to get
         # dropped into the middle of a link
-        boundaries = np.linspace(0, catalog_file_size, mp_procs+1, dtype=np.int32)
+        boundaries = np.linspace(0, catalog_file_size, mp_procs+1, dtype=np.int64)
         file_chunk_pairs = list(zip(boundaries[:-1], boundaries[1:]))
 
         # To keep the progress bar up to date we need an extra process that
@@ -949,7 +949,8 @@ def tile_markers(
     monitor.join()
     del monitor
 
-
+    # TEMP FIX FOR DREAM
+    max_zoom += 2
     bar = tqdm(
         position=pbar_loc,
         desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
