@@ -68,6 +68,7 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 # ==============================================================================
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
+LOAD_CATALOG_BEFORE_PARSING = True
 
 POPUP_CSS = [
     "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
@@ -76,9 +77,6 @@ POPUP_CSS = [
     "table { width: 100%; }",
     "img { height: 50%; width: auto; }",
 ]
-
-
-
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -745,24 +743,38 @@ def process_catalog_file_chunk(
 
     json_lines = []
 
-    raw_lines = []
-    reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
-    current = f.tell()
-    update_every = 10000
-    count = 1
-    while current < end:
-        raw_lines.append(f.readline().strip())
-        processed_lines = next(reader)
-        json_lines.append(process_f(processed_lines))
+    if LOAD_CATALOG_BEFORE_PARSING:
+        raw_lines = f.readlines(end-start)
+        reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
+
+        update_every = 1000
+        count = 1
+        for line in reader:
+            json_lines.append(process_f(line))
+            count += 1
+            if count % update_every==0:
+                process_catalog_file_chunk.q.put(count)
+                count = 1
+
+    else:
+        raw_lines = []
+        reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
         current = f.tell()
-        count += 1
-        if count % update_every==0:
+        update_every = 10000
+        count = 1
+        while current < end:
+            raw_lines.append(f.readline().strip())
+            processed_lines = next(reader)
+            json_lines.append(process_f(processed_lines))
+            current = f.tell()
+            count += 1
+            if count % update_every==0:
+                process_catalog_file_chunk.q.put(count)
+                count = 1
+
+        if count > 1:
             process_catalog_file_chunk.q.put(count)
-            count = 1
-
-    if count > 1:
-        process_catalog_file_chunk.q.put(count)
-
+    f.close()
     return json_lines
 
 # This allows the queue reference to be shared between processes
