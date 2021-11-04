@@ -29,6 +29,7 @@ from PIL import Image
 
 import fitsmap
 
+
 class ShardedProcBarIter:
     """Maintains a single tqdm progress bar over multiple catalog shards.
 
@@ -90,7 +91,7 @@ def make_fname_js_safe(fname: str) -> str:
     return adj_for_digit.replace(".", "_dot_").replace("-", "_")
 
 
-def get_fits_image_size(fits_file:str) -> Tuple[int, int]:
+def get_fits_image_size(fits_file: str) -> Tuple[int, int]:
     """Returns image size (x, y)
 
     Args:
@@ -103,7 +104,7 @@ def get_fits_image_size(fits_file:str) -> Tuple[int, int]:
     return hdr["NAXIS1"], hdr["NAXIS2"]
 
 
-def get_standard_image_size(image_file:str) -> Tuple[int, int]:
+def get_standard_image_size(image_file: str) -> Tuple[int, int]:
     """Returns image size (x, y)
 
     Args:
@@ -118,7 +119,7 @@ def get_standard_image_size(image_file:str) -> Tuple[int, int]:
     return size
 
 
-def peek_image_info(img_file_names:List[str]) -> Tuple[int, int]:
+def peek_image_info(img_file_names: List[str]) -> Tuple[int, int]:
     """Gets image size values given passed image file names
 
     Args:
@@ -128,20 +129,21 @@ def peek_image_info(img_file_names:List[str]) -> Tuple[int, int]:
         Tuple[int, int]: The `max x`, and `max y`
     """
 
-    fits_sizes = list(map(
-        get_fits_image_size,
-        filter(lambda f: f.endswith("fits"), img_file_names),
-    ))
+    fits_sizes = list(
+        map(get_fits_image_size, filter(lambda f: f.endswith("fits"), img_file_names),)
+    )
 
-    standard_sizes= list(map(
-        get_standard_image_size,
-        filterfalse(lambda f: f.endswith("fits"), img_file_names)
-    ))
+    standard_sizes = list(
+        map(
+            get_standard_image_size,
+            filterfalse(lambda f: f.endswith("fits"), img_file_names),
+        )
+    )
 
     max_x, max_y = reduce(
         lambda x, y: (max(x[0], y[0]), max(x[1], y[1])),
         chain.from_iterable([fits_sizes, standard_sizes]),
-        (0, 0)
+        (0, 0),
     )
 
     return max_x, max_y
@@ -150,4 +152,3 @@ def peek_image_info(img_file_names:List[str]) -> Tuple[int, int]:
 def get_version():
     with open(os.path.join(fitsmap.__path__[0], "__version__.py"), "r") as f:
         return f.readline().strip().replace('"', "")
-

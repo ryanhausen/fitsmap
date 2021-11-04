@@ -72,6 +72,7 @@ def chart(
     img_layer_names: List[str],
     marker_layer_names: List[str],
     wcs: WCS,
+    rows_per_column: int,
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -85,21 +86,23 @@ def chart(
     zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)))
     zooms = [0] if len(zooms) == 0 else zooms
     convert_layer_name_func = partial(layer_name_to_dict, min(zooms), max(zooms))
-    img_layer_dicts = list(starmap(convert_layer_name_func, zip(img_layer_names, repeat(None))))
-    cat_layer_dicts = list(starmap(convert_layer_name_func, zip(marker_layer_names, get_colors())))
+    img_layer_dicts = list(
+        starmap(convert_layer_name_func, zip(img_layer_names, repeat(None)))
+    )
+    cat_layer_dicts = list(
+        starmap(convert_layer_name_func, zip(marker_layer_names, get_colors()))
+    )
 
     # generated javascript =====================================================
     with open(os.path.join(out_dir, "js", "urlCoords.js"), "w") as f:
         f.write(build_urlCoords_js(wcs))
 
     with open(os.path.join(out_dir, "js", "index.js"), "w") as f:
-        f.write(build_index_js(img_layer_dicts, cat_layer_dicts))
+        f.write(build_index_js(img_layer_dicts, cat_layer_dicts, rows_per_column))
     # generated javascript =====================================================
 
     # HTML file contents =======================================================
-    extra_js = (
-        build_conditional_js(out_dir) if cat_layer_dicts else ""
-    )
+    extra_js = build_conditional_js(out_dir) if cat_layer_dicts else ""
 
     extra_css = build_conditional_css(out_dir)
 
@@ -108,12 +111,7 @@ def chart(
     # HTML file contents =======================================================
 
 
-def layer_name_to_dict(
-    min_zoom: int,
-    max_zoom: int,
-    name: str,
-    color: str,
-) -> dict:
+def layer_name_to_dict(min_zoom: int, max_zoom: int, name: str, color: str,) -> dict:
     """Convert layer name to dict for conversion."""
 
     layer_dict = dict(
@@ -147,15 +145,17 @@ def img_layer_dict_to_str(layer: dict) -> str:
     return "".join(layer_str)
 
 
-def cat_layer_dict_to_str(layer: dict) -> str:
+def cat_layer_dict_to_str(layer: dict, rows_per_column:int) -> str:
     """Convert layer dict to layer str for including in HTML file."""
 
+    rpc_str = "Infinity" if np.isinf(rows_per_column) else str(rows_per_column)
     layer_str = [
         "const " + layer["name"],
-        ' = L.gridLayer.tiledMarkers(',
+        " = L.gridLayer.tiledMarkers(",
         "{ ",
         'tileURL:"' + layer["directory"] + '", ',
         'color: "' + layer["color"] + '", ',
+        'rowsPerColumn: "' + rpc_str + '", ',
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
@@ -267,16 +267,13 @@ def build_conditional_js(out_dir: str) -> str:
     ]
 
     js_string = "    <script src='js/{}'></script>"
-    local_js = list(
-        map(lambda s: js_string.format(s), local_js_files)
-    )
+    local_js = list(map(lambda s: js_string.format(s), local_js_files))
 
     return "\n".join(remote_js + local_js)
 
 
 def leaflet_layer_control_declaration(
-    img_layer_dicts: List[Dict],
-    cat_layer_dicts: List[Dict],
+    img_layer_dicts: List[Dict], cat_layer_dicts: List[Dict],
 ) -> str:
     img_layer_label_pairs = ",".join(
         list(map(lambda l: '"{0}": {0}'.format(l["name"]), img_layer_dicts))
@@ -290,7 +287,7 @@ def leaflet_layer_control_declaration(
         "const layerControl = L.control.layers(",
         f"    {{ {img_layer_label_pairs} }},",
         f"    {{ {cat_layer_label_pairs} }}",
-        ").addTo(map);"
+        ").addTo(map);",
     ]
 
     return "\n".join(control_js)
@@ -419,7 +416,9 @@ def build_urlCoords_js(img_wcs: WCS) -> str:
     return wcs_js
 
 
-def build_index_js(image_layer_dicts: List[Dict], marker_layer_dicts: List[str]) -> str:
+def build_index_js(
+    image_layer_dicts: List[Dict], marker_layer_dicts: List[str], rows_per_column: int
+) -> str:
 
     js = "\n".join(
         [
@@ -427,17 +426,14 @@ def build_index_js(image_layer_dicts: List[Dict], marker_layer_dicts: List[str])
             *list(map(img_layer_dict_to_str, image_layer_dicts)),
             "",
             "// Marker layers ===============================================================",
-            *list(map(cat_layer_dict_to_str, marker_layer_dicts)),
+            *list(starmap(cat_layer_dict_to_str, zip(marker_layer_dicts, repeat(rows_per_column)))),
             "",
             "// Basic map setup =============================================================",
             leaflet_crs_js(image_layer_dicts),
             "",
             leaflet_map_js(image_layer_dicts),
             "",
-            leaflet_layer_control_declaration(
-                image_layer_dicts,
-                marker_layer_dicts
-            ),
+            leaflet_layer_control_declaration(image_layer_dicts, marker_layer_dicts),
             "",
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',

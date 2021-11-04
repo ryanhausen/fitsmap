@@ -6,42 +6,95 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
     options: {
         tileURL: "",
         color: "#4C72B0",
+        rowsPerColumn: Infinity,
     },
 
     initialize: function(options) {
         L.setOptions(this, options);
     },
 
+    convertJSONtoHTMLTable: function(json) {
+        const nItems = Object.keys(json).length;
+        const rowsPerCol = this.options.rowsPerColumn;
+
+        let nCols = Math.floor(nItems / rowsPerCol);
+        if (nItems % rowsPerCol > 0) {
+            nCols += 1;
+        }
+
+        let html = "<span>Catalog Information</span>" +
+                    "<table class='catalog-table'>";
+
+        let colCounter = 0;
+        for (let key in json){
+
+            if (colCounter==0){
+                html += "<tr>"
+            }
+
+            html += `<td><b>${key}:<b></td><td>${json[key]}</td>`;
+
+            colCounter += 1;
+            if (colCounter == nCols){
+                colCounter = 0;
+                html += "</tr>";
+            }
+        }
+
+        html += "</table>";
+
+        return html;
+    },
+
+    renderPopupContents: function(_this, marker) {
+        const popup = marker.getPopup();
+
+        fetch(marker.options.assetPath)
+        .then((r) => {
+            if (!r.ok){
+                console.log(r);
+                throw new Error("Failed to fetch JSON", r);
+            }
+            return r.json();
+        }).then(json => {
+            popup.setContent(_this.convertJSONtoHTMLTable(json)).update();
+        })
+        .catch((error) => {
+            console.log("ERROR in Popup Rendering", error);
+        });
+
+        return "Loading...";
+    },
+
     createClusterIcon: function(src) {
         const latlng = L.latLng(src.global_y, src.global_x);
         if (!src.cluster){
-            const width = (((src.widest_col * 10) * src.n_cols) + 10).toString() + "em";
-            const include_img = src.include_img ? 2 : 1;
-            const height = ((src.n_rows + 1) * 15 * (include_img)).toString() + "em";
 
             const p = L.popup({ maxWidth: "auto" })
                      .setLatLng(latlng)
-                     .setContent("<iframe src='catalog_assets/" + src.cat_path + "/" + src.catalog_id + ".html' width='" + width + "' height='" + height + "'></iframe>");
+                     .setContent((layer) => this.renderPopupContents(this, layer));
 
             if (src.a==-1){
                 return L.circleMarker(latlng, {
-                    color: this.options.color
+                    color: this.options.color,
+                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.json`
                 }).bindPopup(p);
             } else {
                 return L.ellipse(latlng, [src.a, src.b], (src.theta * (180/Math.PI) * -1), {
-                    color: this.options.color
+                    color: this.options.color,
+                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.json`
                 }).bindPopup(p);
             }
-
         }
 
         // Create an icon for a cluster
         const count = src.point_count;
         const size =
             count < 100 ? "small" :
-            count < 1000 ? "medium" : "large";
+            count < 1000 ? "medium" :
+            count < 1000000 ? "large" : "x-large";
         const icon = L.divIcon({
-            html: `<div><span>${  src.point_count_abbreviated  }</span></div>`,
+            html: `<div><span>${src.point_count_abbreviated}</span></div>`,
             className: `marker-cluster marker-cluster-${size}`,
             iconSize: L.point(40, 40)
         });
@@ -78,7 +131,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         const resourceURL = this.options.tileURL
                           .replace("{z}", `${coords.z}`)
                           .replace("{y}", `${offset_y}`)
-                          .replace("{x}", `${coords.x + 1}`)
+                          .replace("{x}", `${coords.x}`)
 
         const key = `${coords.z},${coords.y},${coords.x}`
         fetch(resourceURL).then((r) => this.parseTileResponse(key, r)).catch((error) => {
@@ -100,10 +153,10 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
                 }
                 delete this.tilePointCache[key];
             }
-            
+
         // If we're panning, then only delete what we have too
         } else {
-            
+
             const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
             if (key in this.tilePointCache){
                 for (let i = 0; i < this.tilePointCache[key].length; i++){
@@ -113,7 +166,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             }
         }
     },
-    
+
     clearItems: function(e){
         const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
         if (this.tilePointCache[key]){

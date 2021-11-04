@@ -65,7 +65,7 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 # ==============================================================================
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
-LOAD_CATALOG_BEFORE_PARSING = True
+LOAD_CATALOG_BEFORE_PARSING = False
 
 POPUP_CSS = [
     "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
@@ -532,7 +532,13 @@ def get_map_layer_name(file_location: str) -> str:
         The javascript name that will be used in the HTML map
     """
     _, fname = os.path.split(file_location)
-    name = os.path.splitext(fname)[0].replace(".", "_").replace("-", "_").replace("(", "_").replace(")", "_")
+    name = (
+        os.path.splitext(fname)[0]
+        .replace(".", "_")
+        .replace("-", "_")
+        .replace("(", "_")
+        .replace(")", "_")
+    )
     return name
 
 
@@ -584,13 +590,7 @@ def line_to_cols(raw_col_vals: str) -> List[str]:
 
 
 def line_to_json(
-    wcs: WCS,
-    columns: List[str],
-    rows_per_col: int,
-    catalog_img_ext: str,  # Set to None if no images otherwise png/jpg
-    catalog_assets_path: str,
-    catalog_img_path: str,
-    src_vals: List[str],
+    wcs: WCS, columns: List[str], catalog_assets_path: str, src_vals: List[str],
 ) -> Dict[str, Any]:
     """Transform a raw text line attribute values into a JSON marker
 
@@ -634,114 +634,37 @@ def line_to_json(
     x = (img_x - 1) + 0.5
     y = (img_y - 1) + 0.5
 
-    html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
-    src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
+    src_desc = {k: v for k, v in zip(columns, src_vals)}
 
-    table_pair = "<td><b>{}:<b></td><td>{}</td>"
-    table_items = list(map(lambda z: table_pair.format(*z), zip(columns, src_vals)))
-
-    longest_str = max(max(map(len, columns)), max(map(len, map(str, src_vals))))
-
-    # if there are more rows than rows per column then we need to append some
-    # items to previous items so that the table has mulitple columns
-    n_src_rows = len(src_rows)
-    if rows_per_col < n_src_rows:
-        n_cols = (n_src_rows // rows_per_col) + int((n_src_rows % rows_per_col) > 0)
-
-        def get_html_row(row_idx: int):
-            combined = "".join(
-                list(
-                    map(
-                        lambda t: t[1],
-                        filter(
-                            lambda i: i[0] % rows_per_col == row_idx,
-                            enumerate(table_items),
-                        ),
-                    )
-                )
-            )
-
-            return "<tr>" + combined + "</tr>"
-
-        html_rows = list(map(get_html_row, range(rows_per_col)))
-
-    else:
-        n_cols = 1
-        html_rows = ["<tr>" + t + "</tr>" for t in table_items]
-        pass
-
-    # Every pair is two columns
-    col_width = str(100 / (2 * n_cols))
-
-    src_img_path = os.path.join(catalog_img_path, f"{src_id}{catalog_img_ext}")
-    if os.path.exists(src_img_path):
-        to_f = os.path.join(catalog_assets_path, f"{src_id}{catalog_img_ext}")
-        shutil.copy(src_img_path, to_f)
-        include_img = True
-    else:
-        include_img = False
-
-    src_img = f"<img src='{src_id}{catalog_img_ext}'/>" if include_img else ""
-
-    src_desc = "\n".join(
-        [
-            "<html>",
-            "<head>",
-            "<style>",
-            *list(map(lambda s: s.replace("COL_WIDTH", col_width), POPUP_CSS)),
-            "</style>",
-            "</head>",
-            "<body>",
-            "<span>Catalog Information</span>",
-            "<br>",
-            "<table>",
-            *html_rows,
-            "</table>",
-            src_img,
-            "</body>",
-            "</html>",
-        ]
-    )
-
-    src_html = os.path.join(catalog_assets_path, f"{src_id}.html")
-    with open(src_html, "w") as f:
-        f.write(src_desc)
+    src_json = os.path.join(catalog_assets_path, f"{src_id}.json")
+    with open(src_json, "w") as f:
+        json.dump(src_desc, f, separators=(",", ":"))  # no whitespace
 
     return dict(
-        geometry=dict(
-            coordinates = [x, y],
-        ),
+        geometry=dict(coordinates=[x, y],),
         tags=dict(
             a=a,
             b=b,
             theta=theta,
             catalog_id=src_id,
-            widest_col=longest_str,
-            n_rows=min(rows_per_col, n_src_rows),
-            n_cols=2 * n_cols,
-            include_img=include_img,
             cat_path=os.path.basename(catalog_assets_path),
         ),
     )
 
 
 def process_catalog_file_chunk(
-    process_f:Callable,
-    fname:str,
-    delimiter:str,
-    start:int,
-    end:int
+    process_f: Callable, fname: str, delimiter: str, start: int, end: int
 ) -> List[dict]:
     # newline="" for csv reader, see
     # https://docs.python.org/3/library/csv.html#csv.reader
     f = open(fname, "r", newline="")
     f.seek(start)
-    f.readline() # id start==0 skip cols, else advance to next complete line
+    f.readline()  # id start==0 skip cols, else advance to next complete line
 
     json_lines = []
 
     if LOAD_CATALOG_BEFORE_PARSING:
-        raw_lines = f.readlines(end-start)
+        raw_lines = f.readlines(end - start)
         reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
 
         update_every = 1000
@@ -749,7 +672,7 @@ def process_catalog_file_chunk(
         for line in reader:
             json_lines.append(process_f(line))
             count += 1
-            if count % update_every==0:
+            if count % update_every == 0:
                 process_catalog_file_chunk.q.put(count)
                 count = 1
 
@@ -765,7 +688,7 @@ def process_catalog_file_chunk(
             json_lines.append(process_f(processed_lines))
             current = f.tell()
             count += 1
-            if count % update_every==0:
+            if count % update_every == 0:
                 process_catalog_file_chunk.q.put(count)
                 count = 1
 
@@ -773,6 +696,7 @@ def process_catalog_file_chunk(
             process_catalog_file_chunk.q.put(count)
     f.close()
     return json_lines
+
 
 # This allows the queue reference to be shared between processes
 # https://stackoverflow.com/a/3843313/2691018
@@ -789,7 +713,7 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
             f.write(" ".join([token.strip() for token in line.split()]) + "\n")
 
 
-def procbar_listener(q:Queue, bar:tqdm) -> None:
+def procbar_listener(q: Queue, bar: tqdm) -> None:
     while True:
         update = q.get()
         if update:
@@ -799,9 +723,7 @@ def procbar_listener(q:Queue, bar:tqdm) -> None:
 
 
 def make_marker_tile(
-    cluster:Supercluster,
-    out_dir:str,
-    zyx:Tuple[int, Tuple[int, int]],
+    cluster: Supercluster, out_dir: str, zyx: Tuple[int, Tuple[int, int]],
 ) -> None:
     z, (y, x) = zyx
 
@@ -825,7 +747,7 @@ def make_marker_tile(
             #         tile_sources["features"][i]["geometry"]
             #     ))
             # )
-            tile_sources["features"][i]["geometry"] = "POINT(0 0)" # we dont' use this
+            tile_sources["features"][i]["geometry"] = "POINT(0 0)"  # we dont' use this
 
         # with open(out_path.replace("pbf", "json"), "w") as f:
         #     json.dump(tile_sources, f, indent=2)
@@ -840,17 +762,16 @@ def tile_markers(
     wcs_file: str,
     out_dir: str,
     catalog_delim: str,
-    rows_per_col: int,
     mp_procs: int,
-    prefer_xy:bool,
-    min_zoom:int,
-    max_zoom:int,
-    tile_size:int,
-    max_x:int,
-    max_y:int,
+    prefer_xy: bool,
+    min_zoom: int,
+    max_zoom: int,
+    tile_size: int,
+    max_x: int,
+    max_y: int,
     catalog_file: str,
     pbar_loc: int,
-) ->  None:
+) -> None:
     _, fname = os.path.split(catalog_file)
 
     catalog_layer_name = get_map_layer_name(catalog_file)
@@ -897,24 +818,7 @@ def tile_markers(
     if catalog_layer_name not in os.listdir(catalog_assets_parent_path):
         os.mkdir(catalog_assets_path)
 
-    catalog_img_path = os.path.join(
-        os.path.dirname(catalog_file), catalog_layer_name + "_images"
-    )
-
-    if not os.path.exists(catalog_img_path) or len(os.listdir(catalog_img_path)) == 0:
-        img_ext = None
-    else:
-        img_ext = os.path.splitext(os.listdir(catalog_img_path)[0])[1]
-
-    line_func = partial(
-        line_to_json,
-        wcs,
-        columns,
-        rows_per_col,
-        img_ext,
-        catalog_assets_path,
-        catalog_img_path,
-    )
+    line_func = partial(line_to_json, wcs, columns, catalog_assets_path,)
 
     bar = tqdm(
         position=pbar_loc,
@@ -929,10 +833,7 @@ def tile_markers(
     monitor.start()
 
     process_f = partial(
-        process_catalog_file_chunk,
-        line_func,
-        catalog_file,
-        catalog_delim,
+        process_catalog_file_chunk, line_func, catalog_file, catalog_delim,
     )
 
     catalog_file_size = os.path.getsize(catalog_file)
@@ -941,7 +842,7 @@ def tile_markers(
         # split the file by splitting the byte size of the file into even sized
         # chunks. We always read to the end of the first line so its ok to get
         # dropped into the middle of a link
-        boundaries = np.linspace(0, catalog_file_size, mp_procs+1, dtype=np.int64)
+        boundaries = np.linspace(0, catalog_file_size, mp_procs + 1, dtype=np.int64)
         file_chunk_pairs = list(zip(boundaries[:-1], boundaries[1:]))
 
         # To keep the progress bar up to date we need an extra process that
@@ -949,7 +850,9 @@ def tile_markers(
         # doesn't do much and so it shouldn't be a strain to add it.
 
         with Pool(mp_procs, process_catalog_file_chunk_init, [q]) as p:
-            catalog_values = list(chain.from_iterable(p.starmap(process_f, file_chunk_pairs)))
+            catalog_values = list(
+                chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
+            )
     else:
         process_catalog_file_chunk_init(q)
         catalog_values = process_f(0, catalog_file_size)
@@ -960,12 +863,12 @@ def tile_markers(
     del monitor
 
     # TEMP FIX FOR DREAM
-    max_zoom += 2
+    # max_zoom += 2
     bar = tqdm(
         position=pbar_loc,
         desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
         disable=bool(os.getenv("DISBALE_TQDM", False)),
-        total=max_zoom+1 - min_zoom,
+        total=max_zoom + 1 - min_zoom,
     )
 
     q = mp.Queue()
@@ -976,10 +879,10 @@ def tile_markers(
     # need to get super cluster stuff in here
     clusterer = Supercluster(
         min_zoom=min_zoom,
-        max_zoom=max_zoom-1,
+        max_zoom=max_zoom,
         extent=tile_size,
-        radius=max(max_x, max_y)/tile_size,
-        node_size=np.log2(len(catalog_values))*2,
+        radius=max(max(max_x, max_y) / tile_size, 40),
+        node_size=np.log2(len(catalog_values)) * 2,
         alternate_CRS=(max_x, max_y),
         update_f=lambda: q.put(1),
         log=True,
@@ -991,20 +894,20 @@ def tile_markers(
     del monitor
 
     # tile the sources and save using protobuf
-    zs = range(min_zoom, max_zoom+1)
-    ys = [range(2**z) for z in zs]
-    xs = [range(2**z) for z in zs]
-    tile_idxs = list(chain.from_iterable(
-        [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
-    ))
+    zs = range(min_zoom, max_zoom + 1)
+    ys = [range(2 ** z) for z in zs]
+    xs = [range(2 ** z) for z in zs]
+    tile_idxs = list(
+        chain.from_iterable(
+            [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
+        )
+    )
 
     clusterer.update_f = None
     clusterer.log = False
 
     tile_f = partial(
-        make_marker_tile,
-        clusterer,
-        os.path.join(out_dir, catalog_layer_name),
+        make_marker_tile, clusterer, os.path.join(out_dir, catalog_layer_name),
     )
 
     tracked_collection = tqdm(
@@ -1057,7 +960,7 @@ def files_to_map(
     image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
-    prefer_xy:bool = False,
+    prefer_xy: bool = False,
     n_per_catalog_shard: int = 250000,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
@@ -1141,14 +1044,13 @@ def files_to_map(
     max_dim = max(utils.peek_image_info(img_files))
     if len(cat_files) > 0:
         # get highlevel image info for catalogging function
-        max_zoom = int(np.log2(2**np.ceil(np.log2(max_dim)) / 256))
+        max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / 256))
 
         cat_job_f = partial(
             tile_markers,
             cat_wcs_fits_file,
             out_dir,
             catalog_delim,
-            rows_per_column,
             procs_per_task,
             prefer_xy,
             min_zoom,
@@ -1186,11 +1088,7 @@ def files_to_map(
         cat_wcs = None
 
     cartographer.chart(
-        out_dir,
-        title,
-        img_layer_names,
-        cat_layer_names,
-        cat_wcs,
+        out_dir, title, img_layer_names, cat_layer_names, cat_wcs, rows_per_column,
     )
     print("Done.")
 
