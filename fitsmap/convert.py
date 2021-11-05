@@ -636,6 +636,10 @@ def line_to_json(
 
     src_desc = {k: v for k, v in zip(columns, src_vals)}
 
+    src_desc["fm_y"] = y
+    src_desc["fm_x"] = x
+    src_desc["fm_cat"] = catalog_assets_path.split(os.sep)[-1]
+
     src_json = os.path.join(catalog_assets_path, f"{src_id}.json")
     with open(src_json, "w") as f:
         json.dump(src_desc, f, separators=(",", ":"))  # no whitespace
@@ -752,7 +756,7 @@ def make_marker_tile(
         # with open(out_path.replace("pbf", "json"), "w") as f:
         #     json.dump(tile_sources, f, indent=2)
 
-        encoded_tile = mvt.encode([tile_sources], extents=4096)
+        encoded_tile = mvt.encode([tile_sources], extents=256)
 
         with open(out_path, "wb") as f:
             f.write(encoded_tile)

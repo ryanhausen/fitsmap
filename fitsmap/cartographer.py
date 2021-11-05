@@ -36,33 +36,6 @@ from astropy.wcs import WCS
 
 import fitsmap.utils as utils
 
-# None defaults here mean width/height will be
-# calculated based on table column properties
-MARKER_HTML_WIDTH = None
-MARKER_HTML_HEIGHT = None
-
-MARKER_SEARCH_JS = "\n".join(
-    [
-        "    // search function =========================================================",
-        "    function searchHelp(e) {",
-        "        map.setView(e.latlng, 4);",
-        "        e.layer.addTo(map);",
-        "    };",
-        "",
-        "    var searchBar = L.control.search({",
-        "        layer: marker_layers,",
-        "        initial: false,",
-        "        propertyName: 'catalog_id',",
-        "        textPlaceholder: 'Enter catalog_id ID',",
-        "        hideMarkerOnCollapse: true,",
-        "    });",
-        "",
-        "    searchBar.on('search:locationfound', searchHelp);",
-        "    searchBar.addTo(map);",
-        "    // =========================================================================",
-    ]
-)
-
 LAYER_ATTRIBUTION = "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
 
 
@@ -145,7 +118,7 @@ def img_layer_dict_to_str(layer: dict) -> str:
     return "".join(layer_str)
 
 
-def cat_layer_dict_to_str(layer: dict, rows_per_column:int) -> str:
+def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
     """Convert layer dict to layer str for including in HTML file."""
 
     rpc_str = "Infinity" if np.isinf(rows_per_column) else str(rows_per_column)
@@ -155,7 +128,7 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column:int) -> str:
         "{ ",
         'tileURL:"' + layer["directory"] + '", ',
         'color: "' + layer["color"] + '", ',
-        'rowsPerColumn: "' + rpc_str + '", ',
+        f"rowsPerColumn: {rpc_str}, ",
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
@@ -197,11 +170,11 @@ def leaflet_crs_js(tile_layers: List[dict]) -> str:
 def leaflet_map_js(tile_layers: List[dict]):
     js = "\n".join(
         [
-            'var map = L.map("map", {',
+            'const map = L.map("map", {',
             "    crs: L.CRS.FitsMap,",
             "    minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
             "    preferCanvas: true,",
-            f"    layers: [{tile_layers[0]['name']}]",
+           f"    layers: [{tile_layers[0]['name']}]",
             "});",
         ]
     )
@@ -246,7 +219,7 @@ def build_conditional_js(out_dir: str) -> str:
     out_js_dir = os.path.join(out_dir, "js")
 
     local_js_files = list(
-        filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir))
+        sorted(filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir)))
     )
 
     if not os.path.exists(out_js_dir):
@@ -263,7 +236,7 @@ def build_conditional_js(out_dir: str) -> str:
 
     remote_js = [
         '    <script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js", crossorigin=""></script>',
-        '    <script src="https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.js" crossorigin=""></script>',
+        '    <script src="https://cdn.jsdelivr.net/npm/leaflet-search" crossorigin=""></script>',
     ]
 
     js_string = "    <script src='js/{}'></script>"
@@ -276,115 +249,47 @@ def leaflet_layer_control_declaration(
     img_layer_dicts: List[Dict], cat_layer_dicts: List[Dict],
 ) -> str:
     img_layer_label_pairs = ",".join(
-        list(map(lambda l: '"{0}": {0}'.format(l["name"]), img_layer_dicts))
+        list(map(lambda l: '"{0}":{0}'.format(l["name"]), img_layer_dicts))
     )
 
     cat_layer_label_pairs = ",".join(
-        list(map(lambda l: '"{0}": {0}'.format(l["name"]), cat_layer_dicts))
+        list(map(lambda l: '"{0}":{0}'.format(l["name"]), cat_layer_dicts))
     )
 
     control_js = [
         "const layerControl = L.control.layers(",
-        f"    {{ {img_layer_label_pairs} }},",
-        f"    {{ {cat_layer_label_pairs} }}",
+        f"    {{{img_layer_label_pairs}}},",
+        f"    {{{cat_layer_label_pairs}}}",
         ").addTo(map);",
     ]
 
     return "\n".join(control_js)
 
 
+def leaflet_search_control_declaration(cat_layer_dicts: List[Dict],) -> str:
+    search_js = [
+        "const catalogPaths = [",
+        *list(
+            map(
+                lambda s: f'"{os.path.join("catalog_assets", s)}/"',
+                map(lambda l: l["name"], cat_layer_dicts),
+            )
+        ),
+        "];",
+        "",
+        "const searchControl = buildCustomSearch(catalogPaths);",
+        "map.addControl(searchControl);",
+    ]
+
+    return "\n".join(search_js) if cat_layer_dicts else ""
+
+
 def build_urlCoords_js(img_wcs: WCS) -> str:
-    wcs_js = "\n".join(
-        [
-            "const is_ra_dec = _IS_RA_DEC;",
-            "const crpix = _CRPIX;",
-            "const crval = _CRVAL;",
-            "const cdmatrix = _CD;",
-            "",
-            "urlParam = function(name){",
-            "    // Parse parameters from window.location,",
-            "    // e.g., .../index.html?zoom=8",
-            "    // urlParam(zoom) = 8",
-            "    var results = new RegExp('[\?&]' + name + '=([^&#]*)').exec(window.location.href);",
-            "    if (results==null){",
-            "        return null;",
-            "    }",
-            "    else{",
-            "        return decodeURI(results[1]) || 0;",
-            "    }",
-            "}",
-            "",
-            "pixToSky = function(xy){",
-            "    // Convert from zero-index pixel to sky coordinate assuming",
-            "    // simple North-up WCS",
-            "    if (xy.hasOwnProperty('lng')){",
-            "        var dx = xy.lng - crpix[0] + 1;",
-            "        var dy = xy.lat - crpix[1] + 1;",
-            "    } else {",
-            "        var dx = xy[0] - crpix[0] + 1;",
-            "        var dy = xy[1] - crpix[1] + 1;",
-            "    }",
-            "    var dra = dx * cdmatrix[0][0];",
-            "    var ddec = dy * cdmatrix[1][1];",
-            "    // some catalogs are stored in image coords x/y, not ra/dec. When",
-            "    // `is_ra_dec`==1 we are doing calculation in ra/dec when `is_ra_dec`==0",
-            "    // then we're working in image coords and so multiply by 0 so",
-            "    // cos(0)==1",
-            "    var ra = crval[0] + dra / Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
-            "    var dec = crval[1] + ddec;",
-            "    return [ra, dec];",
-            "}",
-            "",
-            "skyToPix = function(rd){",
-            "    // Convert from sky to zero-index pixel coordinate assuming",
-            "    // simple North-up WCS",
-            "    var dx = (rd[0] - crval[0]) * Math.cos(crval[1]/180*3.14159 * is_ra_dec);",
-            "    var dy = (rd[1] - crval[1]);",
-            "    var x = crpix[0] - 1 + dx / cdmatrix[0][0];",
-            "    var y = crpix[1] - 1 + dy / cdmatrix[1][1];",
-            "    return [x,y];",
-            "}",
-            "",
-            "skyToLatLng = function(rd){",
-            "    // Convert from sky to Leaflet.latLng coordinate assuming",
-            "    // simple North-up WCS",
-            "    var xy = skyToPix(rd);",
-            "    return L.latLng(xy[1], xy[0]);",
-            "}",
-            "",
-            "panToSky = function(rd, zoom, map){",
-            "    // Pan map to celestial coordinates",
-            "    var ll = skyToLatLng(rd)",
-            "    map.setZoom(zoom);",
-            "    map.panTo(ll, zoom);",
-            "    //console.log('pan to: ' + rd + ' / ll: ' + ll.lng + ',' + ll.lat);",
-            "}",
-            "",
-            "panFromUrl = function(map){",
-            "    // Pan map based on ra/dec/[zoom] variables in location bar",
-            "    var ra = urlParam('ra');",
-            "    var dec = urlParam('dec');",
-            "    var zoom = urlParam('zoom') || map.getMinZoom();",
-            "    if ((ra !== null) & (dec !== null)) {",
-            "        panToSky([ra,dec], zoom, map);",
-            "    } else {",
-            "        // Pan to crval",
-            "        panToSky(crval, zoom, map);",
-            "    }",
-            "}",
-            "",
-            "updateLocationBar = function(){",
-            "    var rd = pixToSky(map.getCenter());",
-            "    //console.log(rd);",
-            "    var params = 'ra=' + rd[0].toFixed(7);",
-            "    params += '&dec=' + rd[1].toFixed(7);",
-            "    params += '&zoom=' + map.getZoom();",
-            "    //console.log(params);",
-            "    var param_url = window.location.href.split('?')[0] + '?' + params;",
-            "    window.history.pushState('', '', param_url);",
-            "}",
-        ]
-    )
+
+    wcs_js_file = os.path.join(os.path.dirname(__file__), "support", "urlCoords.js.tmp")
+
+    with open(wcs_js_file, "r") as f:
+        wcs_js = "".join(f.readlines())
 
     if img_wcs:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "1")
@@ -426,7 +331,12 @@ def build_index_js(
             *list(map(img_layer_dict_to_str, image_layer_dicts)),
             "",
             "// Marker layers ===============================================================",
-            *list(starmap(cat_layer_dict_to_str, zip(marker_layer_dicts, repeat(rows_per_column)))),
+            *list(
+                starmap(
+                    cat_layer_dict_to_str,
+                    zip(marker_layer_dicts, repeat(rows_per_column)),
+                )
+            ),
             "",
             "// Basic map setup =============================================================",
             leaflet_crs_js(image_layer_dicts),
@@ -435,6 +345,10 @@ def build_index_js(
             "",
             leaflet_layer_control_declaration(image_layer_dicts, marker_layer_dicts),
             "",
+            "// Search ======================================================================",
+            leaflet_search_control_declaration(marker_layer_dicts),
+            "",
+            "// Map event setup =============================================================",
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
             "",
@@ -464,8 +378,8 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         extra_js,
         "    <style>",
         "        html, body {",
-        "        height: 100%;",
-        "        margin: 0;",
+        "            height: 100%;",
+        "            margin: 0;",
         "        }",
         "        #map {",
         "            width: 100%;",
@@ -475,7 +389,6 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         "</head>",
         "<body>",
         '    <div id="map"></div>',
-        '    <script src="js/tiledMarkers.js"></script>',
         '    <script src="js/urlCoords.js"></script>',
         '    <script src="js/index.js"></script>',
         "</body>",
