@@ -36,7 +36,7 @@ def test_layer_name_to_dict_image():
     min_zoom = 0
     max_zoom = 2
     name = "test"
-    color = ""#"#4C72B0"
+    color = ""  # "#4C72B0"
 
     actual_dict = c.layer_name_to_dict(min_zoom, max_zoom, name, color)
 
@@ -68,7 +68,7 @@ def test_layer_name_to_dict_catalog():
         min_zoom=min_zoom,
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
-        color=color
+        color=color,
     )
 
     assert expected_dict == actual_dict
@@ -93,16 +93,20 @@ def test_img_layer_dict_to_str():
 
     actual_str = c.img_layer_dict_to_str(layer_dict)
 
-    expected_str = "".join([
-        "const " + layer_dict["name"],
-        ' = L.tileLayer("' + layer_dict["directory"] + '"',
-        ", { ",
-        'attribution:"' + "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>" + '", ',
-        "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
-        "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
-        "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
-        "});",
-    ])
+    expected_str = "".join(
+        [
+            "const " + layer_dict["name"],
+            ' = L.tileLayer("' + layer_dict["directory"] + '"',
+            ", { ",
+            'attribution:"'
+            + "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
+            + '", ',
+            "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
+            "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
+            "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
+            "});",
+        ]
+    )
 
     assert expected_str == actual_str
 
@@ -127,19 +131,20 @@ def test_cat_layer_dict_to_str():
 
     actual_str = c.cat_layer_dict_to_str(layer_dict, float("inf"))
 
-    expected_str = "".join([
-        "const " + layer_dict["name"],
-        " = L.gridLayer.tiledMarkers(",
-        "{ ",
-        'tileURL:"' + layer_dict["directory"] + '", ',
-        'color: "' + layer_dict["color"] + '", ',
-        f"rowsPerColumn: Infinity, ",
-        "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
-        "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
-        "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
-        "});",
-    ])
-
+    expected_str = "".join(
+        [
+            "const " + layer_dict["name"],
+            " = L.gridLayer.tiledMarkers(",
+            "{ ",
+            'tileURL:"' + layer_dict["directory"] + '", ',
+            'color: "' + layer_dict["color"] + '", ',
+            f"rowsPerColumn: Infinity, ",
+            "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
+            "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
+            "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
+            "});",
+        ]
+    )
 
     assert expected_str == actual_str
 
@@ -169,10 +174,7 @@ def test_leaflet_layer_control_declaration():
         color="red",
     )
 
-    actual = c.leaflet_layer_control_declaration(
-        [img_layer_dict],
-        [cat_layer_dict]
-    )
+    actual = c.leaflet_layer_control_declaration([img_layer_dict], [cat_layer_dict])
 
     expected = "\n".join(
         [
@@ -184,6 +186,7 @@ def test_leaflet_layer_control_declaration():
     )
 
     assert expected == actual
+
 
 @pytest.mark.unit
 @pytest.mark.cartographer
@@ -259,12 +262,13 @@ def test_leaflet_map_js():
             "    crs: L.CRS.FitsMap,",
             "    minZoom: " + str(min_zoom) + ",",
             "    preferCanvas: true,",
-           f"    layers: [{layer_dict['name']}]",
+            f"    layers: [{layer_dict['name']}]",
             "});",
         ]
     )
 
     assert expected_map_js == acutal_map_js
+
 
 @pytest.mark.unit
 @pytest.mark.cartographer
@@ -312,6 +316,7 @@ def test_build_conditional_js():
     helpers.tear_down()
 
     assert expected_js == acutal_js
+
 
 @pytest.mark.unit
 @pytest.mark.cartographer

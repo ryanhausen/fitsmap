@@ -441,21 +441,10 @@ def test_line_to_json_xy():
 
     expected_json = dict(
         geometry=dict(coordinates=[9.5, 19.5]),
-        tags=dict(
-            a=-1,
-            b=-1,
-            theta=-1,
-            catalog_id="1",
-            cat_path="catalog_assets",
-        ),
+        tags=dict(a=-1, b=-1, theta=-1, catalog_id="1", cat_path="catalog_assets",),
     )
 
-    actual_json = convert.line_to_json(
-        in_wcs,
-        columns,
-        catalog_assets_path,
-        in_line,
-    )
+    actual_json = convert.line_to_json(in_wcs, columns, catalog_assets_path, in_line,)
 
     helpers.tear_down()
 
@@ -478,22 +467,10 @@ def test_line_to_json_ra_dec():
 
     expected_json = dict(
         geometry=dict(coordinates=[289.87867109328727, 301.2526406693396]),
-        tags=dict(
-            a=-1,
-            b=-1,
-            theta=-1,
-            catalog_id="1",
-            cat_path="catalog_assets",
-        ),
+        tags=dict(a=-1, b=-1, theta=-1, catalog_id="1", cat_path="catalog_assets",),
     )
 
-
-    actual_json = convert.line_to_json(
-        in_wcs,
-        columns,
-        catalog_assets_path,
-        in_line,
-    )
+    actual_json = convert.line_to_json(in_wcs, columns, catalog_assets_path, in_line,)
 
     helpers.tear_down()
 
@@ -767,6 +744,7 @@ def test_files_to_map_fails_file_not_found():
     helpers.tear_down()
     helpers.enable_tqdm()
 
+
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
@@ -778,8 +756,7 @@ def test_files_to_map_fails_no_files():
     with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
     out_dir = with_path("test_web")
 
-    files = [
-    ]
+    files = []
 
     with pytest.raises(ValueError):
         convert.files_to_map(

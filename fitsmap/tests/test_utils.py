@@ -24,6 +24,7 @@ import pytest
 import fitsmap.utils as u
 import fitsmap.tests.helpers as helpers
 
+
 @pytest.mark.unit
 @pytest.mark.cartographer
 def test_build_digit_to_string():

@@ -174,7 +174,7 @@ def leaflet_map_js(tile_layers: List[dict]):
             "    crs: L.CRS.FitsMap,",
             "    minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
             "    preferCanvas: true,",
-           f"    layers: [{tile_layers[0]['name']}]",
+            f"    layers: [{tile_layers[0]['name']}]",
             "});",
         ]
     )
@@ -219,7 +219,9 @@ def build_conditional_js(out_dir: str) -> str:
     out_js_dir = os.path.join(out_dir, "js")
 
     local_js_files = list(
-        sorted(filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir)))
+        sorted(
+            filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir))
+        )
     )
 
     if not os.path.exists(out_js_dir):
