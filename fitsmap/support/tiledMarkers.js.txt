@@ -21,7 +21,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
 
         let nCols = Math.floor(nItems / (Number.isFinite(rowsPerCol) ? rowsPerCol : nItems));
         console.log(nCols);
-        if (nItems % rowsPerCol > 0) {
+        if (Number.isFinite(rowsPerCol) && nItems % rowsPerCol > 0) {
             nCols += 1;
         }
 

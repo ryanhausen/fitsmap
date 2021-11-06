@@ -18,7 +18,11 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Tests utils.py"""
+import os
+import pytest
 
+import fitsmap.utils as u
+import fitsmap.tests.helpers as helpers
 
 @pytest.mark.unit
 @pytest.mark.cartographer
@@ -38,7 +42,7 @@ def test_build_digit_to_string():
         "nine",
     ]
 
-    for expected, actual in zip(strings, map(c.digit_to_string, digits)):
+    for expected, actual in zip(strings, map(u.digit_to_string, digits)):
         assert expected == actual
 
 
@@ -49,7 +53,7 @@ def test_build_digit_to_string_fails():
     digit = -1
 
     with pytest.raises(ValueError) as excinfo:
-        c.digit_to_string(digit)
+        u.digit_to_string(digit)
 
     assert "Only digits 0-9 are supported" in str(excinfo.value)
 
@@ -62,7 +66,7 @@ def test_make_fname_js_safe_digit():
     unsafe = "123"
     expected = "one23"
 
-    assert expected == c.make_fname_js_safe(unsafe)
+    assert expected == u.make_fname_js_safe(unsafe)
 
 
 @pytest.mark.unit
@@ -73,7 +77,7 @@ def test_make_fname_js_safe_dot_dash():
     unsafe = "a.b-c"
     expected = "a_dot_b_c"
 
-    assert expected == c.make_fname_js_safe(unsafe)
+    assert expected == u.make_fname_js_safe(unsafe)
 
 
 @pytest.mark.unit
@@ -84,4 +88,21 @@ def test_make_fname_js_safe_no_change():
     safe = "abc"
     expected = "abc"
 
-    assert expected == c.make_fname_js_safe(safe)
+    assert expected == u.make_fname_js_safe(safe)
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
+def test_make_fname_js_safe_no_change():
+    """Test the cartographer.make_fname_js_safe functions."""
+
+    expected_shape = (738, 480)
+
+    helpers.setup(with_data=True)
+
+    actual_shape = u.get_fits_image_size(
+        os.path.join(helpers.TEST_PATH, "test_image.fits")
+    )
+    helpers.tear_down()
+
+    assert expected_shape == actual_shape

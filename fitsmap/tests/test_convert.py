@@ -35,28 +35,6 @@ import fitsmap.tests.helpers as helpers
 
 @pytest.mark.unit
 @pytest.mark.convert
-def test_SharedProcBarIter_attrs():
-    vals = iter(range(10))
-    mTQDM = helpers.MockTQDM()
-    pbar = convert.ShardedProcBarIter(vals, mTQDM)
-
-    assert vals == pbar.iter
-    assert mTQDM == pbar.proc_bar
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_SharedProcBarIter_is_iter():
-    vals = iter(range(10))
-    mTQDM = helpers.MockTQDM()
-    pbar = convert.ShardedProcBarIter(vals, mTQDM)
-    i_pbar = iter(pbar)
-
-    assert next(i_pbar) == 0
-
-
-@pytest.mark.unit
-@pytest.mark.convert
 def test_build_path():
     """Test the convert.build_path function"""
     z, y, x = 1, 2, 3
@@ -68,73 +46,6 @@ def test_build_path():
     expected_file_name_matches = expected_img_name == img_name
 
     assert expected_file_name_matches
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_make_fname_js_safe_digit():
-    """Test the convert.make_fname_js_safe functions."""
-
-    unsafe = "123"
-    expected = "one23"
-
-    assert expected == convert.make_fname_js_safe(unsafe)
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_make_fname_js_safe_dot_dash():
-    """Test the convert.make_fname_js_safe functions."""
-
-    unsafe = "a.b-c"
-    expected = "a_dot_b_c"
-
-    assert expected == convert.make_fname_js_safe(unsafe)
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_make_fname_js_safe_no_change():
-    """Test the convert.make_fname_js_safe functions."""
-
-    safe = "abc"
-    expected = "abc"
-
-    assert expected == convert.make_fname_js_safe(safe)
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_digit_to_string():
-    """Test the convert.digit_to_string function"""
-    digits = range(10)
-    strings = [
-        "zero",
-        "one",
-        "two",
-        "three",
-        "four",
-        "five",
-        "six",
-        "seven",
-        "eight",
-        "nine",
-    ]
-
-    for expected, actual in zip(strings, map(convert.digit_to_string, digits)):
-        assert expected == actual
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_build_digit_to_string_fails():
-    """test cartographer.build_digit_to_string"""
-    digit = -1
-
-    with pytest.raises(ValueError) as excinfo:
-        convert.digit_to_string(digit)
-
-    assert "Only digits 0-9 are supported" in str(excinfo.value)
 
 
 @pytest.mark.unit
@@ -524,34 +435,25 @@ def test_line_to_json_xy():
 
     in_wcs = None
     columns = ["id", "x", "y", "col1", "col2"]
-    rows_per_col = np.inf
-    catalog_img_ext = None
     catalog_assets_path = os.path.join(helpers.TEST_PATH, "catalog_assets")
     os.mkdir(catalog_assets_path)
-    catalog_img_path = os.path.join(helpers.TEST_PATH, "test_images")
     in_line = ["1", "10", "20", "abc", "123"]
 
     expected_json = dict(
-        x=9.5,
-        y=19.5,
-        a=-1,
-        b=-1,
-        theta=-1,
-        catalog_id="1",
-        include_img=False,
-        cat_path="catalog_assets",
-        n_cols=2,
-        n_rows=5,
-        widest_col=4,
+        geometry=dict(coordinates=[9.5, 19.5]),
+        tags=dict(
+            a=-1,
+            b=-1,
+            theta=-1,
+            catalog_id="1",
+            cat_path="catalog_assets",
+        ),
     )
 
     actual_json = convert.line_to_json(
         in_wcs,
         columns,
-        rows_per_col,
-        catalog_img_ext,
         catalog_assets_path,
-        catalog_img_path,
         in_line,
     )
 
@@ -570,34 +472,26 @@ def test_line_to_json_ra_dec():
     in_wcs = WCS(fits.getheader(os.path.join(helpers.TEST_PATH, "test_image.fits")))
 
     columns = ["id", "ra", "dec", "col1", "col2"]
-    rows_per_col = np.inf
-    catalog_img_ext = None
     catalog_assets_path = os.path.join(helpers.TEST_PATH, "catalog_assets")
     os.mkdir(catalog_assets_path)
-    catalog_img_path = os.path.join(helpers.TEST_PATH, "test_images")
     in_line = ["1", "53.18575", "-27.898664", "abc", "123"]
 
     expected_json = dict(
-        x=289.87867109328727,
-        y=301.2526406693396,
-        a=-1,
-        b=-1,
-        theta=-1,
-        catalog_id="1",
-        include_img=False,
-        cat_path="catalog_assets",
-        n_cols=2,
-        n_rows=5,
-        widest_col=10,
+        geometry=dict(coordinates=[289.87867109328727, 301.2526406693396]),
+        tags=dict(
+            a=-1,
+            b=-1,
+            theta=-1,
+            catalog_id="1",
+            cat_path="catalog_assets",
+        ),
     )
+
 
     actual_json = convert.line_to_json(
         in_wcs,
         columns,
-        rows_per_col,
-        catalog_img_ext,
         catalog_assets_path,
-        catalog_img_path,
         in_line,
     )
 
@@ -645,168 +539,6 @@ def test_make_tile_mpl():
     np.array_equal(expected_img, actual_img)
 
     helpers.tear_down()
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
-def test_catalog_to_markers_xy():
-    """Test convert.catalog_to_markers using xy coords"""
-    helpers.disbale_tqdm()
-    helpers.setup(with_data=True)
-
-    out_dir = helpers.TEST_PATH
-    wcs_file = os.path.join(out_dir, "test_image.fits")
-    rows_per_col = np.inf
-    catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
-    catalog_delim = " "
-    n_per_catalog_shard = 250000
-    pbar_loc = 0
-
-    convert.catalog_to_markers(
-        wcs_file,
-        out_dir,
-        catalog_delim,
-        rows_per_col,
-        n_per_catalog_shard,
-        catalog_file,
-        pbar_loc,
-    )
-
-    expected_json, expected_name = helpers.cat_to_json(
-        os.path.join(out_dir, "expected_test_catalog_xy.cat.js")
-    )
-    actual_json, actual_name = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_xy_0.cat.js")
-    )
-
-    helpers.tear_down()
-    helpers.enable_tqdm()
-
-    assert expected_json == actual_json
-    assert expected_name == actual_name
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
-def test_catalog_to_markers_radec():
-    """Test convert.catalog_to_markers using xy coords"""
-    helpers.disbale_tqdm()
-    helpers.setup(with_data=True)
-
-    out_dir = helpers.TEST_PATH
-    wcs_file = os.path.join(out_dir, "test_image.fits")
-    rows_per_col = np.inf
-    catalog_file = os.path.join(out_dir, "test_catalog_radec.cat")
-    catalog_delim = " "
-    n_per_catalog_shard = 250000
-    pbar_loc = 0
-
-    convert.catalog_to_markers(
-        wcs_file,
-        out_dir,
-        catalog_delim,
-        rows_per_col,
-        n_per_catalog_shard,
-        catalog_file,
-        pbar_loc,
-    )
-    expected_json, expcted_name = helpers.cat_to_json(
-        os.path.join(out_dir, "expected_test_catalog_radec.cat.js")
-    )
-    actual_json, actual_name = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_radec_0.cat.js")
-    )
-
-    helpers.tear_down()
-    helpers.enable_tqdm()
-
-    assert expected_json == actual_json
-    assert expcted_name == actual_name
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
-def test_catalog_to_markers_xy_sharded():
-    """Test convert.catalog_to_markers using xy coords"""
-    helpers.disbale_tqdm()
-    helpers.setup(with_data=True)
-
-    out_dir = helpers.TEST_PATH
-    wcs_file = os.path.join(out_dir, "test_image.fits")
-    rows_per_col = np.inf
-    catalog_file = os.path.join(out_dir, "test_catalog_xy.cat")
-    catalog_delim = " "
-    n_per_catalog_shard = 4
-    pbar_loc = 0
-
-    convert.catalog_to_markers(
-        wcs_file,
-        out_dir,
-        catalog_delim,
-        rows_per_col,
-        n_per_catalog_shard,
-        catalog_file,
-        pbar_loc,
-    )
-
-    expected_json_0, expected_name_0 = helpers.cat_to_json(
-        os.path.join(out_dir, "expected_test_catalog_xy_0.cat.js")
-    )
-    expected_json_1, expected_name_1 = helpers.cat_to_json(
-        os.path.join(out_dir, "expected_test_catalog_xy_1.cat.js")
-    )
-
-    actual_json_0, actual_name_0 = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_xy_0.cat.js")
-    )
-
-    actual_json_1, actual_name_1 = helpers.cat_to_json(
-        os.path.join(out_dir, "js", "test_catalog_xy_1.cat.js")
-    )
-
-    helpers.tear_down()
-    helpers.enable_tqdm()
-
-    assert expected_json_0 == actual_json_0
-    assert expected_json_1 == actual_json_1
-    assert expected_name_0 == actual_name_0
-    assert expected_name_1 == actual_name_1
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
-def test_catalog_to_markers_fails():
-    """Test convert.catalog_to_markers using xy coords"""
-    helpers.disbale_tqdm()
-    helpers.setup(with_data=True)
-
-    out_dir = helpers.TEST_PATH
-    wcs_file = os.path.join(out_dir, "test_image.fits")
-    rows_per_col = np.inf
-    catalog_delim = " "
-    catalog_file = os.path.join(out_dir, "test_catalog_fails.cat")
-    n_per_catalog_shard = 250000
-    pbar_loc = 0
-
-    with pytest.raises(ValueError) as excinfo:
-        convert.catalog_to_markers(
-            wcs_file,
-            out_dir,
-            catalog_delim,
-            rows_per_col,
-            n_per_catalog_shard,
-            catalog_file,
-            pbar_loc,
-        )
-
-    helpers.tear_down()
-    helpers.enable_tqdm()
-
-    assert "is missing coordinate columns" in str(excinfo.value)
 
 
 @pytest.mark.unit
@@ -1004,7 +736,7 @@ def test_files_to_map():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    helpers.tear_down()
+    # helpers.tear_down()
     helpers.enable_tqdm()
 
     assert dirs_match
@@ -1013,7 +745,7 @@ def test_files_to_map():
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
-def test_files_to_map_fails():
+def test_files_to_map_fails_file_not_found():
     """Integration test for making files into map"""
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
@@ -1028,6 +760,28 @@ def test_files_to_map_fails():
     ]
 
     with pytest.raises(FileNotFoundError):
+        convert.files_to_map(
+            files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
+        )
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+@pytest.mark.integration
+@pytest.mark.convert
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_files_to_map_fails_no_files():
+    """Integration test for making files into map"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
+    out_dir = with_path("test_web")
+
+    files = [
+    ]
+
+    with pytest.raises(ValueError):
         convert.files_to_map(
             files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
         )

@@ -30,29 +30,6 @@ from PIL import Image
 import fitsmap
 
 
-class ShardedProcBarIter:
-    """Maintains a single tqdm progress bar over multiple catalog shards.
-
-    This is a helper class that keeps a single tqdm progress bar object for
-    multiple shards of the same catalog.
-
-    Attributes:
-        iter (Iterable): the iterable that will be sharded
-        proc_bar (tqdm): the tqdm object
-    """
-
-    def __init__(self, iter: Iterable, proc_bar: tqdm):
-        self.iter = iter
-        self.proc_bar = proc_bar
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        self.proc_bar.update()
-        return next(self.iter)
-
-
 def digit_to_string(digit: int) -> str:
     """Converts an integer into its word representation"""
 

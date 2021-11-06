@@ -965,7 +965,6 @@ def files_to_map(
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
-    n_per_catalog_shard: int = 250000,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1004,11 +1003,6 @@ def files_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
-        n_per_catalog_shard (int): The number of catalog entries per shard.
-                                   Large catalogs can block the web page loading.
-                                   Catalogs are sharded into multiple smaller
-                                   files that can be processed asynchronously
-                                   after the page is rendered.
     Returns:
         None
     """
@@ -1111,7 +1105,6 @@ def dir_to_map(
     image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
-    n_per_catalog_shard: int = 250000,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1158,11 +1151,6 @@ def dir_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
-        n_per_catalog_shard (int): The number of catalog entries per shard.
-                                   Large catalogs can block the web page loading.
-                                   Catalogs are sharded into multiple smaller
-                                   files that can be processed asynchronously
-                                   after the page is rendered.
     Returns:
         None
 
@@ -1195,5 +1183,4 @@ def dir_to_map(
         image_engine=image_engine,
         norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
-        n_per_catalog_shard=n_per_catalog_shard,
     )

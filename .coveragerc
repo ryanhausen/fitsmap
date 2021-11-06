@@ -2,3 +2,5 @@
 omit =
     fitsmap/tests/*
     fitsmap/__*__.py
+    fitsmap/kdbush.py
+    fitsmap/supercluster.py
