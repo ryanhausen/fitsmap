@@ -256,7 +256,7 @@ Notes
 *****
 
 Notes on Image Conversion
-+++++++++++++++++++++++++
+-------------------------
 
 FITS images are rendered into PNG map tiles using Matplotlib.imshow. The default
 colormap used when rendering tiles is "gray". This can be changed by setting the
@@ -270,7 +270,7 @@ if a FITS file contains NaNs when it is converted, those pixels will be
 converted into transparent pixels.
 
 Notes on Catalog Conversion
-+++++++++++++++++++++++++++
+---------------------------
 
 Catalogs should be delimited text files with the first line
 containing the column names, and the following lines containing values.
@@ -293,4 +293,5 @@ rendered appropriately.
 
 For more information see the `docs <https://fitsmap.readthedocs.io>`__
 or the `code <https://github.com/ryanhausen/fitsmap>`__.
+
 
