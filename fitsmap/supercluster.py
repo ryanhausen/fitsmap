@@ -455,7 +455,9 @@ class Supercluster:
     def get_cluster_properties(self, cluster):
         count = cluster["num_points"]
 
-        if count >= 10000:
+        if count >= 1000000:
+            abbrev = f"{round(count / 1000000)}M"
+        elif count >= 10000:
             abbrev = f"{round(count / 1000)}k"
         elif count > 1000:
             abbrev = f"{round(count / 100  / 10)}k"
