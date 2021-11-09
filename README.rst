@@ -104,7 +104,7 @@ This will start up a webserver and open your browser to the page containing the
 map. When your done with the map you can close your browser window and kill the
 process running in the terminal.
 
-.. _dir_to_map:
+.. .. _dir_to_map:
 ``dir_to_map``
 --------------
 
@@ -170,7 +170,7 @@ map.
 
 To use the map, run ``fitsmap serve`` in the same directory as ``index.html``
 
-.. _files_to_map:
+.. .. _files_to_map:
 ``files_to_map``
 --------------
 
