@@ -38,6 +38,7 @@ HELP_CAT_WCS_FITS_FILE = "FITS file with WCS for translating catalog ra/dec"
 HELP_IMAGE_ENGINE = "Method to process image tiles PIL for pillow MPL for matplotlib"
 HELP_PORT = "The port to use for the webserver."
 
+
 @click.group()
 def cli():
     """FitsMap --- Convert FITS files and catalogs into LeafletJS maps."""
@@ -122,29 +123,31 @@ def files(
     )
 
 
-def __server(out_dir:str, port:int) -> None:
+def __server(out_dir: str, port: int) -> None:
     def f():
+        # https://docs.python.org/3.8/library/http.server.html
         server = http.server.HTTPServer(
-            ('', port),
-            functools.partial(
-                http.server.SimpleHTTPRequestHandler,
-                directory=out_dir,
-            )
+            ("", port),
+            functools.partial(http.server.SimpleHTTPRequestHandler, directory=out_dir,),
         )
         server.serve_forever()
+
     return f
 
-def __opener(address:str) -> None:
+
+def __opener(address: str) -> None:
     def f():
         print("Opening up FitsMap in browser")
         webbrowser.open(address)
+
     return f
+
 
 @cli.command()
 @click.option("--out_dir", default=".", help=HELP_OUT_DIR)
 @click.option("--port", default=8000, help=HELP_OUT_DIR)
 @click.option("--open_browser", default=True, help=HELP_OUT_DIR)
-def serve(out_dir:str, port:int, open_browser:bool):
+def serve(out_dir: str, port: int, open_browser: bool):
     """Spins up a web server to serve a fitsmap. webservers are required for catalogs.
 
     Args:
@@ -154,12 +157,8 @@ def serve(out_dir:str, port:int, open_browser:bool):
     map_address = f"http://localhost:{port}"
 
     print(f"Starting web server in {out_dir} and serving at {map_address}")
-    # https://docs.python.org/3.8/library/http.server.html
 
-
-    tasks = [
-        __server(out_dir, port)
-    ]
+    tasks = [__server(out_dir, port)]
     if open_browser:
         tasks.append(__opener(map_address))
     else:
@@ -167,8 +166,3 @@ def serve(out_dir:str, port:int, open_browser:bool):
 
     with ThreadPoolExecutor(max_workers=2) as pool:
         pool.map(lambda t: t(), tasks)
-
-
-
-
-

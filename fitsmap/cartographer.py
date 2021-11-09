@@ -29,7 +29,7 @@ import os
 import shutil
 from itertools import count, repeat, starmap
 from functools import partial, reduce
-from typing import Dict, List, Tuple
+from typing import Dict, List
 
 import numpy as np
 from astropy.wcs import WCS

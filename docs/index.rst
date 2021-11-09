@@ -2,6 +2,7 @@
 .. |convert| replace:: :py:mod:`fitsmap.convert`
 .. |files_to_map| replace:: :py:func:`fitsmap.convert.files_to_map`
 .. |dir_to_map| replace:: :py:func:`fitsmap.convert.dir_to_map`
+.. |dream| image:: dream_map.gif
 
 .. image:: logo.svg.png
    :target: https://github.com/ryanhausen/fitsmap

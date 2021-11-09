@@ -48,6 +48,13 @@
 .leaflet-oldie .marker-cluster-large div {
 	background-color: rgb(241, 128, 23);
 }
+.leaflet-oldie .marker-cluster-x-large {
+	background-color: rgb(240, 76, 76);
+	}
+.leaflet-oldie .marker-cluster-x-large div {
+	background-color: rgb(246, 23, 23);
+	}
+
 
 .marker-cluster {
 	background-clip: padding-box;
