@@ -2,7 +2,6 @@
 .. |convert| replace:: `fitsmap.convert <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#module-fitsmap.convert>`__
 .. |files_to_map| replace:: `fitsmap.convert.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.files_to_map>`__
 .. |dir_to_map| replace:: `fitsmap.convert.dir_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.dir_to_map>`__
-.. |dream| image:: docs/dream_map.gif
 
 
 .. image:: docs/logo.svg.png
@@ -45,10 +44,9 @@ the web interface by the column ``id``.
 Here is an example using FitsMap to render a 32,727² image and ~33 million
 sources from the `DReAM Galaxy Catalog <https://arxiv.org/abs/2110.10703>`_:
 
-|dream|
-
-.. .. image:: docs/dream_map.gif
-..     :align: center
+.. image:: docs/dream_map.gif
+    :alt: FitsMap
+    :align: center
 
 
 Installation
