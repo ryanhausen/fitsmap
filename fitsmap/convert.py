@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2021 Ryan Hausen
+# Copyright 2021 Ryan Hausen and contributers
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -23,17 +23,17 @@
 import copy
 import csv
 import json
+import multiprocessing as mp
 import os
 import shutil
-import string
 import sys
 from functools import partial
 from itertools import chain, count, filterfalse, islice, product, repeat
 from multiprocessing import JoinableQueue, Pool, Process
-from pathlib import Path
-from queue import Empty
+from queue import Empty, Queue
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
+import mapbox_vector_tile as mvt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
@@ -43,8 +43,10 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from imageio import imread
 from PIL import Image
+from fitsmap.supercluster import Supercluster
 from tqdm import tqdm
 
+import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
 
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
@@ -63,6 +65,7 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 # ==============================================================================
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
+LOAD_CATALOG_BEFORE_PARSING = False
 
 POPUP_CSS = [
     "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
@@ -71,29 +74,6 @@ POPUP_CSS = [
     "table { width: 100%; }",
     "img { height: 50%; width: auto; }",
 ]
-
-
-class ShardedProcBarIter:
-    """Maintains a single tqdm progress bar over multiple catalog shards.
-
-    This is a helper class that keeps a single tqdm progress bar object for
-    multiple shards of the same catalog.
-
-    Attributes:
-        iter (Iterable): the iterable that will be sharded
-        proc_bar (tqdm): the tqdm object
-    """
-
-    def __init__(self, iter: Iterable, proc_bar: tqdm):
-        self.iter = iter
-        self.proc_bar = proc_bar
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        self.proc_bar.update()
-        return next(self.iter)
 
 
 def build_path(z, y, x, out_dir) -> str:
@@ -114,46 +94,6 @@ def build_path(z, y, x, out_dir) -> str:
     img_path = os.path.join(y_dir, "{}.png".format(x))
 
     return img_path
-
-
-# TODO: This function exists in cartographer, refactor to a common import
-def digit_to_string(digit: int) -> str:
-    """Converts an integer into its word representation"""
-
-    if digit == 0:
-        return "zero"
-    elif digit == 1:
-        return "one"
-    elif digit == 2:
-        return "two"
-    elif digit == 3:
-        return "three"
-    elif digit == 4:
-        return "four"
-    elif digit == 5:
-        return "five"
-    elif digit == 6:
-        return "six"
-    elif digit == 7:
-        return "seven"
-    elif digit == 8:
-        return "eight"
-    elif digit == 9:
-        return "nine"
-    else:
-        raise ValueError("Only digits 0-9 are supported")
-
-
-# TODO: This function exists in cartographer, refactor to a common import
-def make_fname_js_safe(fname: str) -> str:
-    """Converts a string filename to a javascript safe identifier."""
-
-    if fname[0] in string.digits:
-        adj_for_digit = digit_to_string(int(fname[0])) + fname[1:]
-    else:
-        adj_for_digit = fname
-
-    return adj_for_digit.replace(".", "_dot_").replace("-", "_")
 
 
 def slice_idx_generator(
@@ -592,7 +532,13 @@ def get_map_layer_name(file_location: str) -> str:
         The javascript name that will be used in the HTML map
     """
     _, fname = os.path.split(file_location)
-    name = os.path.splitext(fname)[0].replace(".", "_").replace("-", "_")
+    name = (
+        os.path.splitext(fname)[0]
+        .replace(".", "_")
+        .replace("-", "_")
+        .replace("(", "_")
+        .replace(")", "_")
+    )
     return name
 
 
@@ -644,13 +590,7 @@ def line_to_cols(raw_col_vals: str) -> List[str]:
 
 
 def line_to_json(
-    wcs: WCS,
-    columns: List[str],
-    rows_per_col: int,
-    catalog_img_ext: str,  # Set to None if no images otherwise png/jpg
-    catalog_assets_path: str,
-    catalog_img_path: str,
-    src_vals: str,
+    wcs: WCS, columns: List[str], catalog_assets_path: str, src_vals: List[str],
 ) -> Dict[str, Any]:
     """Transform a raw text line attribute values into a JSON marker
 
@@ -694,92 +634,78 @@ def line_to_json(
     x = (img_x - 1) + 0.5
     y = (img_y - 1) + 0.5
 
-    html_row = "<tr><td><b>{}:<b></td><td>{}</td></tr>"
-    src_rows = list(map(lambda z: html_row.format(*z), zip(columns, src_vals)))
+    src_desc = {k: v for k, v in zip(columns, src_vals)}
 
-    table_pair = "<td><b>{}:<b></td><td>{}</td>"
-    table_items = list(map(lambda z: table_pair.format(*z), zip(columns, src_vals)))
+    src_desc["fm_y"] = y
+    src_desc["fm_x"] = x
+    src_desc["fm_cat"] = catalog_assets_path.split(os.sep)[-1]
 
-    longest_str = max(max(map(len, columns)), max(map(len, map(str, src_vals))))
-
-    # if there are more rows than rows per column then we need to append some
-    # items to previous items so that the table has mulitple columns
-    n_src_rows = len(src_rows)
-    if rows_per_col < n_src_rows:
-        n_cols = (n_src_rows // rows_per_col) + int((n_src_rows % rows_per_col) > 0)
-
-        def get_html_row(row_idx: int):
-            combined = "".join(
-                list(
-                    map(
-                        lambda t: t[1],
-                        filter(
-                            lambda i: i[0] % rows_per_col == row_idx,
-                            enumerate(table_items),
-                        ),
-                    )
-                )
-            )
-
-            return "<tr>" + combined + "</tr>"
-
-        html_rows = list(map(get_html_row, range(rows_per_col)))
-
-    else:
-        n_cols = 1
-        html_rows = ["<tr>" + t + "</tr>" for t in table_items]
-        pass
-
-    # Every pair is two columns
-    col_width = str(100 / (2 * n_cols))
-
-    src_img_path = os.path.join(catalog_img_path, f"{src_id}{catalog_img_ext}")
-    if os.path.exists(src_img_path):
-        to_f = os.path.join(catalog_assets_path, f"{src_id}{catalog_img_ext}")
-        shutil.copy(src_img_path, to_f)
-        include_img = True
-    else:
-        include_img = False
-
-    src_img = f"<img src='{src_id}{catalog_img_ext}'/>" if include_img else ""
-
-    src_desc = "\n".join(
-        [
-            "<html>",
-            "<head>",
-            "<style>",
-            *list(map(lambda s: s.replace("COL_WIDTH", col_width), POPUP_CSS)),
-            "</style>",
-            "</head>",
-            "<body>",
-            "<span>Catalog Information</span>",
-            "<br>",
-            "<table>",
-            *html_rows,
-            "</table>",
-            src_img,
-            "</body>",
-            "</html>",
-        ]
-    )
-
-    src_html = os.path.join(catalog_assets_path, f"{src_id}.html")
-    with open(src_html, "w") as f:
-        f.write(src_desc)
+    src_json = os.path.join(catalog_assets_path, f"{src_id}.json")
+    with open(src_json, "w") as f:
+        json.dump(src_desc, f, separators=(",", ":"))  # no whitespace
 
     return dict(
-        x=x,
-        y=y,
-        a=a,
-        b=b,
-        theta=theta,
-        catalog_id=src_id,
-        widest_col=longest_str,
-        n_rows=min(rows_per_col, n_src_rows),
-        n_cols=2 * n_cols,
-        include_img=include_img,
-        cat_path=os.path.basename(catalog_assets_path),
+        geometry=dict(coordinates=[x, y],),
+        tags=dict(
+            a=a,
+            b=b,
+            theta=theta,
+            catalog_id=src_id,
+            cat_path=os.path.basename(catalog_assets_path),
+        ),
     )
+
+
+def process_catalog_file_chunk(
+    process_f: Callable, fname: str, delimiter: str, start: int, end: int
+) -> List[dict]:
+    # newline="" for csv reader, see
+    # https://docs.python.org/3/library/csv.html#csv.reader
+    f = open(fname, "r", newline="")
+    f.seek(start)
+    f.readline()  # id start==0 skip cols, else advance to next complete line
+
+    json_lines = []
+
+    if LOAD_CATALOG_BEFORE_PARSING:
+        raw_lines = f.readlines(end - start)
+        reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
+
+        update_every = 1000
+        count = 1
+        for line in reader:
+            json_lines.append(process_f(line))
+            count += 1
+            if count % update_every == 0:
+                process_catalog_file_chunk.q.put(count)
+                count = 1
+
+    else:
+        raw_lines = []
+        reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
+        current = f.tell()
+        update_every = 10000
+        count = 1
+        while current < end:
+            raw_lines.append(f.readline().strip())
+            processed_lines = next(reader)
+            json_lines.append(process_f(processed_lines))
+            current = f.tell()
+            count += 1
+            if count % update_every == 0:
+                process_catalog_file_chunk.q.put(count)
+                count = 1
+
+        if count > 1:
+            process_catalog_file_chunk.q.put(count)
+    f.close()
+    return json_lines
+
+
+# This allows the queue reference to be shared between processes
+# https://stackoverflow.com/a/3843313/2691018
+def process_catalog_file_chunk_init(q):
+    process_catalog_file_chunk.q = q
 
 
 def _simplify_mixed_ws(catalog_fname: str) -> None:
@@ -791,45 +717,85 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
             f.write(" ".join([token.strip() for token in line.split()]) + "\n")
 
 
-def catalog_to_markers(
+def procbar_listener(q: Queue, bar: tqdm) -> None:
+    while True:
+        update = q.get()
+        if update:
+            bar.update(n=update)
+        else:
+            break
+
+
+def make_marker_tile(
+    cluster: Supercluster, out_dir: str, zyx: Tuple[int, Tuple[int, int]],
+) -> None:
+    z, (y, x) = zyx
+
+    if not os.path.exists(os.path.join(out_dir, str(z))):
+        os.mkdir(os.path.join(out_dir, str(z)))
+
+    if not os.path.exists(os.path.join(out_dir, str(z), str(y))):
+        os.mkdir(os.path.join(out_dir, str(z), str(y)))
+
+    out_path = os.path.join(out_dir, str(z), str(y), f"{x}.pbf")
+
+    tile_sources = cluster.get_tile(z, x, y)
+
+    if tile_sources:
+        tile_sources["name"] = "Points"
+
+        for i in range(len(tile_sources["features"])):
+            # tile_sources["features"][i]["geometry"] = "POINT({} {})".format(
+            #     *list(map(
+            #         int,
+            #         tile_sources["features"][i]["geometry"]
+            #     ))
+            # )
+            tile_sources["features"][i]["geometry"] = "POINT(0 0)"  # we dont' use this
+
+        # with open(out_path.replace("pbf", "json"), "w") as f:
+        #     json.dump(tile_sources, f, indent=2)
+
+        encoded_tile = mvt.encode([tile_sources], extents=256)
+
+        with open(out_path, "wb") as f:
+            f.write(encoded_tile)
+
+
+def tile_markers(
     wcs_file: str,
     out_dir: str,
     catalog_delim: str,
-    rows_per_col: int,
-    n_per_catalog_shard: int,
+    mp_procs: int,
+    prefer_xy: bool,
+    min_zoom: int,
+    max_zoom: int,
+    tile_size: int,
+    max_x: int,
+    max_y: int,
     catalog_file: str,
     pbar_loc: int,
 ) -> None:
-    """Transform ``catalog_file`` into a json collection for mapping
-    Args:
-        wcs_file (str): path to fits file used to interpret catalog
-        out_dir (str): path to save the json collection in
-        catalog_delim (str): delimiter to use when parsing catalog
-        catalog_file (str): path to catalog file
-        pbar_loc (int): the index to draw the tqdm bar in
-    Returns:
-        None
-    """
-
     _, fname = os.path.split(catalog_file)
-    out_location = os.path.join(out_dir, "js")
-    check_name = get_marker_file_name(catalog_file).replace(".cat.js", "")
-    if os.path.exists(out_location) and any(
-        map(lambda fname: fname.startswith(check_name), os.listdir(out_location))
-    ):
-        print(f"{fname} already converted to js. Skipping conversion.")
+
+    catalog_layer_name = get_map_layer_name(catalog_file)
+    if catalog_layer_name in os.listdir(out_dir):
+        print(f"{fname} already tiled. Skipping tiling.")
         return
+    else:
+        os.mkdir(os.path.join(out_dir, catalog_layer_name))
 
     if catalog_delim == MIXED_WHITESPACE_DELIMITER:
         _simplify_mixed_ws(catalog_file)
         catalog_delim = " "
 
-    f = open(catalog_file, "r", newline="")
-    csv_reader = csv.reader(f, delimiter=catalog_delim, skipinitialspace=True)
-    columns = line_to_cols(next(csv_reader))
+    with open(catalog_file, "r", newline="") as f:
+        csv_reader = csv.reader(f, delimiter=catalog_delim, skipinitialspace=True)
+        columns = line_to_cols(next(csv_reader))
 
     ra_dec_coords = "ra" in columns and "dec" in columns
     x_y_coords = "x" in columns and "y" in columns
+    use_xy = (not ra_dec_coords) or (prefer_xy)
 
     if (not ra_dec_coords and not x_y_coords) or "id" not in columns:
         err_msg = " ".join(
@@ -840,7 +806,7 @@ def catalog_to_markers(
         )
         raise ValueError(err_msg)
 
-    if ra_dec_coords and (wcs_file is None):
+    if (not use_xy) and (wcs_file is None):
         err_msg = " ".join(
             [catalog_file + " uses ra/dec coords, but a WCS file wasn't", "provided."]
         )
@@ -848,66 +814,120 @@ def catalog_to_markers(
 
     wcs = WCS(wcs_file) if wcs_file else None
 
-    cat_file_root = Path(catalog_file).stem
-    js_safe_file_name = make_fname_js_safe(cat_file_root) + "_cat_var"
-
-    if "js" not in os.listdir(out_dir):
-        os.mkdir(os.path.join(out_dir, "js"))
-
-    if "css" not in os.listdir(out_dir):
-        os.mkdir(os.path.join(out_dir, "css"))
-
     catalog_assets_parent_path = os.path.join(out_dir, "catalog_assets")
     if "catalog_assets" not in os.listdir(out_dir):
         os.mkdir(catalog_assets_parent_path)
 
-    catalog_assets_path = os.path.join(catalog_assets_parent_path, cat_file_root)
-    if cat_file_root not in os.listdir(catalog_assets_parent_path):
+    catalog_assets_path = os.path.join(catalog_assets_parent_path, catalog_layer_name)
+    if catalog_layer_name not in os.listdir(catalog_assets_parent_path):
         os.mkdir(catalog_assets_path)
 
-    catalog_img_path = os.path.join(
-        os.path.dirname(catalog_file), cat_file_root + "_images"
-    )
-
-    if not os.path.exists(catalog_img_path) or len(os.listdir(catalog_img_path)) == 0:
-        img_ext = None
-    else:
-        img_ext = os.path.splitext(os.listdir(catalog_img_path)[0])[1]
-
-    line_func = partial(
-        line_to_json,
-        wcs,
-        columns,
-        rows_per_col,
-        img_ext,
-        catalog_assets_path,
-        catalog_img_path,
-    )
+    line_func = partial(line_to_json, wcs, columns, catalog_assets_path,)
 
     bar = tqdm(
         position=pbar_loc,
-        desc="Converting " + catalog_file,
+        desc="Parsing " + catalog_file,
         disable=bool(os.getenv("DISBALE_TQDM", False)),
     )
 
-    cat_file = lambda n: cat_file_root + f"_{n}.cat.js"
-    for shard in count():
-        catalog_data = list(
-            map(
-                line_func,
-                islice(ShardedProcBarIter(csv_reader, bar), n_per_catalog_shard),
-            )
-        )
+    # this queue manages a proc bar instance that can be shared among multiple
+    # processes, i have a feeling there is a better way to do this
+    q = mp.Queue()
+    monitor = mp.Process(target=procbar_listener, args=(q, bar))
+    monitor.start()
 
-        if len(catalog_data) > 0:
-            json_markers_file = os.path.join(out_dir, "js", cat_file(shard))
-            with open(json_markers_file, "w") as j:
-                j.write("var " + js_safe_file_name + f"_{shard}" + " = ")
-                json.dump(catalog_data, j, indent=2)
-                j.write(";")
-        else:
-            break
-    f.close()
+    process_f = partial(
+        process_catalog_file_chunk, line_func, catalog_file, catalog_delim,
+    )
+
+    catalog_file_size = os.path.getsize(catalog_file)
+
+    if mp_procs > 1:
+        # split the file by splitting the byte size of the file into even sized
+        # chunks. We always read to the end of the first line so its ok to get
+        # dropped into the middle of a link
+        boundaries = np.linspace(0, catalog_file_size, mp_procs + 1, dtype=np.int64)
+        file_chunk_pairs = list(zip(boundaries[:-1], boundaries[1:]))
+
+        # To keep the progress bar up to date we need an extra process that
+        # montiors the queue for updates from the workers. The extra process
+        # doesn't do much and so it shouldn't be a strain to add it.
+
+        with Pool(mp_procs, process_catalog_file_chunk_init, [q]) as p:
+            catalog_values = list(
+                chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
+            )
+    else:
+        process_catalog_file_chunk_init(q)
+        catalog_values = process_f(0, catalog_file_size)
+
+    # this kills the iter in the monitor process
+    q.put(None)
+    monitor.join()
+    del monitor
+
+    # TEMP FIX FOR DREAM
+    # max_zoom += 2
+    bar = tqdm(
+        position=pbar_loc,
+        desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
+        disable=bool(os.getenv("DISBALE_TQDM", False)),
+        total=max_zoom + 1 - min_zoom,
+    )
+
+    q = mp.Queue()
+    monitor = mp.Process(target=procbar_listener, args=(q, bar))
+    monitor.start()
+
+    # cluster the parsed sources
+    # need to get super cluster stuff in here
+    clusterer = Supercluster(
+        min_zoom=min_zoom,
+        max_zoom=max_zoom,
+        extent=tile_size,
+        radius=max(max(max_x, max_y) / tile_size, 40),
+        node_size=np.log2(len(catalog_values)) * 2,
+        alternate_CRS=(max_x, max_y),
+        update_f=lambda: q.put(1),
+        log=True,
+    ).load(catalog_values)
+
+    # this kills the iter in the monitor process
+    q.put(None)
+    monitor.join()
+    del monitor
+
+    # tile the sources and save using protobuf
+    zs = range(min_zoom, max_zoom + 1)
+    ys = [range(2 ** z) for z in zs]
+    xs = [range(2 ** z) for z in zs]
+    tile_idxs = list(
+        chain.from_iterable(
+            [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
+        )
+    )
+
+    clusterer.update_f = None
+    clusterer.log = False
+
+    tile_f = partial(
+        make_marker_tile, clusterer, os.path.join(out_dir, catalog_layer_name),
+    )
+
+    tracked_collection = tqdm(
+        tile_idxs,
+        position=pbar_loc,
+        desc="Tiling " + catalog_file,
+        disable=bool(os.getenv("DISBALE_TQDM", False)),
+    )
+
+    # the super cluster object can be very large, so this may not be worth
+    # eating up memory, set to False
+    if False:
+        with Pool(mp_procs) as p:
+            list(p.imap_unordered(tile_f, tracked_collection, chunksize=100))
+    else:
+        list(map(tile_f, tracked_collection))
 
 
 def async_worker(q: JoinableQueue) -> None:
@@ -944,7 +964,7 @@ def files_to_map(
     image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
-    n_per_catalog_shard: int = 250000,
+    prefer_xy: bool = False,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -983,11 +1003,6 @@ def files_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
-        n_per_catalog_shard (int): The number of catalog entries per shard.
-                                   Large catalogs can block the web page loading.
-                                   Catalogs are sharded into multiple smaller
-                                   files that can be processed asynchronously
-                                   after the page is rendered.
     Returns:
         None
     """
@@ -1002,6 +1017,12 @@ def files_to_map(
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
 
+    if "js" not in os.listdir(out_dir):
+        os.mkdir(os.path.join(out_dir, "js"))
+
+    if "css" not in os.listdir(out_dir):
+        os.mkdir(os.path.join(out_dir, "css"))
+
     img_f_kwargs = dict(
         tile_size=tile_size,
         min_zoom=min_zoom,
@@ -1012,19 +1033,29 @@ def files_to_map(
     )
 
     img_files = filter_on_extension(files, IMG_FORMATS)
-    map_layer_names = list(map(get_map_layer_name, img_files))
+    img_layer_names = list(map(get_map_layer_name, img_files))
     img_job_f = partial(tile_img, **img_f_kwargs)
 
     cat_files = filter_on_extension(files, CAT_FORMAT)
+    cat_layer_names = list(map(get_map_layer_name, cat_files))
 
+    max_dim = max(utils.peek_image_info(img_files))
     if len(cat_files) > 0:
+        # get highlevel image info for catalogging function
+        max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / 256))
+
         cat_job_f = partial(
-            catalog_to_markers,
+            tile_markers,
             cat_wcs_fits_file,
             out_dir,
             catalog_delim,
-            rows_per_column,
-            n_per_catalog_shard,
+            procs_per_task,
+            prefer_xy,
+            min_zoom,
+            max_zoom,
+            tile_size[0],
+            max_dim,
+            max_dim,
         )
     else:
         cat_job_f = None
@@ -1046,10 +1077,6 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
 
-    marker_file_names = sorted(
-        filter(lambda s: ".cat.js" in s, os.listdir(os.path.join(out_dir, "js")))
-    )
-
     ns = "\n" * (next(pbar_locations) - 1)
     print(ns + "Building index.html")
 
@@ -1058,7 +1085,9 @@ def files_to_map(
     else:
         cat_wcs = None
 
-    cartographer.chart(out_dir, title, map_layer_names, marker_file_names, cat_wcs)
+    cartographer.chart(
+        out_dir, title, img_layer_names, cat_layer_names, cat_wcs, rows_per_column,
+    )
     print("Done.")
 
 
@@ -1076,7 +1105,6 @@ def dir_to_map(
     image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
-    n_per_catalog_shard: int = 250000,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1123,11 +1151,6 @@ def dir_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
-        n_per_catalog_shard (int): The number of catalog entries per shard.
-                                   Large catalogs can block the web page loading.
-                                   Catalogs are sharded into multiple smaller
-                                   files that can be processed asynchronously
-                                   after the page is rendered.
     Returns:
         None
 
@@ -1160,5 +1183,4 @@ def dir_to_map(
         image_engine=image_engine,
         norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
-        n_per_catalog_shard=n_per_catalog_shard,
     )

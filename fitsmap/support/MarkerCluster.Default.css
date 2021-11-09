@@ -19,6 +19,14 @@
 	background-color: rgba(241, 128, 23, 0.6);
 	}
 
+.marker-cluster-x-large {
+	background-color: rgba(240, 76, 76, 0.6);
+	}
+.marker-cluster-x-large div {
+	background-color: rgba(246, 23, 23, 0.6);
+	}
+
+
 	/* IE 6-8 fallback colors */
 .leaflet-oldie .marker-cluster-small {
 	background-color: rgb(181, 226, 140);
@@ -40,6 +48,13 @@
 .leaflet-oldie .marker-cluster-large div {
 	background-color: rgb(241, 128, 23);
 }
+.leaflet-oldie .marker-cluster-x-large {
+	background-color: rgb(240, 76, 76);
+	}
+.leaflet-oldie .marker-cluster-x-large div {
+	background-color: rgb(246, 23, 23);
+	}
+
 
 .marker-cluster {
 	background-clip: padding-box;
