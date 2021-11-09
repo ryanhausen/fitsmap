@@ -105,7 +105,6 @@ map. When your done with the map you can close your browser window and kill the
 process running in the terminal.
 
 .. _dir_to_map:
-
 ``dir_to_map``
 --------------
 
