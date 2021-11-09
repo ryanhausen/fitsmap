@@ -3,7 +3,6 @@
 .. |files_to_map| replace:: `fitsmap.convert.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.files_to_map>`__
 .. |dir_to_map| replace:: `fitsmap.convert.dir_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.dir_to_map>`__
 
-
 .. image:: docs/logo.svg.png
     :alt: FitsMap
     :align: center
@@ -90,7 +89,7 @@ might look like:
 There are two FITS files (``F125W.fits``, ``F160W.fits``), a PNG file
 (``RGB.png``), and catalog (``catalog.cat``) containing sources visible in the
 image files. To render these files using FitsMap you can use
-:ref:`dir_to_map<dir_to_map>` or :ref:`files_to_map<files_to_map>`.
+|dir_to_map| or |files_to_map|.
 
 After the FitsMap has been generated you can view it in your web browser by
 navigating to the directory containing the map (``index.html``) and running the
@@ -104,7 +103,7 @@ This will start up a webserver and open your browser to the page containing the
 map. When your done with the map you can close your browser window and kill the
 process running in the terminal.
 
-.. .. _dir_to_map:
+
 ``dir_to_map``
 --------------
 
@@ -170,9 +169,9 @@ map.
 
 To use the map, run ``fitsmap serve`` in the same directory as ``index.html``
 
-.. .. _files_to_map:
+
 ``files_to_map``
---------------
+----------------
 
 If you want to specify the files that get used to generate the map you can use
 function |files_to_map|:
@@ -193,8 +192,7 @@ function |files_to_map|:
     )
 
 This will produce a map in ``out_dir`` using the files that were passed in using
-the ``paths_to_files`` variable. The map will look like the one described in
-:ref:`dir_to_map<dir_to_map>`.
+the ``paths_to_files`` variable.
 
 
 Saveable Views
