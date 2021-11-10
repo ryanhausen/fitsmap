@@ -20,7 +20,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         const rowsPerCol = this.options.rowsPerColumn;
 
         let nCols = Math.floor(nItems / (Number.isFinite(rowsPerCol) ? rowsPerCol : nItems));
-        console.log(nCols);
+        // console.log(nCols);
         if (Number.isFinite(rowsPerCol) && nItems % rowsPerCol > 0) {
             nCols += 1;
         }
@@ -29,11 +29,11 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
                     "<table class='catalog-table'>";
 
         const display_keys = Object.keys(json).filter(k => {return !dontDisplay.includes(k)});
-        console.log(display_keys);
+        // console.log(display_keys);
 
         let colCounter = 0;
         display_keys.forEach(key => {
-            console.log(key);
+            // console.log(key);
             if (colCounter==0){
                 html += "<tr>"
             }

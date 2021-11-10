@@ -883,7 +883,7 @@ def tile_markers(
     # need to get super cluster stuff in here
     clusterer = Supercluster(
         min_zoom=min_zoom,
-        max_zoom=max_zoom,
+        max_zoom=max_zoom-1,
         extent=tile_size,
         radius=max(max(max_x, max_y) / tile_size, 40),
         node_size=np.log2(len(catalog_values)) * 2,

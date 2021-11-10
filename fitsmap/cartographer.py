@@ -273,13 +273,13 @@ def leaflet_search_control_declaration(cat_layer_dicts: List[Dict],) -> str:
         "const catalogPaths = [",
         *list(
             map(
-                lambda s: f'"{os.path.join("catalog_assets", s)}/"',
+                lambda s: f'    "{os.path.join("catalog_assets", s)}/",',
                 map(lambda l: l["name"], cat_layer_dicts),
             )
         ),
         "];",
         "",
-        "const searchControl = buildCustomSearch(catalogPaths);",
+        f"const searchControl = buildCustomSearch(catalogPaths, {cat_layer_dicts[0]['max_native_zoom']});",
         "map.addControl(searchControl);",
     ]
 
