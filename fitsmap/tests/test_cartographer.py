@@ -284,6 +284,7 @@ def test_build_conditional_css():
             "    <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>",
             "    <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>",
             "    <link rel='stylesheet' href='css/MarkerCluster.css'/>",
+            "    <link rel='stylesheet' href='css/MarkerPopup.css'/>",
             "    <link rel='stylesheet' href='css/TileNearestNeighbor.css'/>",
         ]
     )
@@ -320,6 +321,22 @@ def test_build_conditional_js():
 
 @pytest.mark.unit
 @pytest.mark.cartographer
+def test_move_support_images():
+    """test cartographer.move_support_images"""
+
+    helpers.setup()
+
+    actual_moved_images = c.move_support_images(helpers.TEST_PATH)
+
+    expected_moved_images = ["favicon.ico"]
+
+    helpers.tear_down()
+
+    assert actual_moved_images == expected_moved_images
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
 def test_build_html():
     """test cartographer.build_html"""
 
@@ -337,7 +354,7 @@ def test_build_html():
             "    <title>{}</title>".format(title),
             '    <meta charset="utf-8" />',
             '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-            '    <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />',
+            '    <link rel="shortcut icon" type="image/x-icon" href="imgs/favicon.ico" />',
             '    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
             extra_css,
             "    <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",

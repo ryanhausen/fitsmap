@@ -79,6 +79,8 @@ def chart(
 
     extra_css = build_conditional_css(out_dir)
 
+    move_support_images(out_dir)
+
     with open(os.path.join(out_dir, "index.html"), "w") as f:
         f.write(build_html(title, extra_js, extra_css))
     # HTML file contents =======================================================
@@ -180,6 +182,33 @@ def leaflet_map_js(tile_layers: List[dict]):
     )
 
     return js
+
+
+def move_support_images(out_dir: str) -> List[str]:
+    img_extensions = [".png", ".jpg", ".ico"]
+
+    support_dir = os.path.join(os.path.dirname(__file__), "support")
+    out_img_dir = os.path.join(out_dir, "imgs")
+
+    local_img_files = list(
+        filter(
+            lambda f: os.path.splitext(f)[1] in img_extensions,
+            sorted(os.listdir(support_dir)),
+        )
+    )
+
+    if not os.path.exists(out_img_dir):
+        os.mkdir(out_img_dir)
+
+    all(
+        map(
+            lambda f: shutil.copy2(
+                os.path.join(support_dir, f), os.path.join(out_img_dir, f)
+            ),
+            local_img_files,
+        )
+    )
+    return local_img_files
 
 
 def build_conditional_css(out_dir: str) -> str:
@@ -373,7 +402,7 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         "    <title>{}</title>".format(title),
         '    <meta charset="utf-8" />',
         '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '    <link rel="shortcut icon" type="image/x-icon" href="docs/images/favicon.ico" />',
+        '    <link rel="shortcut icon" type="image/x-icon" href="imgs/favicon.ico" />',
         '    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
         extra_css,
         "    <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",

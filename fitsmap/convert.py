@@ -67,14 +67,6 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 LOAD_CATALOG_BEFORE_PARSING = False
 
-POPUP_CSS = [
-    "span { text-decoration:underline; font-weight:bold; line-height:12pt; }",
-    "tr { line-height: 7pt; }",
-    "td { width: " + "COL_WIDTH" + "%; }",
-    "table { width: 100%; }",
-    "img { height: 50%; width: auto; }",
-]
-
 
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
@@ -409,7 +401,7 @@ def tile_img(
     pbar_loc: int,
     tile_size: Shape = [256, 256],
     min_zoom: int = 0,
-    image_engine: str = IMG_ENGINE_PIL,
+    image_engine: str = IMG_ENGINE_MPL,
     out_dir: str = ".",
     mp_procs: int = 0,
     norm_kwargs: dict = {},
@@ -425,8 +417,8 @@ def tile_img(
                         greater than zero if your running out of memory as the
                         lowest zoom images can be the most memory intensive.
         img_engine (str): Method to convert array tile to an image. Can be one
-                          of mapmaker.IMAGE_ENGINE_PIL (using pillow(PIL)) or
-                          of mapmaker.IMAGE_ENGINE_MPL (using matplotlib)
+                          of convert.IMAGE_ENGINE_PIL (using pillow(PIL)) or
+                          of convert.IMAGE_ENGINE_MPL (using matplotlib)
         out_dir (str): The root directory to save the tiles in
         mp_procs (int): The number of multiprocessing processes to use for
                         generating tiles.
@@ -883,7 +875,7 @@ def tile_markers(
     # need to get super cluster stuff in here
     clusterer = Supercluster(
         min_zoom=min_zoom,
-        max_zoom=max_zoom-1,
+        max_zoom=max_zoom - 1,
         extent=tile_size,
         radius=max(max(max_x, max_y) / tile_size, 40),
         node_size=np.log2(len(catalog_values)) * 2,
@@ -898,7 +890,7 @@ def tile_markers(
     del monitor
 
     # tile the sources and save using protobuf
-    zs = range(min_zoom, max_zoom + 2)
+    zs = range(min_zoom, max_zoom + 1)
     ys = [range(2 ** z) for z in zs]
     xs = [range(2 ** z) for z in zs]
     tile_idxs = list(
@@ -993,12 +985,12 @@ def files_to_map(
                                 performance.
         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
                                      only [256, 256] is supported.
-        image_engine (str): The method to convert array segments into png images
-                            the IMG_ENGINE_PIL uses PIL and is faster,
-                            but requires that the array be scaled before hand.
-                            IMG_ENGINE_MPL uses matplotlib and is slower but can
-                            scales the tiles according to the min/max of the
-                            overall array.
+        image_engine (str): The method that converts the image data into image
+                            tiles. The default is convert.IMG_ENGINE_MPL
+                            (matplotlib) the other option is
+                            convert.IMG_ENGINE_PIL (pillow). Pillow can render
+                            FITS files but doesn't do any scaling. Pillow may
+                            be more performant for only PNG images.
         norm_kwargs (dict): Optional normalization keyword arguments passed to
                             `astropy.visualization.simple_norm`. The default is
                             linear scaling using min/max values. See documentation
@@ -1049,12 +1041,11 @@ def files_to_map(
     if len(cat_files) > 0:
         # get highlevel image info for catalogging function
         max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / tile_size[0]))
-        max_dim = 2**max_zoom * tile_size[0]
+        max_dim = 2 ** max_zoom * tile_size[0]
         if max_catalog_zoom == -1:
             max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / tile_size[0]))
         else:
             max_zoom = max_catalog_zoom
-
 
         cat_job_f = partial(
             tile_markers,
@@ -1113,9 +1104,9 @@ def dir_to_map(
     procs_per_task: int = 0,
     catalog_delim: str = ",",
     cat_wcs_fits_file: str = None,
-    max_catalog_zoom:int = -1,
+    max_catalog_zoom: int = -1,
     tile_size: Shape = [256, 256],
-    image_engine: str = IMG_ENGINE_PIL,
+    image_engine: str = IMG_ENGINE_MPL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
 ) -> None:
@@ -1153,12 +1144,12 @@ def dir_to_map(
                                 performance.
         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
                                      only [256, 256] is supported.
-        image_engine (str): The method to convert array segments into png images
-                            the IMG_ENGINE_PIL uses PIL and is faster,
-                            but requires that the array be scaled before hand.
-                            IMG_ENGINE_MPL uses matplotlib and is slower but can
-                            scales the tiles according to the min/max of the
-                            overall array.
+        image_engine (str): The method that converts the image data into image
+                            tiles. The default is convert.IMG_ENGINE_MPL
+                            (matplotlib) the other option is
+                            convert.IMG_ENGINE_PIL (pillow). Pillow can render
+                            FITS files but doesn't do any scaling. Pillow may
+                            be more performant for only PNG images.
         norm_kwargs (dict): Optional normalization keyword arguments passed to
                             `astropy.visualization.simple_norm`. The default is
                             linear scaling using min/max values. See documentation

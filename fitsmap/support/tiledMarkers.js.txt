@@ -69,6 +69,19 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             console.log("ERROR in Popup Rendering", error);
         });
 
+        console.log(marker);
+
+        // https://stackoverflow.com/a/51749619/2691018
+        document.querySelector(".leaflet-popup-pane").addEventListener("load", function(event) {
+            const tagName = event.target.tagName,
+            popup = map._popup;
+            //console.log("got load event from " + tagName);
+            // Also check if flag is already set.
+            if (tagName === "IMG" && popup && !popup._updated) {
+                popup._updated = true; // Set flag to prevent looping.
+                popup.update();
+            }
+        }, true);
         return "Loading...";
     },
 
@@ -145,32 +158,6 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         });
 
         return L.DomUtil.create('canvas', 'leaflet-tile');
-    },
-
-    clearItemsOLD: function(e){
-        const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
-        // If we change zooms delete all from previous zoom
-        if (e.coords.z != map.getZoom() && map.getZoom() <= this.options.maxNativeZoom){
-            const keys = Object.keys(this.tilePointCache).filter(k => k[0]==`${e.coords.z}`);
-            for (let i = 0; i < keys.length; i++){
-                let key = keys[i];
-                for (let j = 0; j < this.tilePointCache[key].length; j++){
-                    this.tilePointCache[key][j].remove();
-                }
-                delete this.tilePointCache[key];
-            }
-
-        // If we're panning, then only delete what we have too
-        } else {
-
-            const key = `${e.coords.z},${e.coords.y},${e.coords.x}`
-            if (key in this.tilePointCache){
-                for (let i = 0; i < this.tilePointCache[key].length; i++){
-                    this.tilePointCache[key][i].remove();
-                }
-                delete this.tilePointCache[key];
-            }
-        }
     },
 
     clearItems: function(e){
