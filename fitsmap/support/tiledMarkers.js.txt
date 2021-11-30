@@ -1,7 +1,6 @@
 'use strict';
 
 L.GridLayer.TiledMarkers = L.GridLayer.extend({
-    tilePointCache: {},
 
     options: {
         tileURL: "",
@@ -11,6 +10,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
 
     initialize: function(options) {
         L.setOptions(this, options);
+        this.tilePointCache = {}
     },
 
     convertJSONtoHTMLTable: function(json) {
