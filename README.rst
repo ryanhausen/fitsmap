@@ -11,7 +11,7 @@ FitsMap
 =======
 
 .. image:: https://travis-ci.com/ryanhausen/fitsmap.svg?branch=master
-    :target: https://travis-ci.com/ryanhausen/fitsmap
+    :target: https://app.travis-ci.com/ryanhausen/fitsmap
 
 .. image:: https://readthedocs.org/projects/fitsmap/badge/?version=latest
     :target: https://fitsmap.readthedocs.io
