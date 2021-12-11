@@ -377,7 +377,7 @@ def build_index_js(
             leaflet_layer_control_declaration(image_layer_dicts, marker_layer_dicts),
             "",
             "// Search ======================================================================",
-            leaflet_search_control_declaration(marker_layer_dicts),
+            leaflet_search_control_declaration(marker_layer_dicts) if len(marker_layer_dicts) else "",
             "",
             "// Map event setup =============================================================",
             'map.on("moveend", updateLocationBar);',

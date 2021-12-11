@@ -3,3 +3,12 @@ include fitsmap/support/MarkerCluster.Default.css
 include fitsmap/support/TileNearestNeighbor.css
 include fitsmap/support/l.ellipse.min.js
 include fitsmap/support/l.ellipse.js.txt
+include fitsmap/support/customSearch.js.txt
+include fitsmap/support/customSearch.min.js
+include fitsmap/support/favicon.ico
+include fitsmap/support/tiledMarkers.js.txt
+include fitsmap/support/tiledMarkers.min.js
+include fitsmap/support/TileNearestNeighbor.css
+include fitsmap/support/urlCoords.js.tmp
+include fitsmap/support/vector-tile.js.txt
+include fitsmap/support/vector-tile.min.js
