@@ -405,7 +405,15 @@ def test_chart_no_wcs():
     os.mkdir(os.path.join(out_dir, "js"))
     os.mkdir(os.path.join(out_dir, "css"))
 
-    c.chart(out_dir, title, [map_layer_names], [marker_file_names], wcs, float("inf"))
+    c.chart(
+        out_dir,
+        title,
+        [map_layer_names],
+        [marker_file_names],
+        wcs,
+        float("inf"),
+        [100, 100],
+    )
 
     # inject current version in to test_index.html
     version = helpers.get_version()
@@ -449,7 +457,15 @@ def test_chart_with_wcs():
     os.mkdir(os.path.join(out_dir, "js"))
     os.mkdir(os.path.join(out_dir, "css"))
 
-    c.chart(out_dir, title, [map_layer_names], [marker_file_names], wcs, float("inf"))
+    c.chart(
+        out_dir,
+        title,
+        [map_layer_names],
+        [marker_file_names],
+        wcs,
+        float("inf"),
+        [100, 100],
+    )
 
     # inject current version in to test_index.html
     version = helpers.get_version()

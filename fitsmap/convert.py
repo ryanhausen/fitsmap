@@ -1037,7 +1037,8 @@ def files_to_map(
     cat_files = filter_on_extension(files, CAT_FORMAT)
     cat_layer_names = list(map(get_map_layer_name, cat_files))
 
-    max_dim = max(utils.peek_image_info(img_files))
+    max_x, max_y = utils.peek_image_info(img_files)
+    max_dim = max(max_x, max_y)
     if len(cat_files) > 0:
         # get highlevel image info for catalogging function
         max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / tile_size[0]))
@@ -1089,7 +1090,13 @@ def files_to_map(
         cat_wcs = None
 
     cartographer.chart(
-        out_dir, title, img_layer_names, cat_layer_names, cat_wcs, rows_per_column,
+        out_dir,
+        title,
+        img_layer_names,
+        cat_layer_names,
+        cat_wcs,
+        rows_per_column,
+        (max_x, max_y),
     )
     print("Done.")
 

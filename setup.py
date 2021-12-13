@@ -44,7 +44,7 @@ REQUIRES = [
     "sharedmem",
     "tqdm",
     "click",
-    "mapbox_vector_tile"
+    "mapbox_vector_tile",
 ]
 
 

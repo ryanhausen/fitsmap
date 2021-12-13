@@ -29,7 +29,7 @@ import os
 import shutil
 from itertools import count, repeat, starmap
 from functools import partial, reduce
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 from astropy.wcs import WCS
@@ -46,6 +46,7 @@ def chart(
     marker_layer_names: List[str],
     wcs: WCS,
     rows_per_column: int,
+    max_xy: Tuple[int, int],
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -71,7 +72,9 @@ def chart(
         f.write(build_urlCoords_js(wcs))
 
     with open(os.path.join(out_dir, "js", "index.js"), "w") as f:
-        f.write(build_index_js(img_layer_dicts, cat_layer_dicts, rows_per_column))
+        f.write(
+            build_index_js(img_layer_dicts, cat_layer_dicts, rows_per_column, max_xy)
+        )
     # generated javascript =====================================================
 
     # HTML file contents =======================================================
@@ -353,7 +356,10 @@ def build_urlCoords_js(img_wcs: WCS) -> str:
 
 
 def build_index_js(
-    image_layer_dicts: List[Dict], marker_layer_dicts: List[str], rows_per_column: int
+    image_layer_dicts: List[Dict],
+    marker_layer_dicts: List[str],
+    rows_per_column: int,
+    max_xy: Tuple[int, int],
 ) -> str:
 
     js = "\n".join(
@@ -377,14 +383,16 @@ def build_index_js(
             leaflet_layer_control_declaration(image_layer_dicts, marker_layer_dicts),
             "",
             "// Search ======================================================================",
-            leaflet_search_control_declaration(marker_layer_dicts) if len(marker_layer_dicts) else "",
+            leaflet_search_control_declaration(marker_layer_dicts)
+            if len(marker_layer_dicts)
+            else "",
             "",
             "// Map event setup =============================================================",
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
             "",
             'if (urlParam("zoom")==null) {',
-            '    map.fitWorld({"maxZoom":map.getMinZoom()});',
+            f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[0]}, {max_xy[1]}]]));",
             "} else {",
             "    panFromUrl(map);",
             "}",
