@@ -129,3 +129,11 @@ def peek_image_info(img_file_names: List[str]) -> Tuple[int, int]:
 def get_version():
     with open(os.path.join(fitsmap.__path__[0], "__version__.py"), "r") as f:
         return f.readline().strip().replace('"', "")
+
+
+class MockQueue:
+    def __init__(self, bar):
+        self.bar = bar
+
+    def put(self, n):
+        self.bar.update(n=n)

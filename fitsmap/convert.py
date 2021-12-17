@@ -625,6 +625,8 @@ def line_to_json(
     # to leaflet convention and add 0.5 to move it to the center of the pixel.
     x = (img_x - 1) + 0.5
     y = (img_y - 1) + 0.5
+    # y = img_y
+    # x = img_x
 
     src_desc = {k: v for k, v in zip(columns, src_vals)}
 
@@ -822,19 +824,19 @@ def tile_markers(
         disable=bool(os.getenv("DISBALE_TQDM", False)),
     )
 
-    # this queue manages a proc bar instance that can be shared among multiple
-    # processes, i have a feeling there is a better way to do this
-    q = mp.Queue()
-    monitor = mp.Process(target=procbar_listener, args=(q, bar))
-    monitor.start()
+    catalog_file_size = os.path.getsize(catalog_file)
 
     process_f = partial(
         process_catalog_file_chunk, line_func, catalog_file, catalog_delim,
     )
 
-    catalog_file_size = os.path.getsize(catalog_file)
-
     if mp_procs > 1:
+        # this queue manages a proc bar instance that can be shared among multiple
+        # processes, i have a feeling there is a better way to do this
+        q = mp.Queue()
+        monitor = mp.Process(target=procbar_listener, args=(q, bar))
+        monitor.start()
+
         # split the file by splitting the byte size of the file into even sized
         # chunks. We always read to the end of the first line so its ok to get
         # dropped into the middle of a link
@@ -849,14 +851,16 @@ def tile_markers(
             catalog_values = list(
                 chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
             )
-    else:
-        process_catalog_file_chunk_init(q)
-        catalog_values = process_f(0, catalog_file_size)
 
-    # this kills the iter in the monitor process
-    q.put(None)
-    monitor.join()
-    del monitor
+            # this kills the iter in the monitor process
+
+        q.put(None)
+        monitor.join()
+        del monitor
+
+    else:
+        process_catalog_file_chunk_init(utils.MockQueue(bar))
+        catalog_values = process_f(0, catalog_file_size)
 
     # TEMP FIX FOR DREAM
     # max_zoom += 2

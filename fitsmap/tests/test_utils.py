@@ -23,10 +23,9 @@ import pytest
 
 import fitsmap.utils as u
 import fitsmap.tests.helpers as helpers
-
+from tqdm import tqdm
 
 @pytest.mark.unit
-@pytest.mark.cartographer
 def test_build_digit_to_string():
     """test cartographer.build_digit_to_string"""
     digits = range(10)
@@ -48,7 +47,6 @@ def test_build_digit_to_string():
 
 
 @pytest.mark.unit
-@pytest.mark.cartographer
 def test_build_digit_to_string_fails():
     """test cartographer.build_digit_to_string"""
     digit = -1
@@ -60,7 +58,6 @@ def test_build_digit_to_string_fails():
 
 
 @pytest.mark.unit
-@pytest.mark.cartographer
 def test_make_fname_js_safe_digit():
     """Test the cartographer.make_fname_js_safe functions."""
 
@@ -71,7 +68,6 @@ def test_make_fname_js_safe_digit():
 
 
 @pytest.mark.unit
-@pytest.mark.cartographer
 def test_make_fname_js_safe_dot_dash():
     """Test the cartographer.make_fname_js_safe functions."""
 
@@ -82,7 +78,6 @@ def test_make_fname_js_safe_dot_dash():
 
 
 @pytest.mark.unit
-@pytest.mark.cartographer
 def test_make_fname_js_safe_no_change():
     """Test the cartographer.make_fname_js_safe functions."""
 
@@ -93,7 +88,6 @@ def test_make_fname_js_safe_no_change():
 
 
 @pytest.mark.unit
-@pytest.mark.cartographer
 def test_make_fname_js_safe_no_change():
     """Test the cartographer.make_fname_js_safe functions."""
 
@@ -107,3 +101,11 @@ def test_make_fname_js_safe_no_change():
     helpers.tear_down()
 
     assert expected_shape == actual_shape
+
+@pytest.mark.unit
+def test_MockQueue():
+    bar = tqdm()
+
+    q = u.MockQueue(bar)
+    q.put(100)
+    assert q.bar.n==100
