@@ -209,7 +209,7 @@ You can search the catalogs by the ``id`` column from the catalog and FitsMap
 will locate and pan to the source in the map.
 
 
-Parallelization *(Linux/Mac Only)*
+Parallelization *(Linux Only)*
 **********************************
 
 FitsMap supports the parallelization(via ``multiprocessing``/``sharedmem``) of
