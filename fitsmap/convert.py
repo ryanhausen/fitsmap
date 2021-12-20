@@ -871,9 +871,12 @@ def tile_markers(
         total=max_zoom + 1 - min_zoom,
     )
 
-    q = mp.Queue()
-    monitor = mp.Process(target=procbar_listener, args=(q, bar))
-    monitor.start()
+    if mp_procs > 1:
+        q = mp.Queue()
+        monitor = mp.Process(target=procbar_listener, args=(q, bar))
+        monitor.start()
+    else:
+        q = utils.MockQueue(bar)
 
     # cluster the parsed sources
     # need to get super cluster stuff in here
@@ -888,10 +891,11 @@ def tile_markers(
         log=True,
     ).load(catalog_values)
 
-    # this kills the iter in the monitor process
-    q.put(None)
-    monitor.join()
-    del monitor
+    if mp_procs > 1:
+        # this kills the iter in the monitor process
+        q.put(None)
+        monitor.join()
+        del monitor
 
     # tile the sources and save using protobuf
     zs = range(min_zoom, max_zoom + 1)
