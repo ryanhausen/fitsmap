@@ -65,8 +65,6 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 # ==============================================================================
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
-LOAD_CATALOG_BEFORE_PARSING = False
-
 
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
@@ -173,9 +171,6 @@ def get_array(file_location: str) -> np.ndarray:
             shape = array.shape[:-1]
         elif len(array.shape) == 2:
             shape = array.shape
-        else:
-            # TODO: not sure this is ever reachable
-            raise ValueError("FitsMap only supports 2D and 3D images.")
 
     return balance_array(array)
 
@@ -221,14 +216,13 @@ def make_dirs(out_dir: str, min_zoom: int, max_zoom: int) -> None:
 
     row_count = lambda z: int(np.sqrt(4 ** z))
 
-    def sub_dir(f):
-        try:
-            os.makedirs(os.path.join(out_dir, f))
-        except FileExistsError:
-            pass
-
     def build_z_ys(z, ys):
-        list(map(lambda y: sub_dir(f"{z}/{y}"), ys))
+        list(
+            map(
+                lambda y: os.makedirs(os.path.join(out_dir, f"{z}/{y}"), exist_ok=True),
+                ys,
+            )
+        )
 
     def build_zs(z):
         ys = range(row_count(z))
@@ -390,9 +384,7 @@ def make_tile_pil(
     del tile
 
     img.thumbnail([256, 256], Image.LANCZOS)
-    if img.mode != "RGBA":
-        img = img.convert("RGBA")
-    img.save(img_path, "PNG")
+    img.convert("RGBA").save(img_path, "PNG")
     del img
 
 
@@ -660,38 +652,26 @@ def process_catalog_file_chunk(
     f.readline()  # id start==0 skip cols, else advance to next complete line
 
     json_lines = []
+    raw_lines = []
 
-    if LOAD_CATALOG_BEFORE_PARSING:
-        raw_lines = f.readlines(end - start)
-        reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
+    reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
+    current = f.tell()
+    update_every = 10000
+    count = 1
 
-        update_every = 1000
-        count = 1
-        for line in reader:
-            json_lines.append(process_f(line))
-            count += 1
-            if count % update_every == 0:
-                process_catalog_file_chunk.q.put(count)
-                count = 1
-
-    else:
-        raw_lines = []
-        reader = csv.reader(raw_lines, delimiter=delimiter, skipinitialspace=True)
+    while current < end:
+        raw_lines.append(f.readline().strip())
+        processed_lines = next(reader)
+        json_lines.append(process_f(processed_lines))
         current = f.tell()
-        update_every = 10000
-        count = 1
-        while current < end:
-            raw_lines.append(f.readline().strip())
-            processed_lines = next(reader)
-            json_lines.append(process_f(processed_lines))
-            current = f.tell()
-            count += 1
-            if count % update_every == 0:
-                process_catalog_file_chunk.q.put(count)
-                count = 1
-
-        if count > 1:
+        count += 1
+        if count % update_every == 0:
             process_catalog_file_chunk.q.put(count)
+            count = 1
+
+    if count > 1:
+        process_catalog_file_chunk.q.put(count)
+
     f.close()
     return json_lines
 
@@ -921,9 +901,7 @@ def tile_markers(
         disable=bool(os.getenv("DISBALE_TQDM", False)),
     )
 
-    # the super cluster object can be very large, so this may not be worth
-    # eating up memory, set to False
-    if False:
+    if mp_procs > 1:
         with Pool(mp_procs) as p:
             list(p.imap_unordered(tile_f, tracked_collection, chunksize=100))
     else:

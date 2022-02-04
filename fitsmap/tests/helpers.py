@@ -138,10 +138,13 @@ def get_slice_idx_generator_solution(zoom: int):
 def compare_file_directories(dir1, dir2):
     def recursive_diff(dir_compare):
         if dir_compare.subdirs:
-            print(dir_compare.subdirs)
+            # print(dir_compare.subdirs)
             sub_match = all(map(recursive_diff, dir_compare.subdirs.values()))
         else:
             sub_match = True
+
+        if len(dir_compare.diff_files):
+            print(dir_compare.diff_files)
 
         return sub_match and len(dir_compare.diff_files) == 0
 

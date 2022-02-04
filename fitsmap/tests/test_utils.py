@@ -25,6 +25,7 @@ import fitsmap.utils as u
 import fitsmap.tests.helpers as helpers
 from tqdm import tqdm
 
+
 @pytest.mark.unit
 def test_build_digit_to_string():
     """test cartographer.build_digit_to_string"""
@@ -102,10 +103,11 @@ def test_make_fname_js_safe_no_change():
 
     assert expected_shape == actual_shape
 
+
 @pytest.mark.unit
 def test_MockQueue():
     bar = tqdm()
 
     q = u.MockQueue(bar)
     q.put(100)
-    assert q.bar.n==100
+    assert q.bar.n == 100
