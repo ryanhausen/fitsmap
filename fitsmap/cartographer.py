@@ -252,7 +252,7 @@ def build_conditional_js(out_dir: str) -> str:
 
     local_js_files = list(
         sorted(
-            filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir))
+            filter(lambda f: f.endswith(".min.js"), os.listdir(support_dir))
         )
     )
 
