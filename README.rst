@@ -63,6 +63,7 @@ Requirements:
 - ``tqdm``
 - ``click``
 - ``mapbox_vector_tile``
+- ``cbor2``
 
 Use ``pip`` to install
 

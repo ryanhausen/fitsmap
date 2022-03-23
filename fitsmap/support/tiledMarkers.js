@@ -6,6 +6,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         tileURL: "",
         color: "#4C72B0",
         rowsPerCol: Infinity,
+        catalogColumns: [],
     },
 
     initialize: function(options) {
@@ -15,9 +16,11 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
 
     convertJSONtoHTMLTable: function(json) {
         // these are extra keys used for the search function
-        const dontDisplay = ["fm_y", "fm_x", "fm_cat"]
-        const nItems = Object.keys(json).length - dontDisplay.length;
+        // const dontDisplay = ["fm_y", "fm_x", "fm_cat"]
+        // const nItems = Object.keys(json).length - dontDisplay.length;
+        const nItems = this.options.catalogColumns.length;
         const rowsPerCol = this.options.rowsPerColumn;
+        const values = json["v"];
 
         let nCols = Math.floor(nItems / (Number.isFinite(rowsPerCol) ? rowsPerCol : nItems));
         // console.log(nCols);
@@ -28,24 +31,23 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         let html = "<span>Catalog Information</span>" +
                     "<table class='catalog-table'>";
 
-        const display_keys = Object.keys(json).filter(k => {return !dontDisplay.includes(k)});
+        // const display_keys = catalogColumns.filter(k => {return !dontDisplay.includes(k)});
         // console.log(display_keys);
 
         let colCounter = 0;
-        display_keys.forEach(key => {
-            // console.log(key);
-            if (colCounter==0){
-                html += "<tr>"
-            }
+        html += "<tr>";
+        for (let i = 0; i < nItems; i++){
+            let key = this.options.catalogColumns[i];
+            let value = values[i];
 
-            html += `<td><b>${key}:<b></td><td>${json[key]}</td>`;
+            html += `<td><b>${key}:<b></td><td>${value}</td>`;
 
             colCounter += 1;
             if (colCounter == nCols){
                 colCounter = 0;
                 html += "</tr>";
             }
-        });
+        }
 
         html += "</table>";
 
@@ -61,15 +63,17 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
                 console.log(response);
                 throw new Error("Failed to fetch JSON", response);
             }
-            return response.json();
+            return response.arrayBuffer();
+        }).then(buffer =>{
+            return cbor.decodeAll(buffer);
         }).then(json => {
-            popup.setContent(_this.convertJSONtoHTMLTable(json)).update();
+            popup.setContent(_this.convertJSONtoHTMLTable(json[0])).update();
         })
         .catch((error) => {
             console.log("ERROR in Popup Rendering", error);
         });
 
-        console.log(marker);
+        // console.log(marker);
 
         // https://stackoverflow.com/a/51749619/2691018
         document.querySelector(".leaflet-popup-pane").addEventListener("load", function(event) {
@@ -96,12 +100,12 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             if (src.a==-1){
                 return L.circleMarker(latlng, {
                     color: this.options.color,
-                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.json`
+                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`
                 }).bindPopup(p);
             } else {
                 return L.ellipse(latlng, [src.a, src.b], (src.theta * (180/Math.PI) * -1), {
                     color: this.options.color,
-                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.json`
+                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`
                 }).bindPopup(p);
             }
         }

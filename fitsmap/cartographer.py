@@ -27,9 +27,9 @@
 
 import os
 import shutil
-from itertools import count, repeat, starmap
+from itertools import count, cycle, repeat, starmap
 from functools import partial, reduce
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 from astropy.wcs import WCS
@@ -59,7 +59,7 @@ def chart(
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
     zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)))
     zooms = [0] if len(zooms) == 0 else zooms
-    convert_layer_name_func = partial(layer_name_to_dict, min(zooms), max(zooms))
+    convert_layer_name_func = partial(layer_name_to_dict, out_dir, min(zooms), max(zooms))
     img_layer_dicts = list(
         starmap(convert_layer_name_func, zip(img_layer_names, repeat(None)))
     )
@@ -89,7 +89,7 @@ def chart(
     # HTML file contents =======================================================
 
 
-def layer_name_to_dict(min_zoom: int, max_zoom: int, name: str, color: str,) -> dict:
+def layer_name_to_dict(out_dir:str, min_zoom: int, max_zoom: int, name: str, color: str,) -> dict:
     """Convert layer name to dict for conversion."""
 
     layer_dict = dict(
@@ -102,6 +102,13 @@ def layer_name_to_dict(min_zoom: int, max_zoom: int, name: str, color: str,) -> 
     if color:
         layer_dict["color"] = color
         layer_dict["directory"] = layer_dict["directory"].replace("png", "pbf")
+
+        cat_col_path = os.path.join(out_dir, f"{name}.columns")
+        with open(cat_col_path, "r") as f:
+            columns = f.readline().strip().split(",")
+            layer_dict["columns"] = [f'"{c}"' for c in columns]
+        os.remove(cat_col_path)
+
 
     return layer_dict
 
@@ -134,6 +141,7 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
         'tileURL:"' + layer["directory"] + '", ',
         'color: "' + layer["color"] + '", ',
         f"rowsPerColumn: {rpc_str}, ",
+        f'catalogColumns: [{",".join(layer["columns"])}],',
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
@@ -143,8 +151,8 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
     return "".join(layer_str)
 
 
-def get_colors() -> List[str]:
-    return [
+def get_colors() -> Iterable[str]:
+    return cycle([
         "#4C72B0",
         "#DD8452",
         "#55A868",
@@ -155,7 +163,7 @@ def get_colors() -> List[str]:
         "#8C8C8C",
         "#CCB974",
         "#64B5CD",
-    ]
+    ])
 
 
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
@@ -271,6 +279,7 @@ def build_conditional_js(out_dir: str) -> str:
     remote_js = [
         '    <script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js", crossorigin=""></script>',
         '    <script src="https://cdn.jsdelivr.net/npm/leaflet-search" crossorigin=""></script>',
+        '    <script src="https://unpkg.com/cbor-web@8.1.0/dist/cbor.js"></script>',
     ]
 
     js_string = "    <script src='js/{}'></script>"

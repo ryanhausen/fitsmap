@@ -33,12 +33,13 @@ import fitsmap.tests.helpers as helpers
 @pytest.mark.cartographer
 def test_layer_name_to_dict_image():
     """test cartographer.layer_name_to_dict"""
+    out_dir = "."
     min_zoom = 0
     max_zoom = 2
     name = "test"
     color = ""  # "#4C72B0"
 
-    actual_dict = c.layer_name_to_dict(min_zoom, max_zoom, name, color)
+    actual_dict = c.layer_name_to_dict(out_dir, min_zoom, max_zoom, name, color)
 
     expected_dict = dict(
         directory=name + "/{z}/{y}/{x}.png",
@@ -55,12 +56,18 @@ def test_layer_name_to_dict_image():
 @pytest.mark.cartographer
 def test_layer_name_to_dict_catalog():
     """test cartographer.layer_name_to_dict"""
+    helpers.setup()
+    out_dir = helpers.DATA_DIR
     min_zoom = 0
     max_zoom = 2
     name = "test"
     color = "#4C72B0"
+    columns="a,b,c"
 
-    actual_dict = c.layer_name_to_dict(min_zoom, max_zoom, name, color)
+    with open(os.path.join(out_dir,f"{name}.columns"), "w") as f:
+        f.write(columns)
+
+    actual_dict = c.layer_name_to_dict(out_dir, min_zoom, max_zoom, name, color)
 
     expected_dict = dict(
         directory=name + "/{z}/{y}/{x}.pbf",
@@ -69,7 +76,10 @@ def test_layer_name_to_dict_catalog():
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
         color=color,
+        columns=[f'"{c}"' for c in columns.split(",")]
     )
+
+    helpers.tear_down()
 
     assert expected_dict == actual_dict
 
@@ -119,6 +129,7 @@ def test_cat_layer_dict_to_str():
     min_zoom = 0
     max_zoom = 2
     name = "test"
+    columns="a,b,c"
 
     layer_dict = dict(
         directory=name + "/{z}/{y}/{x}.png",
@@ -127,6 +138,7 @@ def test_cat_layer_dict_to_str():
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
         color="red",
+        columns=[f'"{c}"' for c in columns.split(",")]
     )
 
     actual_str = c.cat_layer_dict_to_str(layer_dict, float("inf"))
@@ -139,12 +151,15 @@ def test_cat_layer_dict_to_str():
             'tileURL:"' + layer_dict["directory"] + '", ',
             'color: "' + layer_dict["color"] + '", ',
             f"rowsPerColumn: Infinity, ",
+            f'catalogColumns: [{",".join(layer_dict["columns"])}],',
             "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
             "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
             "});",
         ]
     )
+
+    helpers.tear_down()
 
     assert expected_str == actual_str
 
@@ -205,7 +220,9 @@ def test_get_colors():
         "#64B5CD",
     ]
 
-    assert expected == c.get_colors()
+    color_iter = c.get_colors()
+
+    assert expected == [next(color_iter) for _ in range(len(expected))]
 
 
 @pytest.mark.unit
@@ -307,6 +324,7 @@ def test_build_conditional_js():
         [
             '    <script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js", crossorigin=""></script>',
             '    <script src="https://cdn.jsdelivr.net/npm/leaflet-search" crossorigin=""></script>',
+            '    <script src="https://unpkg.com/cbor-web@8.1.0/dist/cbor.js"></script>',
             "    <script src='js/customSearch.min.js'></script>",
             "    <script src='js/l.ellipse.min.js'></script>",
             "    <script src='js/tiledMarkers.min.js'></script>",
@@ -395,6 +413,11 @@ def test_chart_no_wcs():
     map_layer_names = "test_layer"
     marker_file_names = "test_marker"
     wcs = None
+    columns="a,b,c"
+
+    with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
+        f.write(columns)
+
 
     list(
         map(
@@ -446,6 +469,10 @@ def test_chart_with_wcs():
     map_layer_names = "test_layer"
     marker_file_names = "test_marker"
     wcs = WCS(os.path.join(out_dir, "test_image.fits"))
+    columns="a,b,c"
+
+    with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
+        f.write(columns)
 
     list(
         map(
