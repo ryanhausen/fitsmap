@@ -296,15 +296,14 @@ def test_build_conditional_css():
 
     actual_css = c.build_conditional_css(helpers.TEST_PATH)
 
-    expected_css = "\n".join(
-        [
-            "    <link rel='stylesheet' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'/>",
-            "    <link rel='stylesheet' href='css/MarkerCluster.Default.css'/>",
-            "    <link rel='stylesheet' href='css/MarkerCluster.css'/>",
-            "    <link rel='stylesheet' href='css/MarkerPopup.css'/>",
-            "    <link rel='stylesheet' href='css/TileNearestNeighbor.css'/>",
-        ]
-    )
+    expected_css = "\n".join([
+        "    <link rel='preload' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+        "    <link rel='preload' href='css/MarkerCluster.Default.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+        "    <link rel='preload' href='css/MarkerCluster.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+        "    <link rel='preload' href='css/MarkerPopup.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+        "    <link rel='preload' href='css/TileNearestNeighbor.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+    ])
+
 
     helpers.tear_down()
 
@@ -320,17 +319,18 @@ def test_build_conditional_js():
 
     acutal_js = c.build_conditional_js(helpers.TEST_PATH)
 
-    expected_js = "\n".join(
-        [
-            '    <script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js", crossorigin=""></script>',
-            '    <script src="https://cdn.jsdelivr.net/npm/leaflet-search" crossorigin=""></script>',
-            '    <script src="https://unpkg.com/cbor-web@8.1.0/dist/cbor.js"></script>',
-            "    <script src='js/customSearch.min.js'></script>",
-            "    <script src='js/l.ellipse.min.js'></script>",
-            "    <script src='js/tiledMarkers.min.js'></script>",
-            "    <script src='js/vector-tile.min.js'></script>",
-        ]
-    )
+    expected_js = "\n".join([
+        "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js'></script>",
+        "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js'></script>",
+        "    <script defer src='js/customSearch.min.js'></script>",
+        "    <script defer src='js/tiledMarkers.min.js'></script>",
+        "    <script defer src='js/urlCoords.js'></script>",
+        "    <script defer src='js/index.js'></script>",
+        "    <script defer src='https://unpkg.com/cbor-web@8.1.0/dist/cbor.js'></script>",
+        "    <script defer src='https://unpkg.com/pbf@3.0.5/dist/pbf.js'></script>",
+        "    <script defer src='js/l.ellipse.min.js'></script>",
+        "    <script defer src='js/vector-tile.min.js'></script>",
+    ])
 
     helpers.tear_down()
 
@@ -367,31 +367,31 @@ def test_build_html():
     expected_html = "\n".join(
         [
             "<!DOCTYPE html>",
-            "<html>",
+            '<html lang="en">',
             "<head>",
             "    <title>{}</title>".format(title),
             '    <meta charset="utf-8" />',
             '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
             '    <link rel="shortcut icon" type="image/x-icon" href="imgs/favicon.ico" />',
-            '    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
+            '    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.css" integrity="sha512-1xoFisiGdy9nvho8EgXuXvnpR5GAMSjFwp40gSRE3NwdUdIMIKuPa7bqoUhLD0O/5tPNhteAsE5XyyMi5reQVA==" crossorigin="anonymous" referrerpolicy="no-referrer" as="style" onload="this.rel=\'stylesheet\'"/>',
             extra_css,
-            "    <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",
+            '    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js" integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>',
             extra_js,
             "    <style>",
-            "        html, body {",
-            "            height: 100%;",
-            "            margin: 0;",
-            "        }",
-            "        #map {",
-            "            width: 100%;",
-            "            height: 100%;",
-            "        }",
+            "        /* Map */",
+            r"        html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
+            "        /* Loading Page */",
+            r"        .overlay{background:#fff;height:100vh;width:100%;position:absolute}.brand{position:absolute;top:100px;left:50%;transform:translateX(-50%)}.brand img{width:100%;height:auto}.loadingtext{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:xx-large}.loading{position:absolute;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);-moz-transform:translate(-50%,-50%);-ms-transform:translate(-50%,-50%);-o-transform:translate(-50%,-50%);transform:translate(-50%,-50%);border-bottom:16px solid #0044aaff;border-top:16px solid #0044aaff;border-left:16px solid #80b3ffff;border-right:16px solid #80b3ffff;width:250px;height:250px;-webkit-border-radius:50%;-moz-border-radius:50%;border-radius:50%;-webkit-animation:rotate 1s ease-in-out infinite;-o-animation:rotate 1s ease-in-out infinite;animation:rotate 1s ease-in-out infinite}",
+            r"        @keyframes rotate{0%{-webkit-transform:translate(-50%,-50%) rotate(0deg);-moz-transform:translate(-50%,-50%) rotate(0deg);-ms-transform:translate(-50%,-50%) rotate(0deg);-o-transform:translate(-50%,-50%) rotate(0deg);transform:translate(-50%,-50%) rotate(0deg)}100%{-webkit-transform:translate(-50%,-50%) rotate(360deg);-moz-transform:translate(-50%,-50%) rotate(360deg);-ms-transform:translate(-50%,-50%) rotate(360deg);-o-transform:translate(-50%,-50%) rotate(360deg);transform:translate(-50%,-50%) rotate(360deg)}}",
             "    </style>",
             "</head>",
             "<body>",
+        '    <div id="loading-screen" class="overlay">',
+        '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
+        '        <div class="loading"></div>',
+        '        <div class="loadingtext">Loading...</div>',
+        '    </div>',
             '    <div id="map"></div>',
-            '    <script src="js/urlCoords.js"></script>',
-            '    <script src="js/index.js"></script>',
             "</body>",
             f"<!--Made with fitsmap v{helpers.get_version()}-->",
             "</html>\n",

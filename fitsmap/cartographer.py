@@ -292,7 +292,7 @@ def build_conditional_js(out_dir: str) -> str:
     # sucessfully run. Other files get placed after index.js so that the map
     # can load first and then those will load in the background
     pre_index_files = [
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.3.4/leaflet.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js",
         "https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js",
         "js/customSearch.min.js",
         "js/tiledMarkers.min.js",
@@ -449,7 +449,6 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         '    <link rel="shortcut icon" type="image/x-icon" href="imgs/favicon.ico" />',
         '    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.css" integrity="sha512-1xoFisiGdy9nvho8EgXuXvnpR5GAMSjFwp40gSRE3NwdUdIMIKuPa7bqoUhLD0O/5tPNhteAsE5XyyMi5reQVA==" crossorigin="anonymous" referrerpolicy="no-referrer" as="style" onload="this.rel=\'stylesheet\'"/>',
         extra_css,
-
         '    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js" integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>',
         extra_js,
         "    <style>",
@@ -465,7 +464,7 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
         '        <div class="loading"></div>',
         '        <div class="loadingtext">Loading...</div>',
-        '    </div>'
+        '    </div>',
         '    <div id="map"></div>',
         "</body>",
         f"<!--Made with fitsmap v{utils.get_version()}-->",
