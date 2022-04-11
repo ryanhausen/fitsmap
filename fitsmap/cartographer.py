@@ -208,7 +208,7 @@ def loading_screen_js(tile_layers: List[dict]):
     return js
 
 def move_support_images(out_dir: str) -> List[str]:
-    img_extensions = [".png", ".jpg", ".ico"]
+    img_extensions = [".png", ".jpg", ".ico", ".svg"]
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_img_dir = os.path.join(out_dir, "imgs")

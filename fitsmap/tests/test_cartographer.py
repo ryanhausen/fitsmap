@@ -346,7 +346,7 @@ def test_move_support_images():
 
     actual_moved_images = c.move_support_images(helpers.TEST_PATH)
 
-    expected_moved_images = ["favicon.ico"]
+    expected_moved_images = ["favicon.ico", "loading-logo.svg"]
 
     helpers.tear_down()
 
