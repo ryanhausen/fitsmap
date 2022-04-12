@@ -62,9 +62,9 @@ def test_layer_name_to_dict_catalog():
     max_zoom = 2
     name = "test"
     color = "#4C72B0"
-    columns="a,b,c"
+    columns = "a,b,c"
 
-    with open(os.path.join(out_dir,f"{name}.columns"), "w") as f:
+    with open(os.path.join(out_dir, f"{name}.columns"), "w") as f:
         f.write(columns)
 
     actual_dict = c.layer_name_to_dict(out_dir, min_zoom, max_zoom, name, color)
@@ -76,7 +76,7 @@ def test_layer_name_to_dict_catalog():
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
         color=color,
-        columns=[f'"{c}"' for c in columns.split(",")]
+        columns=[f'"{c}"' for c in columns.split(",")],
     )
 
     helpers.tear_down()
@@ -129,7 +129,7 @@ def test_cat_layer_dict_to_str():
     min_zoom = 0
     max_zoom = 2
     name = "test"
-    columns="a,b,c"
+    columns = "a,b,c"
 
     layer_dict = dict(
         directory=name + "/{z}/{y}/{x}.png",
@@ -138,7 +138,7 @@ def test_cat_layer_dict_to_str():
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
         color="red",
-        columns=[f'"{c}"' for c in columns.split(",")]
+        columns=[f'"{c}"' for c in columns.split(",")],
     )
 
     actual_str = c.cat_layer_dict_to_str(layer_dict, float("inf"))
@@ -296,14 +296,15 @@ def test_build_conditional_css():
 
     actual_css = c.build_conditional_css(helpers.TEST_PATH)
 
-    expected_css = "\n".join([
-        "    <link rel='preload' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
-        "    <link rel='preload' href='css/MarkerCluster.Default.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
-        "    <link rel='preload' href='css/MarkerCluster.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
-        "    <link rel='preload' href='css/MarkerPopup.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
-        "    <link rel='preload' href='css/TileNearestNeighbor.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
-    ])
-
+    expected_css = "\n".join(
+        [
+            "    <link rel='preload' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/MarkerCluster.Default.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/MarkerCluster.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/MarkerPopup.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/TileNearestNeighbor.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+        ]
+    )
 
     helpers.tear_down()
 
@@ -319,18 +320,20 @@ def test_build_conditional_js():
 
     acutal_js = c.build_conditional_js(helpers.TEST_PATH)
 
-    expected_js = "\n".join([
-        "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js'></script>",
-        "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js'></script>",
-        "    <script defer src='js/customSearch.min.js'></script>",
-        "    <script defer src='js/tiledMarkers.min.js'></script>",
-        "    <script defer src='js/urlCoords.js'></script>",
-        "    <script defer src='js/index.js'></script>",
-        "    <script defer src='https://unpkg.com/cbor-web@8.1.0/dist/cbor.js'></script>",
-        "    <script defer src='https://unpkg.com/pbf@3.0.5/dist/pbf.js'></script>",
-        "    <script defer src='js/l.ellipse.min.js'></script>",
-        "    <script defer src='js/vector-tile.min.js'></script>",
-    ])
+    expected_js = "\n".join(
+        [
+            "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js'></script>",
+            "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js'></script>",
+            "    <script defer src='js/customSearch.min.js'></script>",
+            "    <script defer src='js/tiledMarkers.min.js'></script>",
+            "    <script defer src='js/urlCoords.js'></script>",
+            "    <script defer src='js/index.js'></script>",
+            "    <script defer src='https://unpkg.com/cbor-web@8.1.0/dist/cbor.js'></script>",
+            "    <script defer src='https://unpkg.com/pbf@3.0.5/dist/pbf.js'></script>",
+            "    <script defer src='js/l.ellipse.min.js'></script>",
+            "    <script defer src='js/vector-tile.min.js'></script>",
+        ]
+    )
 
     helpers.tear_down()
 
@@ -386,11 +389,11 @@ def test_build_html():
             "    </style>",
             "</head>",
             "<body>",
-        '    <div id="loading-screen" class="overlay">',
-        '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
-        '        <div class="loading"></div>',
-        '        <div class="loadingtext">Loading...</div>',
-        '    </div>',
+            '    <div id="loading-screen" class="overlay">',
+            '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
+            '        <div class="loading"></div>',
+            '        <div class="loadingtext">Loading...</div>',
+            "    </div>",
             '    <div id="map"></div>',
             "</body>",
             f"<!--Made with fitsmap v{helpers.get_version()}-->",
@@ -413,11 +416,10 @@ def test_chart_no_wcs():
     map_layer_names = "test_layer"
     marker_file_names = "test_marker"
     wcs = None
-    columns="a,b,c"
+    columns = "a,b,c"
 
     with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
         f.write(columns)
-
 
     list(
         map(
@@ -469,7 +471,7 @@ def test_chart_with_wcs():
     map_layer_names = "test_layer"
     marker_file_names = "test_marker"
     wcs = WCS(os.path.join(out_dir, "test_image.fits"))
-    columns="a,b,c"
+    columns = "a,b,c"
 
     with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
         f.write(columns)

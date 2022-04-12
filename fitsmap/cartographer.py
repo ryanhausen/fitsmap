@@ -59,7 +59,9 @@ def chart(
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
     zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)))
     zooms = [0] if len(zooms) == 0 else zooms
-    convert_layer_name_func = partial(layer_name_to_dict, out_dir, min(zooms), max(zooms))
+    convert_layer_name_func = partial(
+        layer_name_to_dict, out_dir, min(zooms), max(zooms)
+    )
     img_layer_dicts = list(
         starmap(convert_layer_name_func, zip(img_layer_names, repeat(None)))
     )
@@ -89,7 +91,9 @@ def chart(
     # HTML file contents =======================================================
 
 
-def layer_name_to_dict(out_dir:str, min_zoom: int, max_zoom: int, name: str, color: str,) -> dict:
+def layer_name_to_dict(
+    out_dir: str, min_zoom: int, max_zoom: int, name: str, color: str,
+) -> dict:
     """Convert layer name to dict for conversion."""
 
     layer_dict = dict(
@@ -108,7 +112,6 @@ def layer_name_to_dict(out_dir:str, min_zoom: int, max_zoom: int, name: str, col
             columns = f.readline().strip().split(",")
             layer_dict["columns"] = [f'"{c}"' for c in columns]
         os.remove(cat_col_path)
-
 
     return layer_dict
 
@@ -152,18 +155,20 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
 
 
 def get_colors() -> Iterable[str]:
-    return cycle([
-        "#4C72B0",
-        "#DD8452",
-        "#55A868",
-        "#C44E52",
-        "#8172B3",
-        "#937860",
-        "#DA8BC3",
-        "#8C8C8C",
-        "#CCB974",
-        "#64B5CD",
-    ])
+    return cycle(
+        [
+            "#4C72B0",
+            "#DD8452",
+            "#55A868",
+            "#C44E52",
+            "#8172B3",
+            "#937860",
+            "#DA8BC3",
+            "#8C8C8C",
+            "#CCB974",
+            "#64B5CD",
+        ]
+    )
 
 
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
@@ -201,11 +206,12 @@ def loading_screen_js(tile_layers: List[dict]):
             f'{tile_layers[0]["name"]}.on("load", () => {{',
             '    document.getElementById("loading-screen").style.visibility = "hidden";',
             '    document.getElementById("map").style.visibility = "visible";',
-            "});"
+            "});",
         ]
     )
 
     return js
+
 
 def move_support_images(out_dir: str) -> List[str]:
     img_extensions = [".png", ".jpg", ".ico", ".svg"]
@@ -243,9 +249,7 @@ def build_conditional_css(out_dir: str) -> str:
     out_css_dir = os.path.join(out_dir, "css")
 
     local_css_files = list(
-        filter(
-            lambda f: f.endswith(".min.css"), sorted(os.listdir(support_dir))
-        )
+        filter(lambda f: f.endswith(".min.css"), sorted(os.listdir(support_dir)))
     )
 
     if not os.path.exists(out_css_dir):
@@ -271,9 +275,7 @@ def build_conditional_js(out_dir: str) -> str:
     out_js_dir = os.path.join(out_dir, "js")
 
     local_js_files = list(
-        sorted(
-            filter(lambda f: f.endswith(".min.js"), os.listdir(support_dir))
-        )
+        sorted(filter(lambda f: f.endswith(".min.js"), os.listdir(support_dir)))
     )
 
     if not os.path.exists(out_js_dir):
@@ -308,7 +310,9 @@ def build_conditional_js(out_dir: str) -> str:
     ]
 
     js_string = "    <script defer src='{}'></script>"
-    js_tags = list(map(lambda s: js_string.format(s), pre_index_files + post_index_files))
+    js_tags = list(
+        map(lambda s: js_string.format(s), pre_index_files + post_index_files)
+    )
 
     return "\n".join(js_tags)
 
@@ -423,8 +427,7 @@ def build_index_js(
             "",
             "// Map event setup =============================================================",
             loading_screen_js(image_layer_dicts),
-            ""
-            'map.on("moveend", updateLocationBar);',
+            "" 'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
             "",
             'if (urlParam("zoom")==null) {',
@@ -464,7 +467,7 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
         '        <div class="loading"></div>',
         '        <div class="loadingtext">Loading...</div>',
-        '    </div>',
+        "    </div>",
         '    <div id="map"></div>',
         "</body>",
         f"<!--Made with fitsmap v{utils.get_version()}-->",

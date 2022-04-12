@@ -67,6 +67,7 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 
+
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
 
@@ -635,7 +636,7 @@ def line_to_json(
 
     src_json = os.path.join(catalog_assets_path, f"{src_id}.cbor")
     with open(src_json, "wb") as f:
-        cbor2.dump(dict(id=src_id,v=src_vals), f)
+        cbor2.dump(dict(id=src_id, v=src_vals), f)
 
     return dict(
         geometry=dict(coordinates=[x, y],),

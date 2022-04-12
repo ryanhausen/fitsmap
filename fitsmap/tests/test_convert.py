@@ -806,7 +806,7 @@ def test_dir_to_map():
         in_dir,
         out_dir=out_dir,
         catalog_delim=" ",
-        cat_wcs_fits_file=with_path("test_image.fits")
+        cat_wcs_fits_file=with_path("test_image.fits"),
     )
 
     actual_dir = out_dir
