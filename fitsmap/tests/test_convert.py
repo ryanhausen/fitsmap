@@ -679,7 +679,7 @@ def test_tile_img_mpl_parallel():
     assert dirs_match
 
 
-@pytest.mark.integration
+# @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_files_to_map():

@@ -27,9 +27,9 @@
 
 import os
 import shutil
-from itertools import count, repeat, starmap
+from itertools import count, cycle, repeat, starmap
 from functools import partial, reduce
-from typing import Dict, List, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import numpy as np
 from astropy.wcs import WCS
@@ -59,7 +59,7 @@ def chart(
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
     zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)))
     zooms = [0] if len(zooms) == 0 else zooms
-    convert_layer_name_func = partial(layer_name_to_dict, min(zooms), max(zooms))
+    convert_layer_name_func = partial(layer_name_to_dict, out_dir, min(zooms), max(zooms))
     img_layer_dicts = list(
         starmap(convert_layer_name_func, zip(img_layer_names, repeat(None)))
     )
@@ -89,7 +89,7 @@ def chart(
     # HTML file contents =======================================================
 
 
-def layer_name_to_dict(min_zoom: int, max_zoom: int, name: str, color: str,) -> dict:
+def layer_name_to_dict(out_dir:str, min_zoom: int, max_zoom: int, name: str, color: str,) -> dict:
     """Convert layer name to dict for conversion."""
 
     layer_dict = dict(
@@ -102,6 +102,13 @@ def layer_name_to_dict(min_zoom: int, max_zoom: int, name: str, color: str,) -> 
     if color:
         layer_dict["color"] = color
         layer_dict["directory"] = layer_dict["directory"].replace("png", "pbf")
+
+        cat_col_path = os.path.join(out_dir, f"{name}.columns")
+        with open(cat_col_path, "r") as f:
+            columns = f.readline().strip().split(",")
+            layer_dict["columns"] = [f'"{c}"' for c in columns]
+        os.remove(cat_col_path)
+
 
     return layer_dict
 
@@ -134,6 +141,7 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
         'tileURL:"' + layer["directory"] + '", ',
         'color: "' + layer["color"] + '", ',
         f"rowsPerColumn: {rpc_str}, ",
+        f'catalogColumns: [{",".join(layer["columns"])}],',
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
@@ -143,8 +151,8 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
     return "".join(layer_str)
 
 
-def get_colors() -> List[str]:
-    return [
+def get_colors() -> Iterable[str]:
+    return cycle([
         "#4C72B0",
         "#DD8452",
         "#55A868",
@@ -155,7 +163,7 @@ def get_colors() -> List[str]:
         "#8C8C8C",
         "#CCB974",
         "#64B5CD",
-    ]
+    ])
 
 
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
@@ -187,8 +195,20 @@ def leaflet_map_js(tile_layers: List[dict]):
     return js
 
 
+def loading_screen_js(tile_layers: List[dict]):
+    js = "\n".join(
+        [
+            f'{tile_layers[0]["name"]}.on("load", () => {{',
+            '    document.getElementById("loading-screen").style.visibility = "hidden";',
+            '    document.getElementById("map").style.visibility = "visible";',
+            "});"
+        ]
+    )
+
+    return js
+
 def move_support_images(out_dir: str) -> List[str]:
-    img_extensions = [".png", ".jpg", ".ico"]
+    img_extensions = [".png", ".jpg", ".ico", ".svg"]
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_img_dir = os.path.join(out_dir, "imgs")
@@ -217,14 +237,14 @@ def move_support_images(out_dir: str) -> List[str]:
 def build_conditional_css(out_dir: str) -> str:
 
     search_css = "https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css"
-    css_string = "    <link rel='stylesheet' href='{}'/>"
+    css_string = "    <link rel='preload' href='{}'  as='style' onload='this.rel=\"stylesheet\"'/>"
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_css_dir = os.path.join(out_dir, "css")
 
     local_css_files = list(
         filter(
-            lambda f: os.path.splitext(f)[1] == ".css", sorted(os.listdir(support_dir))
+            lambda f: f.endswith(".min.css"), sorted(os.listdir(support_dir))
         )
     )
 
@@ -252,7 +272,7 @@ def build_conditional_js(out_dir: str) -> str:
 
     local_js_files = list(
         sorted(
-            filter(lambda f: os.path.splitext(f)[1] == ".js", os.listdir(support_dir))
+            filter(lambda f: f.endswith(".min.js"), os.listdir(support_dir))
         )
     )
 
@@ -268,15 +288,29 @@ def build_conditional_js(out_dir: str) -> str:
         )
     )
 
-    remote_js = [
-        '    <script src="https://unpkg.com/pbf@3.0.5/dist/pbf.js", crossorigin=""></script>',
-        '    <script src="https://cdn.jsdelivr.net/npm/leaflet-search" crossorigin=""></script>',
+    # some files have to be loaded before index.js, so that index.js can
+    # sucessfully run. Other files get placed after index.js so that the map
+    # can load first and then those will load in the background
+    pre_index_files = [
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js",
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js",
+        "js/customSearch.min.js",
+        "js/tiledMarkers.min.js",
+        "js/urlCoords.js",
+        "js/index.js",
     ]
 
-    js_string = "    <script src='js/{}'></script>"
-    local_js = list(map(lambda s: js_string.format(s), local_js_files))
+    post_index_files = [
+        "https://unpkg.com/cbor-web@8.1.0/dist/cbor.js",
+        "https://unpkg.com/pbf@3.0.5/dist/pbf.js",
+        "js/l.ellipse.min.js",
+        "js/vector-tile.min.js",
+    ]
 
-    return "\n".join(remote_js + local_js)
+    js_string = "    <script defer src='{}'></script>"
+    js_tags = list(map(lambda s: js_string.format(s), pre_index_files + post_index_files))
+
+    return "\n".join(js_tags)
 
 
 def leaflet_layer_control_declaration(
@@ -388,6 +422,8 @@ def build_index_js(
             else "",
             "",
             "// Map event setup =============================================================",
+            loading_screen_js(image_layer_dicts),
+            ""
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
             "",
@@ -405,31 +441,31 @@ def build_index_js(
 def build_html(title: str, extra_js: str, extra_css: str) -> str:
     html = [
         "<!DOCTYPE html>",
-        "<html>",
+        '<html lang="en">',
         "<head>",
         "    <title>{}</title>".format(title),
         '    <meta charset="utf-8" />',
         '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
         '    <link rel="shortcut icon" type="image/x-icon" href="imgs/favicon.ico" />',
-        '    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.3.4/dist/leaflet.css" integrity="sha512-puBpdR0798OZvTTbP4A8Ix/l+A4dHDD0DGqYW6RQ+9jxkRFclaxxQb/SJAWZfWAkuyeQUytO7+7N4QKrDh+drA==" crossorigin=""/>',
+        '    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.css" integrity="sha512-1xoFisiGdy9nvho8EgXuXvnpR5GAMSjFwp40gSRE3NwdUdIMIKuPa7bqoUhLD0O/5tPNhteAsE5XyyMi5reQVA==" crossorigin="anonymous" referrerpolicy="no-referrer" as="style" onload="this.rel=\'stylesheet\'"/>',
         extra_css,
-        "    <script src='https://unpkg.com/leaflet@1.3.4/dist/leaflet.js' integrity='sha512-nMMmRyTVoLYqjP9hrbed9S+FzjZHW5gY1TWCHA5ckwXZBadntCNs8kEqAWdrb9O7rxbCaA4lKTIWjDXZxflOcA==' crossorigin=''></script>",
+        '    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js" integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>',
         extra_js,
         "    <style>",
-        "        html, body {",
-        "            height: 100%;",
-        "            margin: 0;",
-        "        }",
-        "        #map {",
-        "            width: 100%;",
-        "            height: 100%;",
-        "        }",
+        "        /* Map */",
+        r"        html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
+        "        /* Loading Page */",
+        r"        .overlay{background:#fff;height:100vh;width:100%;position:absolute}.brand{position:absolute;top:100px;left:50%;transform:translateX(-50%)}.brand img{width:100%;height:auto}.loadingtext{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:xx-large}.loading{position:absolute;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);-moz-transform:translate(-50%,-50%);-ms-transform:translate(-50%,-50%);-o-transform:translate(-50%,-50%);transform:translate(-50%,-50%);border-bottom:16px solid #0044aaff;border-top:16px solid #0044aaff;border-left:16px solid #80b3ffff;border-right:16px solid #80b3ffff;width:250px;height:250px;-webkit-border-radius:50%;-moz-border-radius:50%;border-radius:50%;-webkit-animation:rotate 1s ease-in-out infinite;-o-animation:rotate 1s ease-in-out infinite;animation:rotate 1s ease-in-out infinite}",
+        r"        @keyframes rotate{0%{-webkit-transform:translate(-50%,-50%) rotate(0deg);-moz-transform:translate(-50%,-50%) rotate(0deg);-ms-transform:translate(-50%,-50%) rotate(0deg);-o-transform:translate(-50%,-50%) rotate(0deg);transform:translate(-50%,-50%) rotate(0deg)}100%{-webkit-transform:translate(-50%,-50%) rotate(360deg);-moz-transform:translate(-50%,-50%) rotate(360deg);-ms-transform:translate(-50%,-50%) rotate(360deg);-o-transform:translate(-50%,-50%) rotate(360deg);transform:translate(-50%,-50%) rotate(360deg)}}",
         "    </style>",
         "</head>",
         "<body>",
+        '    <div id="loading-screen" class="overlay">',
+        '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
+        '        <div class="loading"></div>',
+        '        <div class="loadingtext">Loading...</div>',
+        '    </div>',
         '    <div id="map"></div>',
-        '    <script src="js/urlCoords.js"></script>',
-        '    <script src="js/index.js"></script>',
         "</body>",
         f"<!--Made with fitsmap v{utils.get_version()}-->",
         "</html>\n",

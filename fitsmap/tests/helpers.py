@@ -144,7 +144,7 @@ def compare_file_directories(dir1, dir2):
             sub_match = True
 
         if len(dir_compare.diff_files):
-            print(dir_compare.diff_files)
+            print(dir_compare.left, dir_compare.right, dir_compare.diff_files)
 
         return sub_match and len(dir_compare.diff_files) == 0
 

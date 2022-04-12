@@ -1,15 +1,13 @@
 language: python
-services:
-  - docker
 python:
-  - "3.7"
+  - "3.7.9"
 install:
-  - pip install -r requirements.txt
-  - pip install .
-  - pip install pytest
-  - pip install pytest-cov
-  - pip install codecov
-  - pip install twine
+  - python -m pip install -r requirements.txt
+  - python -m pip install .
+  - python -m pip install pytest
+  - python -m pip install pytest-cov
+  - python -m pip install codecov
+  - python -m pip install twine
 script:
   - pytest --cov=fitsmap -vv
 after_success:

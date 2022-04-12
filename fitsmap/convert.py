@@ -33,6 +33,7 @@ from multiprocessing import JoinableQueue, Pool, Process
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
+import cbor2
 import mapbox_vector_tile as mvt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -620,15 +621,21 @@ def line_to_json(
     # y = img_y
     # x = img_x
 
-    src_desc = {k: v for k, v in zip(columns, src_vals)}
+    # src_desc = {k: v for k, v in zip(columns, src_vals)}
 
-    src_desc["fm_y"] = y
-    src_desc["fm_x"] = x
-    src_desc["fm_cat"] = catalog_assets_path.split(os.sep)[-1]
+    # src_desc["fm_y"] = y
+    # src_desc["fm_x"] = x
+    # src_desc["fm_cat"] = catalog_assets_path.split(os.sep)[-1]
 
-    src_json = os.path.join(catalog_assets_path, f"{src_id}.json")
-    with open(src_json, "w") as f:
-        json.dump(src_desc, f, separators=(",", ":"))  # no whitespace
+    src_vals += [y, x, catalog_assets_path.split(os.sep)[-1]]
+
+    # src_json = os.path.join(catalog_assets_path, f"{src_id}.json")
+    # with open(src_json, "w") as f:
+    #     json.dump(dict(id=src_id,v=src_vals), f, separators=(",", ":"))  # no whitespace
+
+    src_json = os.path.join(catalog_assets_path, f"{src_id}.cbor")
+    with open(src_json, "wb") as f:
+        cbor2.dump(dict(id=src_id,v=src_vals), f)
 
     return dict(
         geometry=dict(coordinates=[x, y],),
@@ -787,6 +794,9 @@ def tile_markers(
         raise ValueError(err_msg)
 
     wcs = WCS(wcs_file) if wcs_file else None
+
+    with open(os.path.join(out_dir, f"{catalog_layer_name}.columns"), "w") as f:
+        f.write(",".join(columns))
 
     catalog_assets_parent_path = os.path.join(out_dir, "catalog_assets")
     if "catalog_assets" not in os.listdir(out_dir):
