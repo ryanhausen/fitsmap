@@ -318,11 +318,10 @@ def test_build_conditional_js():
 
     helpers.setup()
 
-    acutal_js = c.build_conditional_js(helpers.TEST_PATH)
+    acutal_js = c.build_conditional_js(helpers.TEST_PATH, True)
 
     expected_js = "\n".join(
         [
-            "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js'></script>",
             "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js'></script>",
             "    <script defer src='js/customSearch.min.js'></script>",
             "    <script defer src='js/tiledMarkers.min.js'></script>",

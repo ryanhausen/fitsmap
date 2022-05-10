@@ -817,3 +817,50 @@ def test_dir_to_map():
     helpers.enable_tqdm()
 
     assert dirs_match
+
+
+@pytest.mark.integration
+@pytest.mark.convert
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_dir_to_map_no_markers():
+    """Integration test for making files into map"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
+    out_dir = with_path("test_web")
+    in_dir = with_path("test_web_in")
+    if not os.path.exists(in_dir):
+        os.mkdir(in_dir)
+
+    files = [
+        "test_tiling_image.jpg",
+    ]
+
+    for f in files:
+        shutil.copy(with_path(f), os.path.join(in_dir, f))
+
+    expected_dir = with_path("expected_test_web_no_marker")
+
+    # inject current version in to test_index.html
+    version = helpers.get_version()
+    raw_path = os.path.join(expected_dir, "index.html")
+    with open(raw_path, "r") as f:
+        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+
+    with open(raw_path, "w") as f:
+        f.writelines(converted)
+
+    convert.dir_to_map(
+        in_dir,
+        out_dir=out_dir,
+    )
+
+    actual_dir = out_dir
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
