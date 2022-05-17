@@ -43,7 +43,7 @@ addresses this by converting a catalog of sources into JSON map markers, which
 can be viewed in the webpage. Additionally, these sources are searchable using
 the web interface by the column ``id``.
 
-Some sample website that leverage FitsMap are:
+Some sample websites that leverage FitsMap are:
 
 - `DREaM Galaxy Catalogs <https://purl.org/fitsmap/dream>`_ `(Drakos, et al., 2022) <https://iopscience.iop.org/article/10.3847/1538-4357/ac46fb>`_
 - `Morpheus <https://purl.org/fitsmap/morpheus>`_ `(Hausen & Robertson 2020) <https://iopscience.iop.org/article/10.3847/1538-4365/ab8868>`_
