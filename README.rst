@@ -25,6 +25,9 @@ FitsMap
 .. image:: https://img.shields.io/badge/code%20style-black-000000.svg
     :target: https://github.com/ambv/black
 
+.. image:: https://badgen.net/badge/doi/10.1016%2Fj.ascom.2022.100586/yellow
+    :target: https://doi.org/10.1016/j.ascom.2022.100586
+
 
 FitsMap is a tool for displaying astronomical images and their associated
 catalogs, powered by `LeafletJS <https://leafletjs.com>`_.
@@ -40,13 +43,23 @@ addresses this by converting a catalog of sources into JSON map markers, which
 can be viewed in the webpage. Additionally, these sources are searchable using
 the web interface by the column ``id``.
 
+Some sample website that leverage FitsMap are:
+
+- `DREaM Galaxy Catalogs <https://purl.org/fitsmap/dream>`_ `(Drakos, et al., 2022) <https://iopscience.iop.org/article/10.3847/1538-4357/ac46fb>`_
+- `Morpheus <https://purl.org/fitsmap/morpheus>`_ `(Hausen & Robertson 2020) <https://iopscience.iop.org/article/10.3847/1538-4365/ab8868>`_
+
+Additional examples are welcome! If you'd like to add your use case here, submit
+an issue with the title "Use Case Example", and in the description, include the
+URL to the FitsMap along with a title and also a link to an associated paper if
+you'd like.
+
+
 Here is an example using FitsMap to render a 32,727² image and ~33 million
 sources from the `DReAM Galaxy Catalog <https://arxiv.org/abs/2110.10703>`_:
 
 .. image:: docs/dream_map.gif
     :alt: FitsMap
     :align: center
-
 
 Installation
 ************
@@ -291,6 +304,27 @@ friendly things, for example <img> tags, in the catalog and they should be
 rendered appropriately.
 
 ----
+
+If you use FitsMap in your research please cite it using the following (also in
+`CITE.bib <https://github.com/ryanhausen/fitsmap/blob/master/CITE.bib>`_):
+
+.. code-block::
+
+    @article{hausen2022a,
+         title = {FitsMap: A simple, lightweight tool for displaying interactive astronomical image and catalog data},
+       journal = {Astronomy and Computing},
+        volume = {39},
+         pages = {100586},
+          year = {2022},
+          issn = {2213-1337},
+           doi = {https://doi.org/10.1016/j.ascom.2022.100586},
+           url = {https://www.sciencedirect.com/science/article/pii/S2213133722000257},
+        author = {R. Hausen and B.E. Robertson},
+      keywords = {Astronomy web services (1856), Astronomy data visualization (1968), Astronomy data analysis (1858), Human-centered computing Scientific visualization (10003120.10003145.10003147.10010364), Human-centered computing Visualization toolkits (10003120.10003145.10003151.10011771)},
+      abstract = {The visual inspection of image and catalog data continues to be a valuable aspect of astronomical data analysis. As the scale of astronomical image and catalog data continues to grow, visualizing the data becomes increasingly difficult. In this work, we introduce FitsMap, a simple, lightweight tool for visualizing astronomical image and catalog data. FitsMap uses well-understood image tiling techniques and a novel catalog tiling technique to serve gigapixel images with catalogs containing tens of millions of sources using only a simple web server. Further, the web-based visualizations can be viewed performantly on mobile devices. FitsMap is implemented in Python and is open source (https://github.com/ryanhausen/fitsmap).}
+    }
+
+
 
 For more information see the `docs <https://fitsmap.readthedocs.io>`__
 or the `code <https://github.com/ryanhausen/fitsmap>`__.
