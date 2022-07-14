@@ -318,7 +318,7 @@ def make_tile_mpl(
             img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
 
             def adjust_pixels(arr):
-                img = arr.copy()
+                img = arr
                 if img.shape[2] == 3:
                     img = np.concatenate(
                         (
