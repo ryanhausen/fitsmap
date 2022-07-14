@@ -576,7 +576,11 @@ def line_to_cols(raw_col_vals: str) -> List[str]:
 
 
 def line_to_json(
-    wcs: WCS, columns: List[str], catalog_assets_path: str, src_vals: List[str],
+    wcs: WCS,
+    columns: List[str],
+    catalog_assets_path: str,
+    src_vals: List[str],
+    catalog_starts_at_one: bool = 1,
 ) -> Dict[str, Any]:
     """Transform a raw text line attribute values into a JSON marker
 
@@ -617,8 +621,8 @@ def line_to_json(
     # The convention for leaflet is to place markers at the lower left corner
     # of a pixel, to center the marker on the pixel, we subtract 1 to bring it
     # to leaflet convention and add 0.5 to move it to the center of the pixel.
-    x = (img_x - 1) + 0.5
-    y = (img_y - 1) + 0.5
+    x = (img_x - int(catalog_starts_at_one)) + 0.5
+    y = (img_y - int(catalog_starts_at_one)) + 0.5
     # y = img_y
     # x = img_x
 
@@ -755,6 +759,7 @@ def tile_markers(
     tile_size: int,
     max_x: int,
     max_y: int,
+    catalog_starts_at_one: bool,
     catalog_file: str,
     pbar_loc: int,
 ) -> None:
@@ -807,7 +812,13 @@ def tile_markers(
     if catalog_layer_name not in os.listdir(catalog_assets_parent_path):
         os.mkdir(catalog_assets_path)
 
-    line_func = partial(line_to_json, wcs, columns, catalog_assets_path,)
+    line_func = partial(
+        line_to_json,
+        wcs,
+        columns,
+        catalog_assets_path,
+        catalog_starts_at_one=catalog_starts_at_one,
+    )
 
     bar = tqdm(
         position=pbar_loc,
@@ -955,6 +966,7 @@ def files_to_map(
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
+    catalog_starts_at_one: bool = True,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -998,6 +1010,9 @@ def files_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
+        catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
+                                      the catalog is 0 indexed
+
     Returns:
         None
     """
@@ -1057,6 +1072,7 @@ def files_to_map(
             tile_size[0],
             max_dim,
             max_dim,
+            catalog_starts_at_one,
         )
     else:
         cat_job_f = None
