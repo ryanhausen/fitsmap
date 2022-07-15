@@ -269,7 +269,7 @@ def build_conditional_css(out_dir: str) -> str:
     return "\n".join(map(lambda s: css_string.format(s), [search_css] + local_css))
 
 
-def build_conditional_js(out_dir: str, include_markerjs:bool) -> str:
+def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_js_dir = os.path.join(out_dir, "js")
@@ -294,7 +294,8 @@ def build_conditional_js(out_dir: str, include_markerjs:bool) -> str:
     # sucessfully run. Other files get placed after index.js so that the map
     # can load first and then those will load in the background
     pre_index_files = [
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js" * include_markerjs,
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js"
+        * include_markerjs,
         "js/customSearch.min.js" * include_markerjs,
         "js/tiledMarkers.min.js" * include_markerjs,
         "js/urlCoords.js",
@@ -310,7 +311,10 @@ def build_conditional_js(out_dir: str, include_markerjs:bool) -> str:
 
     js_string = "    <script defer src='{}'></script>"
     js_tags = list(
-        map(lambda s: js_string.format(s), filter(lambda x: x, pre_index_files + post_index_files))
+        map(
+            lambda s: js_string.format(s),
+            filter(lambda x: x, pre_index_files + post_index_files),
+        )
     )
 
     return "\n".join(js_tags)

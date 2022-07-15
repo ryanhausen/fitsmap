@@ -852,8 +852,7 @@ def test_dir_to_map_no_markers():
         f.writelines(converted)
 
     convert.dir_to_map(
-        in_dir,
-        out_dir=out_dir,
+        in_dir, out_dir=out_dir,
     )
 
     actual_dir = out_dir

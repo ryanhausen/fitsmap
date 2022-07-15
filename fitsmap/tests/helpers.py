@@ -22,12 +22,15 @@
 import filecmp
 import json
 import os
+import pstats
 import shutil
 import tarfile
 from functools import reduce
-from itertools import chain, product, repeat
+from itertools import chain, product, repeat, starmap
 
 import numpy as np
+from PIL import Image
+from regex import F
 
 TEST_PATH = "./testing_tmp"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -135,20 +138,82 @@ def get_slice_idx_generator_solution(zoom: int):
     return list(__stable_idx_answer((4305, 9791), zoom))
 
 
-def compare_file_directories(dir1, dir2):
-    def recursive_diff(dir_compare):
-        if dir_compare.subdirs:
-            # print(dir_compare.subdirs)
-            sub_match = all(map(recursive_diff, dir_compare.subdirs.values()))
+def compare_file_directories(dir1, dir2) -> bool:
+
+    is_file = lambda x: x.is_file()
+    is_dir = lambda x: x.is_dir()
+    get_name = lambda x: x.name
+    get_path = lambda x: x.path
+
+    def get_file_extension(fname):
+        return os.path.splitext(fname)[1]
+
+    def compare_file_contents(file1, file2) -> bool:
+        f_ext = get_file_extension(file1)
+        if f_ext in [".png", ".tiff", ".ico"]:
+            return (np.array(Image.open(file1)) == np.array(Image.open(file2))).all()
         else:
-            sub_match = True
+            mode = "r" + "b" * int(f_ext in [".cbor", ".pbf"])
+            with open(file1, mode) as f1, open(file2, mode) as f2:
 
-        if len(dir_compare.diff_files):
-            print(dir_compare.left, dir_compare.right, dir_compare.diff_files)
+                try:
+                    return f1.readlines() == f2.readlines()
+                except:
+                    print(file1, file2, mode)
 
-        return sub_match and len(dir_compare.diff_files) == 0
+    def compare_subdirs(sub_dir1, sub_dir2) -> bool:
+        dir1_entries = list(os.scandir(sub_dir1))
+        dir2_entries = list(os.scandir(sub_dir2))
 
-    return recursive_diff(filecmp.dircmp(dir1, dir2))
+        dir1_files = list(sorted(filter(is_file, dir1_entries), key=lambda x: x.name))
+        dir2_files = list(sorted(filter(is_file, dir2_entries), key=lambda x: x.name))
+
+        count_and_names_same = list(map(get_name, dir1_files)) == list(
+            map(get_name, dir2_files)
+        )
+
+        if count_and_names_same:
+            # compare file contents
+            files_same = all(
+                starmap(
+                    compare_file_contents,
+                    zip(map(get_path, dir1_files), map(get_path, dir2_files),),
+                )
+            )
+
+            if files_same:
+                dir1_subdirs = list(
+                    sorted(filter(is_dir, dir1_entries), key=lambda x: x.name)
+                )
+                dir2_subdirs = list(
+                    sorted(filter(is_dir, dir2_entries), key=lambda x: x.name)
+                )
+
+                count_and_names_same = list(map(get_name, dir1_subdirs)) == list(
+                    map(get_name, dir2_subdirs)
+                )
+
+                if count_and_names_same:
+                    # compare sub dirs
+                    subdirs_same = all(
+                        starmap(
+                            compare_subdirs,
+                            zip(
+                                map(get_path, dir1_subdirs),
+                                map(get_path, dir2_subdirs),
+                            ),
+                        )
+                    )
+
+                    return subdirs_same
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
+
+    return compare_subdirs(dir1, dir2)
 
 
 def get_version():
