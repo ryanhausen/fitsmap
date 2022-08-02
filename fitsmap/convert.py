@@ -385,7 +385,7 @@ def make_tile_pil(
     img = Image.fromarray(np.flipud(tile).astype(np.uint8))
     del tile
 
-    img.thumbnail([256, 256], Image.LANCZOS)
+    img.thumbnail([256, 256], Image.Resampling.LANCZOS)
     img.convert("RGBA").save(img_path, "PNG")
     del img
 

@@ -57,16 +57,34 @@ def chart(
     """
     # convert layer names into a single javascript string
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
-    zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)))
-    zooms = [0] if len(zooms) == 0 else zooms
-    convert_layer_name_func = partial(
-        layer_name_to_dict, out_dir, min(zooms), max(zooms)
+    img_zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)), [0])
+    cat_zooms = reduce(
+        lambda x, y: x + y, list(map(layer_zooms, marker_layer_names)), [0]
     )
+
+    convert_layer_name_func = partial(layer_name_to_dict, out_dir,)
     img_layer_dicts = list(
-        starmap(convert_layer_name_func, zip(img_layer_names, repeat(None)))
+        starmap(
+            convert_layer_name_func,
+            zip(
+                repeat(min(img_zooms)),
+                repeat(max(img_zooms)),
+                img_layer_names,
+                repeat(None),
+            ),
+        )
     )
+
     cat_layer_dicts = list(
-        starmap(convert_layer_name_func, zip(marker_layer_names, get_colors()))
+        starmap(
+            convert_layer_name_func,
+            zip(
+                repeat(min(cat_zooms)),
+                repeat(max(cat_zooms)),
+                marker_layer_names,
+                get_colors(),
+            ),
+        )
     )
 
     # generated javascript =====================================================

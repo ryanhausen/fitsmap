@@ -423,9 +423,18 @@ def test_chart_no_wcs():
     list(
         map(
             lambda r: os.makedirs(os.path.join(out_dir, map_layer_names, str(r))),
+            range(3),
+        )
+    )
+
+    # make mock marker zooms
+    list(
+        map(
+            lambda r: os.makedirs(os.path.join(out_dir, marker_file_names, str(r))),
             range(2),
         )
     )
+
     os.mkdir(os.path.join(out_dir, "js"))
     os.mkdir(os.path.join(out_dir, "css"))
 
@@ -475,9 +484,18 @@ def test_chart_with_wcs():
     with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
         f.write(columns)
 
+    # make mock image zooms
     list(
         map(
             lambda r: os.makedirs(os.path.join(out_dir, map_layer_names, str(r))),
+            range(3),
+        )
+    )
+
+    # make mock marker zooms
+    list(
+        map(
+            lambda r: os.makedirs(os.path.join(out_dir, marker_file_names, str(r))),
             range(2),
         )
     )
