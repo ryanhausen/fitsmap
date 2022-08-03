@@ -61,8 +61,9 @@ def chart(
     cat_zooms = reduce(
         lambda x, y: x + y, list(map(layer_zooms, marker_layer_names)), [0]
     )
+    max_overall_zoom = max(img_zooms + cat_zooms)
 
-    convert_layer_name_func = partial(layer_name_to_dict, out_dir,)
+    convert_layer_name_func = partial(layer_name_to_dict, out_dir, max_overall_zoom)
     img_layer_dicts = list(
         starmap(
             convert_layer_name_func,
@@ -110,20 +111,24 @@ def chart(
 
 
 def layer_name_to_dict(
-    out_dir: str, min_zoom: int, max_zoom: int, name: str, color: str,
+    out_dir: str,
+    max_zoom: int,
+    min_zoom: int,
+    max_native_zoom: int,
+    name: str,
+    color: str,
 ) -> dict:
     """Convert layer name to dict for conversion."""
 
     layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.png",
+        directory=name + "/{z}/{y}/{x}." + ("pbf" if color else "png"),
         name=name,
         min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
+        max_zoom=max_zoom,
+        max_native_zoom=max_native_zoom,
     )
     if color:
         layer_dict["color"] = color
-        layer_dict["directory"] = layer_dict["directory"].replace("png", "pbf")
 
         cat_col_path = os.path.join(out_dir, f"{name}.columns")
         with open(cat_col_path, "r") as f:
@@ -162,7 +167,7 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
         'tileURL:"' + layer["directory"] + '", ',
         'color: "' + layer["color"] + '", ',
         f"rowsPerColumn: {rpc_str}, ",
-        f'catalogColumns: [{",".join(layer["columns"])}],',
+        f'catalogColumns: [{",".join(layer["columns"])}], ',
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
@@ -448,7 +453,8 @@ def build_index_js(
             "",
             "// Map event setup =============================================================",
             loading_screen_js(image_layer_dicts),
-            "" 'map.on("moveend", updateLocationBar);',
+            "",
+            'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
             "",
             'if (urlParam("zoom")==null) {',

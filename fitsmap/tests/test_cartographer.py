@@ -21,6 +21,8 @@
 
 import filecmp
 import os
+
+import numpy as np
 from astropy.wcs.wcs import WCS
 
 import pytest
@@ -35,18 +37,20 @@ def test_layer_name_to_dict_image():
     """test cartographer.layer_name_to_dict"""
     out_dir = "."
     min_zoom = 0
-    max_zoom = 2
+    max_native_zoom = 2
     name = "test"
     color = ""  # "#4C72B0"
 
-    actual_dict = c.layer_name_to_dict(out_dir, min_zoom, max_zoom, name, color)
+    actual_dict = c.layer_name_to_dict(
+        out_dir, max_native_zoom + 5, min_zoom, max_native_zoom, name, color
+    )
 
     expected_dict = dict(
         directory=name + "/{z}/{y}/{x}.png",
         name=name,
         min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
+        max_zoom=max_native_zoom + 5,
+        max_native_zoom=max_native_zoom,
     )
 
     assert expected_dict == actual_dict
@@ -59,7 +63,7 @@ def test_layer_name_to_dict_catalog():
     helpers.setup()
     out_dir = helpers.DATA_DIR
     min_zoom = 0
-    max_zoom = 2
+    max_native_zoom = 2
     name = "test"
     color = "#4C72B0"
     columns = "a,b,c"
@@ -67,14 +71,16 @@ def test_layer_name_to_dict_catalog():
     with open(os.path.join(out_dir, f"{name}.columns"), "w") as f:
         f.write(columns)
 
-    actual_dict = c.layer_name_to_dict(out_dir, min_zoom, max_zoom, name, color)
+    actual_dict = c.layer_name_to_dict(
+        out_dir, max_native_zoom + 5, min_zoom, max_native_zoom, name, color
+    )
 
     expected_dict = dict(
         directory=name + "/{z}/{y}/{x}.pbf",
         name=name,
         min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
+        max_zoom=max_native_zoom + 5,
+        max_native_zoom=max_native_zoom,
         color=color,
         columns=[f'"{c}"' for c in columns.split(",")],
     )
@@ -151,7 +157,7 @@ def test_cat_layer_dict_to_str():
             'tileURL:"' + layer_dict["directory"] + '", ',
             'color: "' + layer_dict["color"] + '", ',
             f"rowsPerColumn: Infinity, ",
-            f'catalogColumns: [{",".join(layer_dict["columns"])}],',
+            f'catalogColumns: [{",".join(layer_dict["columns"])}], ',
             "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
             "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
@@ -337,6 +343,97 @@ def test_build_conditional_js():
     helpers.tear_down()
 
     assert expected_js == acutal_js
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
+def test_build_index_js():
+    """Tests cartographer.build_index_js"""
+
+    img_layer_dict = [
+        dict(
+            name="img",
+            directory="img/{z}/{y}/{x}.png",
+            min_zoom=0,
+            max_zoom=8,
+            max_native_zoom=3,
+        )
+    ]
+
+    cat_layer_dict = [
+        dict(
+            name="cat",
+            directory="cat/{z}/{y}/{x}.pbf",
+            min_zoom=0,
+            max_zoom=8,
+            max_native_zoom=2,
+            color="blue",
+            columns=['"a"', '"b"', '"c"'],
+        )
+    ]
+
+    rows_per_column = np.inf
+
+    max_xy = (2048, 2048)
+
+    expected_js = "\n".join(
+        [
+            "// Image layers ================================================================",
+            'const img = L.tileLayer("img/{z}/{y}/{x}.png", { attribution:"'
+            + c.LAYER_ATTRIBUTION
+            + '", '
+            + "minZoom: 0, maxZoom: 8, maxNativeZoom: 3 });",
+            "",
+            "// Marker layers ===============================================================",
+            'const cat = L.gridLayer.tiledMarkers({ tileURL:"cat/{z}/{y}/{x}.pbf", color: "blue", rowsPerColumn: Infinity, catalogColumns: ["a","b","c"], minZoom: 0, maxZoom: 8, maxNativeZoom: 2 });',
+            "",
+            "// Basic map setup =============================================================",
+            "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
+            "    transformation: new L.Transformation(1/8, 0, -1/8, 256)",
+            "});",
+            "",
+            'const map = L.map("map", {',
+            "    crs: L.CRS.FitsMap,",
+            "    minZoom: 0,",
+            "    preferCanvas: true,",
+            "    layers: [img]",
+            "});",
+            "",
+            "const layerControl = L.control.layers(",
+            '    {"img":img},',
+            '    {"cat":cat}',
+            ").addTo(map);",
+            "",
+            "// Search ======================================================================",
+            "const catalogPaths = [",
+            '    "catalog_assets/cat/",',
+            "];",
+            "",
+            "const searchControl = buildCustomSearch(catalogPaths, 2);",
+            "map.addControl(searchControl);",
+            "",
+            "// Map event setup =============================================================",
+            'img.on("load", () => {',
+            '    document.getElementById("loading-screen").style.visibility = "hidden";',
+            '    document.getElementById("map").style.visibility = "visible";',
+            "});",
+            "",
+            'map.on("moveend", updateLocationBar);',
+            'map.on("zoomend", updateLocationBar);',
+            "",
+            'if (urlParam("zoom")==null) {',
+            f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[0]}, {max_xy[1]}]]));",
+            "} else {",
+            "    panFromUrl(map);",
+            "}",
+        ]
+    )
+
+    actual_js = c.build_index_js(
+        img_layer_dict, cat_layer_dict, rows_per_column, max_xy,
+    )
+
+    assert expected_js == actual_js
 
 
 @pytest.mark.unit
