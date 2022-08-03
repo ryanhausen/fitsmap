@@ -1,3 +1,4 @@
+// Forked from below to here: https://github.com/ryanhausen/Leaflet.Ellipse
 /**
  * Copyright 2014 JD Fergason
  *
@@ -13,17 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
- /*
-  * Adapted from the following fork:
-  * https://github.com/SlidEnergy/Leaflet.Ellipse
-  * which fixes the CRS.Simple bug but breaks compatibility with MarkerSearch
-  * so I removed the lines that are compatible with a non CRS.Simple map and 
-  * it works as expected for my use case only. 
-  */
 
 
-L.SVG.include ({
+ L.SVG.include ({
     _updateEllipse: function (layer) {
         var c = layer._point,
             rx = layer._radiusX,
@@ -48,7 +41,14 @@ L.Canvas.include ({
             r = layer._radiusX,
             s = (layer._radiusY || r) / r;
 
-        this._drawnLayers[layer._leaflet_id] = layer;
+        if (this.hasOwnProperty('_drawnLayers')) {
+            this._drawnlayers[layer._leaflet_id] = layer;
+        } else if (this.hasOwnProperty('_layers')) {
+            this._layers[layer._leaflet_id] = layer;
+        } else {
+            throw new Error("Cannot find property _drawnLayers or _layers");
+        }
+
 
         ctx.save();
 
@@ -175,16 +175,12 @@ L.Ellipse = L.Path.extend({
         this._renderer._updateEllipse(this);
     },
 
-    // this is changed to not check for non.CRS.simple
-    // https://raw.githubusercontent.com/SlidEnergy/Leaflet.Ellipse/master/l.ellipse.js
     _getLatRadius: function () {
-        return this._mRadiusY;
+        return (this._mRadiusY / 40075017) * 360;
     },
 
-    // this is changed to not check for non.CRS.simple
-    // https://raw.githubusercontent.com/SlidEnergy/Leaflet.Ellipse/master/l.ellipse.js
     _getLngRadius: function () {
-        return this._mRadiusX;
+        return ((this._mRadiusX / 40075017) * 360) / Math.cos((Math.PI / 180) * this._latlng.lat);
     },
 
     _centerPointToEndPoint: function () {
