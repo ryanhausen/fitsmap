@@ -21,7 +21,7 @@ sys.path.insert(0, os.path.abspath("../fitsmap"))
 # -- Project information -----------------------------------------------------
 
 project = "FitsMap"
-copyright = "2019, Ryan Hausen"
+copyright = "2022, Ryan Hausen and Contributors"
 author = "Ryan Hausen"
 
 # The full version, including alpha/beta/rc tags

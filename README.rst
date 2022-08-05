@@ -303,6 +303,16 @@ Catalog pop-ups are rendered as a simple HTML table, so you can put any HTML
 friendly things, for example <img> tags, in the catalog and they should be
 rendered appropriately.
 
+FitsMap will render your markers as Ellipses if you have the following columns
+in your catalog: ``a``, ``b``, and ``theta``. Where ``a`` is the major axis
+radius in **pixels**, ``b`` is the minor axis radius in **pixels**, and theta
+is the rotation of the ellipse in units of degrees starting from the negative
+x-axis and moving counter-clockwise.
+
+.. image:: docs/ellipse_fig.png
+    :alt: EllipseOrientaton
+    :align: center
+
 ----
 
 If you use FitsMap in your research please cite it using the following (also in
