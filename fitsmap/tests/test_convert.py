@@ -731,12 +731,13 @@ def test_files_to_map_ellipse_markers():
     with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
     out_dir = with_path("test_web")
 
-    files = [with_path("test_tiling_image.jpg"), with_path("test_catalog_xy_ellipse.cat")]
+    files = [
+        with_path("test_tiling_image.jpg"),
+        with_path("test_catalog_xy_ellipse.cat"),
+    ]
 
     convert.files_to_map(
-        files,
-        out_dir=out_dir,
-        catalog_delim=" ",
+        files, out_dir=out_dir, catalog_delim=" ",
     )
 
     expected_dir = with_path("expected_test_web_ellipse")
