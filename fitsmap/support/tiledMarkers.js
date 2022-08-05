@@ -23,16 +23,12 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         const values = json["v"];
 
         let nCols = Math.floor(nItems / (Number.isFinite(rowsPerCol) ? rowsPerCol : nItems));
-        // console.log(nCols);
         if (Number.isFinite(rowsPerCol) && nItems % rowsPerCol > 0) {
             nCols += 1;
         }
 
         let html = "<span>Catalog Information</span>" +
                     "<table class='catalog-table'>";
-
-        // const display_keys = catalogColumns.filter(k => {return !dontDisplay.includes(k)});
-        // console.log(display_keys);
 
         let colCounter = 0;
         html += "<tr>";
@@ -73,13 +69,10 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             console.log("ERROR in Popup Rendering", error);
         });
 
-        // console.log(marker);
-
         // https://stackoverflow.com/a/51749619/2691018
         document.querySelector(".leaflet-popup-pane").addEventListener("load", function(event) {
             const tagName = event.target.tagName,
             popup = map._popup;
-            //console.log("got load event from " + tagName);
             // Also check if flag is already set.
             if (tagName === "IMG" && popup && !popup._updated) {
                 popup._updated = true; // Set flag to prevent looping.
@@ -97,13 +90,14 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
                      .setLatLng(latlng)
                      .setContent((layer) => this.renderPopupContents(this, layer));
 
+            console.log(src);
             if (src.a==-1){
                 return L.circleMarker(latlng, {
                     color: this.options.color,
                     assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`
                 }).bindPopup(p);
             } else {
-                return L.ellipse(latlng, [src.a, src.b], (src.theta * (180/Math.PI) * -1), {
+                return L.ellipse(latlng, [src.a, src.b], src.theta, {
                     color: this.options.color,
                     assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`
                 }).bindPopup(p);
@@ -146,9 +140,6 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
 
 
     createTile: function (coords, done) {
-        //const bnds = this._pxBoundsToTileRange(this._getTiledPixelBounds(map.getCenter()));
-        //const max_y = bnds.max.y;
-        //const offset_y = max_y - coords.y;
         const offset_y = 2**coords.z - coords.y - 1
         const offset_x = 2**coords.z - coords.x - 1
         const resourceURL = this.options.tileURL

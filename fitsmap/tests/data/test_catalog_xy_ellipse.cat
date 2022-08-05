@@ -1,0 +1,7 @@
+# id x       y       name   filler_val a   b   theta
+  1  50      50      test_1 abc        50  50  0
+  2  226.78  226.78  test_2 def        200 100 45
+  3  580.33  580.33  test_3 ghi        300 100 45
+  4  1036.41 1036.41 test_4 jkl        345 50  45
+  5  100     800     test_5 mno        300 100 90
+  6  800     100     test_6 pqr        350 100 135

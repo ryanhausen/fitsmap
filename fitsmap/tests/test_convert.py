@@ -679,7 +679,7 @@ def test_tile_img_mpl_parallel():
     assert dirs_match
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_files_to_map():
@@ -700,6 +700,46 @@ def test_files_to_map():
     )
 
     expected_dir = with_path("expected_test_web")
+
+    # inject current version in to test_index.html
+    version = helpers.get_version()
+    raw_path = os.path.join(expected_dir, "index.html")
+    with open(raw_path, "r") as f:
+        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+
+    with open(raw_path, "w") as f:
+        f.writelines(converted)
+
+    actual_dir = with_path("test_web")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+@pytest.mark.integration
+@pytest.mark.convert
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_files_to_map_ellipse_markers():
+    """Integration test for making files into map"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
+    out_dir = with_path("test_web")
+
+    files = [with_path("test_tiling_image.jpg"), with_path("test_catalog_xy_ellipse.cat")]
+
+    convert.files_to_map(
+        files,
+        out_dir=out_dir,
+        catalog_delim=" ",
+    )
+
+    expected_dir = with_path("expected_test_web_ellipse")
 
     # inject current version in to test_index.html
     version = helpers.get_version()
