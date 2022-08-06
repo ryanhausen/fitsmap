@@ -23,33 +23,27 @@ from typing import Tuple
 import numpy as np
 
 
-
 class PaddedArray:
-
-    def __init__(self, array:np.ndarray, pad:Tuple[int, int]):
+    def __init__(self, array: np.ndarray, pad: Tuple[int, int]):
         self.array = array.astype(np.float32)
         self.pad = pad
 
         shape = [array.shape[0] + pad[0], array.shape[1] + pad[1]]
-        if len(array.shape)==3:
+        if len(array.shape) == 3:
             shape += [array.shape[2]]
 
         self.shape = tuple(shape)
 
-    def __get_internal_array(self, ys:slice, xs:slice) -> np.ndarray:
-            return self.array[ys, xs]
+    def __get_internal_array(self, ys: slice, xs: slice) -> np.ndarray:
+        return self.array[ys, xs]
 
-    def __get_padding(self, ys:slice, xs:slice) -> np.ndarray:
-            shape = [ys.stop - ys.start, xs.stop - xs.start]
-            if len(self.shape)==3:
-                shape += [self.shape[2]]
-            return np.full(
-                shape,
-                np.nan,
-                dtype=np.float32
-           )
+    def __get_padding(self, ys: slice, xs: slice) -> np.ndarray:
+        shape = [ys.stop - ys.start, xs.stop - xs.start]
+        if len(self.shape) == 3:
+            shape += [self.shape[2]]
+        return np.full(shape, np.nan, dtype=np.float32)
 
-    def __get_mixed(self, ys:slice, xs:slice) -> np.ndarray:
+    def __get_mixed(self, ys: slice, xs: slice) -> np.ndarray:
         start_y, stop_y = ys.start, ys.stop
         start_x, stop_x = xs.start, xs.stop
 
@@ -70,7 +64,7 @@ class PaddedArray:
             constant_values=np.nan,
         )
 
-    def __getitem__(self, axis_slices:Tuple[slice, slice]) -> np.ndarray:
+    def __getitem__(self, axis_slices: Tuple[slice, slice]) -> np.ndarray:
         if type(axis_slices) is not tuple:
             axis_slices = [axis_slices, slice(None)]
 
@@ -80,7 +74,6 @@ class PaddedArray:
 
         slice_ys = slice(start_y, stop_y)
         slice_xs = slice(start_x, stop_x)
-
 
         if stop_y < self.array.shape[0] and stop_x < self.array.shape[1]:
             return self.__get_internal_array(slice_ys, slice_xs)

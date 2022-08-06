@@ -51,6 +51,7 @@ from tqdm import tqdm
 import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
 import fitsmap.padded_array as pa
+
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
@@ -487,25 +488,23 @@ def tile_img(
                 done, obj_ids = ray.wait(obj_ids)
                 yield None
 
-        result_ids = list(starmap(
-            make_tile_f.remote,
-            zip(
-                repeat(tile_dir),
-                repeat(arr_obj_id),
-                tile_params
+        result_ids = list(
+            starmap(
+                make_tile_f.remote,
+                zip(repeat(tile_dir), repeat(arr_obj_id), tile_params),
             )
-        ))
+        )
 
-        any(tqdm(
-            to_iterator(result_ids),
-            desc="Converting " + name,
-            position=pbar_loc,
-            total=total_tiles,
-            unit="tile",
-            disable=bool(os.getenv("DISBALE_TQDM", False)),
-        ))
-
-
+        any(
+            tqdm(
+                to_iterator(result_ids),
+                desc="Converting " + name,
+                position=pbar_loc,
+                total=total_tiles,
+                unit="tile",
+                disable=bool(os.getenv("DISBALE_TQDM", False)),
+            )
+        )
 
         # mp_array = sharedmem.empty_like(array)
         # mp_array[:] = array[:]
