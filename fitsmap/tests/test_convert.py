@@ -201,7 +201,7 @@ def test_balance_array_2d():
     out_array = convert.balance_array(test_array)
 
     assert out_array.shape == expected_shape
-    assert np.isnan(out_array).sum() == expected_num_nans
+    assert np.isnan(out_array[:]).sum() == expected_num_nans
 
 
 @pytest.mark.unit
@@ -218,7 +218,7 @@ def test_balance_array_3d():
     out_array = convert.balance_array(test_array)
 
     assert out_array.shape == expected_shape
-    assert np.isnan(out_array).sum() == expected_num_nans
+    assert np.isnan(out_array[:]).sum() == expected_num_nans
 
 
 @pytest.mark.unit
@@ -241,7 +241,7 @@ def test_get_array_fits():
 
     helpers.tear_down()
 
-    np.testing.assert_equal(expected_array, actual_array)
+    np.testing.assert_equal(expected_array, actual_array[:])
 
 
 @pytest.mark.unit

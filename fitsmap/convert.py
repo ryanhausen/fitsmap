@@ -28,7 +28,7 @@ import os
 import shutil
 import sys
 from functools import partial
-from itertools import chain, count, filterfalse, islice, product, repeat
+from itertools import chain, count, filterfalse, islice, product, repeat, starmap
 from multiprocessing import JoinableQueue, Pool, Process
 from queue import Empty, Queue
 from typing import Any, Callable, Dict, Iterable, List, Tuple
@@ -38,6 +38,7 @@ import mapbox_vector_tile as mvt
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
+import ray
 import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -49,7 +50,7 @@ from tqdm import tqdm
 
 import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
-
+import fitsmap.padded_array as pa
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
@@ -141,6 +142,8 @@ def balance_array(array: np.ndarray) -> np.ndarray:
             padding = [[0, pad_dim0], [0, pad_dim1], [0, 0]]
         else:
             padding = [[0, pad_dim0], [0, pad_dim1]]
+
+        return pa.PaddedArray(array, (pad_dim0, pad_dim1))
 
         return np.pad(
             array.astype(np.float32), padding, mode="constant", constant_values=np.nan
@@ -441,7 +444,7 @@ def tile_img(
 
     # get image
     array = get_array(file_location)
-    mpl_norm = simple_norm(array, **norm_kwargs)
+    mpl_norm = simple_norm(array[:], **norm_kwargs)
 
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
@@ -471,23 +474,56 @@ def tile_img(
         make_tile = partial(make_tile_pil, tile_dir)
 
     if mp_procs:
-        mp_array = sharedmem.empty_like(array)
-        mp_array[:] = array[:]
-        work = partial(make_tile, mp_array)
-        with Pool(mp_procs) as p:
-            any(
-                p.imap_unordered(
-                    work,
-                    tqdm(
-                        tile_params,
-                        desc="Converting " + name,
-                        position=pbar_loc,
-                        total=total_tiles,
-                        unit="tile",
-                        disable=bool(os.getenv("DISBALE_TQDM", False)),
-                    ),
-                )
+
+        arr_obj_id = ray.put(array)
+
+        if image_engine == IMG_ENGINE_MPL:
+            make_tile_f = ray.remote(num_cpus=1)(make_tile_mpl)
+        else:
+            make_tile_f = ray.remote(num_cpus=1)(make_tile_pil)
+
+        def to_iterator(obj_ids):
+            while obj_ids:
+                done, obj_ids = ray.wait(obj_ids)
+                yield None
+
+        result_ids = list(starmap(
+            make_tile_f.remote,
+            zip(
+                repeat(tile_dir),
+                repeat(arr_obj_id),
+                tile_params
             )
+        ))
+
+        any(tqdm(
+            to_iterator(result_ids),
+            desc="Converting " + name,
+            position=pbar_loc,
+            total=total_tiles,
+            unit="tile",
+            disable=bool(os.getenv("DISBALE_TQDM", False)),
+        ))
+
+
+
+        # mp_array = sharedmem.empty_like(array)
+        # mp_array[:] = array[:]
+        # work = partial(make_tile, mp_array)
+        # with Pool(mp_procs) as p:
+        #     any(
+        #         p.imap_unordered(
+        #             work,
+        #             tqdm(
+        #                 tile_params,
+        #                 desc="Converting " + name,
+        #                 position=pbar_loc,
+        #                 total=total_tiles,
+        #                 unit="tile",
+        #                 disable=bool(os.getenv("DISBALE_TQDM", False)),
+        #             ),
+        #         )
+        #     )
     else:
         work = partial(make_tile, array)
         any(
