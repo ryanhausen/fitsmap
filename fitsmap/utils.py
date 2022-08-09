@@ -23,6 +23,7 @@ from functools import reduce
 from itertools import chain, filterfalse
 from typing import Iterable, List, Tuple
 
+import ray
 from astropy.io import fits
 from tqdm import tqdm
 from PIL import Image
@@ -129,6 +130,28 @@ def peek_image_info(img_file_names: List[str]) -> Tuple[int, int]:
 def get_version():
     with open(os.path.join(fitsmap.__path__[0], "__version__.py"), "r") as f:
         return f.readline().strip().replace('"', "")
+
+
+def backpressure_ray_queue(
+    f: ray.FunctionID, args: List[Tuple], bar: tqdm, n: int
+) -> None:
+    # queue n jobs to be processed by ray
+    in_progress = [f.remote(*args.pop(0)) for _ in range(n)]
+
+    while in_progress:
+        # ray.wait blocks until at least one job is done
+        _, in_progress = ray.wait(in_progress)
+        bar.update()
+
+        if args:
+            # add another job to the queue for ray to work on
+            in_progress.append(f.remote(*args.pop(0)))
+        elif in_progress:
+            # the only jobs left are already in the queue
+            pass
+        else:
+            # all jobs complete
+            break
 
 
 class MockQueue:

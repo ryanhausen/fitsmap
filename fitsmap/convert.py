@@ -483,28 +483,44 @@ def tile_img(
         else:
             make_tile_f = ray.remote(num_cpus=1)(make_tile_pil)
 
-        def to_iterator(obj_ids):
-            while obj_ids:
-                done, obj_ids = ray.wait(obj_ids)
-                yield None
-
-        result_ids = list(
-            starmap(
-                make_tile_f.remote,
-                zip(repeat(tile_dir), repeat(arr_obj_id), tile_params),
-            )
+        pbar = tqdm(
+            desc="Converting " + name,
+            position=pbar_loc,
+            total=total_tiles,
+            unit="tile",
+            disable=bool(os.getenv("DISBALE_TQDM", False)),
         )
 
-        any(
-            tqdm(
-                to_iterator(result_ids),
-                desc="Converting " + name,
-                position=pbar_loc,
-                total=total_tiles,
-                unit="tile",
-                disable=bool(os.getenv("DISBALE_TQDM", False)),
-            )
+        utils.backpressure_ray_queue(
+            make_tile_f,
+            list(zip(repeat(tile_dir), repeat(arr_obj_id), tile_params)),
+            pbar,
+            mp_procs,
         )
+
+
+        # def to_iterator(obj_ids):
+        #     while obj_ids:
+        #         done, obj_ids = ray.wait(obj_ids)
+        #         yield None
+
+        # result_ids = list(
+        #     starmap(
+        #         make_tile_f.remote,
+        #         zip(repeat(tile_dir), repeat(arr_obj_id), tile_params),
+        #     )
+        # )
+
+        # any(
+        #     tqdm(
+        #         to_iterator(result_ids),
+        #         desc="Converting " + name,
+        #         position=pbar_loc,
+        #         total=total_tiles,
+        #         unit="tile",
+        #         disable=bool(os.getenv("DISBALE_TQDM", False)),
+        #     )
+        # )
 
         # mp_array = sharedmem.empty_like(array)
         # mp_array[:] = array[:]
