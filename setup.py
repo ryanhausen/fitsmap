@@ -41,6 +41,7 @@ REQUIRES = [
     "numpy",
     "matplotlib",
     "pillow",
+    "ray",
     "scikit-image",
     "sharedmem",
     "tqdm",

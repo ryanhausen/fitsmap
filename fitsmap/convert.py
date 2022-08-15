@@ -39,6 +39,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import numpy as np
 import ray
+import ray.util.queue as queue
 import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
@@ -491,54 +492,12 @@ def tile_img(
             disable=bool(os.getenv("DISBALE_TQDM", False)),
         )
 
-        utils.backpressure_ray_queue(
-            make_tile_f,
+        utils.backpressure_queue_ray(
+            make_tile_f.remote,
             list(zip(repeat(tile_dir), repeat(arr_obj_id), tile_params)),
             pbar,
             mp_procs,
         )
-
-
-        # def to_iterator(obj_ids):
-        #     while obj_ids:
-        #         done, obj_ids = ray.wait(obj_ids)
-        #         yield None
-
-        # result_ids = list(
-        #     starmap(
-        #         make_tile_f.remote,
-        #         zip(repeat(tile_dir), repeat(arr_obj_id), tile_params),
-        #     )
-        # )
-
-        # any(
-        #     tqdm(
-        #         to_iterator(result_ids),
-        #         desc="Converting " + name,
-        #         position=pbar_loc,
-        #         total=total_tiles,
-        #         unit="tile",
-        #         disable=bool(os.getenv("DISBALE_TQDM", False)),
-        #     )
-        # )
-
-        # mp_array = sharedmem.empty_like(array)
-        # mp_array[:] = array[:]
-        # work = partial(make_tile, mp_array)
-        # with Pool(mp_procs) as p:
-        #     any(
-        #         p.imap_unordered(
-        #             work,
-        #             tqdm(
-        #                 tile_params,
-        #                 desc="Converting " + name,
-        #                 position=pbar_loc,
-        #                 total=total_tiles,
-        #                 unit="tile",
-        #                 disable=bool(os.getenv("DISBALE_TQDM", False)),
-        #             ),
-        #         )
-        #     )
     else:
         work = partial(make_tile, array)
         any(
@@ -706,7 +665,12 @@ def line_to_json(
 
 
 def process_catalog_file_chunk(
-    process_f: Callable, fname: str, delimiter: str, start: int, end: int
+    process_f: Callable,
+    fname: str,
+    delimiter: str,
+    q: queue.Queue,
+    start: int,
+    end: int,
 ) -> List[dict]:
     # newline="" for csv reader, see
     # https://docs.python.org/3/library/csv.html#csv.reader
@@ -729,11 +693,11 @@ def process_catalog_file_chunk(
         current = f.tell()
         count += 1
         if count % update_every == 0:
-            process_catalog_file_chunk.q.put(count)
+            q.put(count)
             count = 1
 
     if count > 1:
-        process_catalog_file_chunk.q.put(count)
+        q.put(count)
 
     f.close()
     return json_lines
@@ -879,41 +843,76 @@ def tile_markers(
 
     catalog_file_size = os.path.getsize(catalog_file)
 
+    q = queue.Queue()
     process_f = partial(
-        process_catalog_file_chunk, line_func, catalog_file, catalog_delim,
+        process_catalog_file_chunk, line_func, catalog_file, catalog_delim, q
     )
 
     if mp_procs > 1:
+        # ray version ==========================================================
+        process_f = ray.remote(num_cpus=1)(process_catalog_file_chunk)
+        boundaries = np.linspace(0, catalog_file_size, mp_procs + 1, dtype=np.int64)
+
+        remote_val_ids = list(
+            starmap(
+                process_f.remote,
+                zip(
+                    repeat(line_func),
+                    repeat(catalog_file),
+                    repeat(catalog_delim),
+                    repeat(q),
+                    boundaries[:-1],
+                    boundaries[1:],
+                ),
+            )
+        )
+
+        _, remaining = ray.wait(remote_val_ids, timeout=0.01, fetch_local=False)
+        while remaining:
+            try:
+                lines_processed = sum([q.get(timeout=0.0001) for _ in range(mp_procs)])
+                bar.update(lines_processed)
+            except queue.Empty:
+                pass
+            _, remaining = ray.wait(remaining, timeout=0.01, fetch_local=False)
+        q.shutdown()
+        catalog_values = list(chain.from_iterable(list(ray.get(remote_val_ids))))
+        del q
+
+        # ======================================================================
+
         # this queue manages a proc bar instance that can be shared among multiple
         # processes, i have a feeling there is a better way to do this
-        q = mp.Queue()
-        monitor = mp.Process(target=procbar_listener, args=(q, bar))
-        monitor.start()
+        # q = mp.Queue()
+        # monitor = mp.Process(target=procbar_listener, args=(q, bar))
+        # monitor.start()
 
         # split the file by splitting the byte size of the file into even sized
         # chunks. We always read to the end of the first line so its ok to get
         # dropped into the middle of a link
-        boundaries = np.linspace(0, catalog_file_size, mp_procs + 1, dtype=np.int64)
-        file_chunk_pairs = list(zip(boundaries[:-1], boundaries[1:]))
+        # boundaries = np.linspace(0, catalog_file_size, mp_procs + 1, dtype=np.int64)
+        # file_chunk_pairs = list(zip(boundaries[:-1], boundaries[1:]))
 
         # To keep the progress bar up to date we need an extra process that
         # montiors the queue for updates from the workers. The extra process
         # doesn't do much and so it shouldn't be a strain to add it.
 
-        with Pool(mp_procs, process_catalog_file_chunk_init, [q]) as p:
-            catalog_values = list(
-                chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
-            )
+        # with Pool(mp_procs, process_catalog_file_chunk_init, [q]) as p:
+        #     catalog_values = list(
+        #         chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
+        #     )
 
-            # this kills the iter in the monitor process
+        # this kills the iter in the monitor process
 
-        q.put(None)
-        monitor.join()
-        del monitor
+        # q.put(None)
+        # monitor.join()
+        # del monitor
 
     else:
-        process_catalog_file_chunk_init(utils.MockQueue(bar))
+        # process_catalog_file_chunk_init(utils.MockQueue(bar))
         catalog_values = process_f(0, catalog_file_size)
+        q.shutdown()
+        del q
 
     # TEMP FIX FOR DREAM
     # max_zoom += 2
@@ -924,12 +923,7 @@ def tile_markers(
         total=max_zoom + 1 - min_zoom,
     )
 
-    if mp_procs > 1:
-        q = mp.Queue()
-        monitor = mp.Process(target=procbar_listener, args=(q, bar))
-        monitor.start()
-    else:
-        q = utils.MockQueue(bar)
+    # Continue ray here ========================================================
 
     # cluster the parsed sources
     # need to get super cluster stuff in here
@@ -940,15 +934,14 @@ def tile_markers(
         radius=max(max(max_x, max_y) / tile_size, 40),
         node_size=np.log2(len(catalog_values)) * 2,
         alternate_CRS=(max_x, max_y),
-        update_f=lambda: q.put(1),
+        update_f=lambda: bar.update(1),
         log=True,
     ).load(catalog_values)
 
-    if mp_procs > 1:
-        # this kills the iter in the monitor process
-        q.put(None)
-        monitor.join()
-        del monitor
+    # Don't push any updates from the clustering algorithm after clustering
+    # has been completed
+    clusterer.update_f = None
+    clusterer.log = False
 
     # tile the sources and save using protobuf
     zs = range(min_zoom, max_zoom + 1)
@@ -960,8 +953,31 @@ def tile_markers(
         )
     )
 
-    clusterer.update_f = None
-    clusterer.log = False
+    catalog_layer_dir = os.path.join(out_dir, catalog_layer_name)
+
+    tracked_collection = tqdm(
+        tile_idxs,
+        position=pbar_loc,
+        desc="Tiling " + catalog_file,
+        disable=bool(os.getenv("DISBALE_TQDM", False)),
+    )
+
+    if mp_procs > 1:
+        tile_f = ray.remote(num_cpus=1)(make_marker_tile)
+        cluster_remote_id = ray.put(clusterer)
+
+        tile_f_args = zip(
+            repeat(cluster_remote_id), repeat(catalog_layer_dir), tile_idxs,
+        )
+
+        utils.backpressure_queue_ray(tile_f, tile_f_args, bar, mp_procs)
+    else:
+        list(
+            starmap(
+                make_marker_tile,
+                zip(repeat(clusterer), repeat(catalog_layer_dir), tracked_collection),
+            )
+        )
 
     tile_f = partial(
         make_marker_tile, clusterer, os.path.join(out_dir, catalog_layer_name),
