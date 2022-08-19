@@ -43,7 +43,6 @@ REQUIRES = [
     "pillow",
     "ray",
     "scikit-image",
-    "sharedmem",
     "tqdm",
     "click",
     "mapbox_vector_tile",

@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2021 Ryan Hausen and contributors
+# Copyright 2022 Ryan Hausen and contributers
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -61,7 +61,9 @@ def chart(
     cat_zooms = reduce(
         lambda x, y: x + y, list(map(layer_zooms, marker_layer_names)), [0]
     )
-    max_overall_zoom = max(img_zooms + cat_zooms)
+    # be able to zoom in 5 levels further than the native zoom
+    # this seems to work well in general, but could become a parameter.
+    max_overall_zoom = max(img_zooms + cat_zooms) + 5
 
     convert_layer_name_func = partial(layer_name_to_dict, out_dir, max_overall_zoom)
     img_layer_dicts = list(

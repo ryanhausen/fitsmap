@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2021 Ryan Hausen and contributers
+# Copyright 2022 Ryan Hausen and contributers
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -22,25 +22,22 @@
 
 import copy
 import csv
-import json
-import multiprocessing as mp
+import io
 import os
-import shutil
 import sys
 from functools import partial
-from itertools import chain, count, filterfalse, islice, product, repeat, starmap
-from multiprocessing import JoinableQueue, Pool, Process
-from queue import Empty, Queue
+from itertools import chain, count, filterfalse, groupby, product, repeat, starmap
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 import cbor2
 import mapbox_vector_tile as mvt
 import matplotlib as mpl
+
+mpl.use("agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import ray
 import ray.util.queue as queue
-import sharedmem
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.visualization import simple_norm
@@ -272,31 +269,30 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
     return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
 
 
-def make_tile_mpl(
-    out_dir: str, array: np.ndarray, job: Tuple[int, int, int, slice, slice],
-) -> None:
-    """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using Matplotlib.
-
+def imread_default_tranparent(path: str, size: int = 256) -> np.ndarray:
+    """Opens an image if it exists, if not returns a tranparent image.
     Args:
-        out_dir (str): The directory to save tile in
-        array (np.ndarray): Array to extract a slice from
-        job (Tuple[int, int, int, slice, slice]): A tuple containing z, y, x,
-                                                  dim0_slices, dim1_slices. Where
-                                                  (z, y, x) define the zoom and
-                                                  the coordinates, and (dim0_slices,
-                                                  and dim1_slices) are slice
-                                                  objects that extract the tile.
+        path (str): Image file location
+        size (int, optional): The image size, assumed square. Defaults to 256.
     Returns:
-        None
+        np.ndarray: the image if it exists. if not, a transparent image of
+                    size (size, size, 4).
     """
-    z, y, x, slice_ys, slice_xs = job
+    try:
+        arr = np.flipud(imread(path))
+    except FileNotFoundError:
+        arr = np.zeros([size, size, 4], dtype=np.uint8)
 
-    img_path = build_path(z, y, x, out_dir)
+    return arr
 
-    tile = array[slice_ys, slice_xs].copy()
 
-    if np.all(np.isnan(tile)):
-        return
+def make_tile_mpl(tile: np.ndarray) -> np.ndarray:
+    """Converts array data into an image using matplotlib
+    Args:
+        tile (np.ndarray): The array data
+    Returns:
+        np.ndarray: The array data converted into an image using Matplotlib
+    """
 
     global mpl_f
     global mpl_img
@@ -306,11 +302,8 @@ def make_tile_mpl(
     if mpl_f:
         # this is a singleton and starts out as null
         mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
-        mpl_f.savefig(
-            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
-        )
     else:
-        if len(array.shape) == 2:
+        if len(tile.shape) == 2:
             cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
             cmap.set_bad(color=(0, 0, 0, 0))
 
@@ -323,38 +316,67 @@ def make_tile_mpl(
             img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
 
             def adjust_pixels(arr):
-                img = arr
-                if img.shape[2] == 3:
-                    img = np.concatenate(
+                tmp = arr
+                if tmp.shape[2] == 3:
+                    tmp = np.concatenate(
                         (
-                            img,
-                            np.ones(list(img.shape[:-1]) + [1], dtype=np.float32) * 255,
+                            tmp,
+                            np.ones(list(tmp.shape[:-1]) + [1], dtype=np.float32) * 255,
                         ),
                         axis=2,
                     )
 
-                ys, xs = np.where(np.isnan(img[:, :, 0]))
-                img[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+                ys, xs = np.where(np.isnan(tmp[:, :, 0]))
+                tmp[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
 
-                return img.astype(np.uint8)
+                return tmp.astype(np.uint8)
 
             mpl_alpha_f = lambda arr: adjust_pixels(arr)
 
         mpl_f = plt.figure(dpi=256)
         mpl_f.set_size_inches([256 / 256, 256 / 256])
-        mpl_img = plt.imshow(mpl_alpha_f(tile), **img_kwargs)
+        t = mpl_alpha_f(tile)
+        mpl_img = plt.imshow(t, **img_kwargs)
         plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
         plt.axis("off")
-        mpl_f.savefig(
-            img_path, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
+
+    buf = io.BytesIO()
+    mpl_f.savefig(
+        buf, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
+    )
+    buf.seek(0)
+    return Image.open(buf)
+
+
+def make_tile_pil(tile: np.ndarray) -> np.ndarray:
+    """Converts the input array into an image using PIL
+    Args:
+        tile (np.ndarray): The array data to be converted
+    Returns:
+        np.ndarray: an RGBA version of the input data
+    """
+
+    if len(tile.shape) < 3:
+        tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
+    elif tile.shape[2] == 3:
+        tile = np.concatenate(
+            (tile, np.ones(list(tile.shape[:-1]) + [1], dtype=np.float32) * 255),
+            axis=2,
         )
+    ys, xs = np.where(np.isnan(tile[:, :, 0]))
+    tile[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+    img = Image.fromarray(np.flipud(tile).astype(np.uint8))
+
+    return img
 
 
-def make_tile_pil(
-    out_dir: str, array: np.ndarray, job: Tuple[int, int, int, slice, slice]
+def mem_safe_make_tile(
+    out_dir: str,
+    img_engine: str,
+    array: np.ndarray,
+    job: Tuple[int, int, int, slice, slice],
 ) -> None:
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using PIL.
-
     Args:
         out_dir (str): The directory to save tile in
         array (np.ndarray): Array to extract a slice from
@@ -364,35 +386,49 @@ def make_tile_pil(
                                                   the coordinates, and (dim0_slices,
                                                   and dim1_slices) are slice
                                                   objects that extract the tile.
-
     Returns:
         None
     """
     z, y, x, slice_ys, slice_xs = job
-
     img_path = build_path(z, y, x, out_dir)
 
-    tile = array[slice_ys, slice_xs].copy()
+    with_out_dir = partial(os.path.join, out_dir)
 
-    if np.all(np.isnan(tile)):
-        return
-
-    if len(tile.shape) < 3:
-        tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
-    elif tile.shape[2] == 3:
-        tile = np.concatenate(
-            (tile, np.ones(list(tile.shape[:-1]) + [1], dtype=np.float32) * 255),
-            axis=2,
+    if os.path.exists(with_out_dir(f"{z+1}")):
+        top_left = imread_default_tranparent(
+            with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png")
+        )
+        top_right = imread_default_tranparent(
+            with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png")
+        )
+        bottom_left = imread_default_tranparent(
+            with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png")
+        )
+        bottom_right = imread_default_tranparent(
+            with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png")
         )
 
-    ys, xs = np.where(np.isnan(tile[:, :, 0]))
-    tile[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
-    img = Image.fromarray(np.flipud(tile).astype(np.uint8))
-    del tile
+        tile = np.concatenate(
+            [
+                np.concatenate([top_left, top_right], axis=1),
+                np.concatenate([bottom_left, bottom_right], axis=1),
+            ],
+            axis=0,
+        )
+        img = Image.fromarray(np.flipud(tile).astype(np.uint8))
+    else:
+        tile = array[slice_ys, slice_xs].copy()
+        if img_engine == IMG_ENGINE_PIL:
+            img = make_tile_pil(tile)
+        else:
+            img = make_tile_mpl(tile)
 
-    img.thumbnail([256, 256], Image.Resampling.LANCZOS)
-    img.convert("RGBA").save(img_path, "PNG")
-    del img
+    # if the tile is all transparent, don't save to disk
+    if np.array(img)[..., -1].sum() == 0:
+        pass
+    else:
+        img.thumbnail([256, 256], Image.Resampling.LANCZOS)
+        img.convert("RGBA").save(img_path, "PNG")
 
 
 def tile_img(
@@ -446,7 +482,9 @@ def tile_img(
 
     # get image
     array = get_array(file_location)
-    mpl_norm = simple_norm(array[:], **norm_kwargs)
+
+    if image_engine == IMG_ENGINE_MPL and norm_kwargs:
+        mpl_norm = simple_norm(array[:], **norm_kwargs)
 
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
@@ -467,22 +505,11 @@ def tile_img(
         ]
     )
 
-    # tile the image
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
-    if image_engine == IMG_ENGINE_MPL:
-        make_tile = partial(make_tile_mpl, tile_dir)
-    else:
-        make_tile = partial(make_tile_pil, tile_dir)
-
     if mp_procs:
-
         arr_obj_id = ray.put(array)
-
-        if image_engine == IMG_ENGINE_MPL:
-            make_tile_f = ray.remote(num_cpus=1)(make_tile_mpl)
-        else:
-            make_tile_f = ray.remote(num_cpus=1)(make_tile_pil)
+        make_tile_f = ray.remote(num_cpus=1)(mem_safe_make_tile)
 
         pbar = tqdm(
             desc="Converting " + name,
@@ -492,27 +519,55 @@ def tile_img(
             disable=bool(os.getenv("DISBALE_TQDM", False)),
         )
 
-        utils.backpressure_queue_ray(
-            make_tile_f.remote,
-            list(zip(repeat(tile_dir), repeat(arr_obj_id), tile_params)),
-            pbar,
-            mp_procs,
-        )
+        # in parallel we have to go one zoom level at a time because the images
+        # at lower zoom levels are dependent on the tiles are higher zoom levels
+        for zoom, jobs in groupby(tile_params, lambda z: z[0]):
+            if zoom == max_zoom:
+                utils.backpressure_queue_ray(
+                    make_tile_f.remote,
+                    list(
+                        zip(
+                            repeat(tile_dir),
+                            repeat(image_engine),
+                            repeat(arr_obj_id),
+                            jobs,
+                        )
+                    ),
+                    pbar,
+                    mp_procs,
+                )
+            else:
+                arr_obj_id = None
+                array = None
+                work = list(
+                    zip(repeat(tile_dir), repeat(image_engine), repeat(None), jobs)
+                )
+
+                utils.backpressure_queue_ray(
+                    make_tile_f.remote, work, pbar, mp_procs,
+                )
     else:
-        work = partial(make_tile, array)
-        any(
-            map(
-                work,
-                tqdm(
-                    tile_params,
-                    desc="Converting " + name,
-                    total=total_tiles,
-                    unit="tile",
-                    position=pbar_loc,
-                    disable=bool(os.getenv("DISBALE_TQDM", False)),
-                ),
-            )
+        work = partial(mem_safe_make_tile, tile_dir, image_engine, array)
+        jobs = tqdm(
+            tile_params,
+            desc="Converting " + name,
+            total=total_tiles,
+            unit="tile",
+            position=pbar_loc,
+            disable=bool(os.getenv("DISBALE_TQDM", False)),
         )
+
+        for job in jobs:
+            if job[0] == max_zoom:
+                work(job)
+            else:
+                break
+
+        del array
+        work = partial(mem_safe_make_tile, tile_dir, image_engine, None)
+        work(job)
+
+        any(map(work, jobs))
 
     if image_engine == IMG_ENGINE_MPL:
         plt.close("all")
@@ -608,8 +663,7 @@ def line_to_json(
         ra = float(src_vals[columns.index("ra")])
         dec = float(src_vals[columns.index("dec")])
 
-        # We assume the origins of the images for catalog conversion start at (1,1).
-        [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], 1)
+        [[img_x, img_y]] = wcs.wcs_world2pix([[ra, dec]], int(catalog_starts_at_one))
 
     if "a" in columns and "b" in columns and "theta" in columns:
         a = float(src_vals[columns.index("a")])
@@ -626,27 +680,14 @@ def line_to_json(
         b = -1
         theta = -1
 
-    # The default catalog convention is that the lower left corner is (1, 1)
-    # The default leaflet convention is that the lower left corner is (0, 0)
+    # Leaflet is 0 indexed, so if the catalog starts at 1 we need to offset
     # The convention for leaflet is to place markers at the lower left corner
     # of a pixel, to center the marker on the pixel, we subtract 1 to bring it
     # to leaflet convention and add 0.5 to move it to the center of the pixel.
     x = (img_x - int(catalog_starts_at_one)) + 0.5
     y = (img_y - int(catalog_starts_at_one)) + 0.5
-    # y = img_y
-    # x = img_x
-
-    # src_desc = {k: v for k, v in zip(columns, src_vals)}
-
-    # src_desc["fm_y"] = y
-    # src_desc["fm_x"] = x
-    # src_desc["fm_cat"] = catalog_assets_path.split(os.sep)[-1]
 
     src_vals += [y, x, catalog_assets_path.split(os.sep)[-1]]
-
-    # src_json = os.path.join(catalog_assets_path, f"{src_id}.json")
-    # with open(src_json, "w") as f:
-    #     json.dump(dict(id=src_id,v=src_vals), f, separators=(",", ":"))  # no whitespace
 
     src_json = os.path.join(catalog_assets_path, f"{src_id}.cbor")
     with open(src_json, "wb") as f:
@@ -703,12 +744,6 @@ def process_catalog_file_chunk(
     return json_lines
 
 
-# This allows the queue reference to be shared between processes
-# https://stackoverflow.com/a/3843313/2691018
-def process_catalog_file_chunk_init(q):
-    process_catalog_file_chunk.q = q
-
-
 def _simplify_mixed_ws(catalog_fname: str) -> None:
     with open(catalog_fname, "r") as f:
         lines = [l.strip() for l in f.readlines()]
@@ -716,15 +751,6 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
     with open(catalog_fname, "w") as f:
         for line in lines:
             f.write(" ".join([token.strip() for token in line.split()]) + "\n")
-
-
-def procbar_listener(q: Queue, bar: tqdm) -> None:
-    while True:
-        update = q.get()
-        if update:
-            bar.update(n=update)
-        else:
-            break
 
 
 def make_marker_tile(
@@ -746,16 +772,7 @@ def make_marker_tile(
         tile_sources["name"] = "Points"
 
         for i in range(len(tile_sources["features"])):
-            # tile_sources["features"][i]["geometry"] = "POINT({} {})".format(
-            #     *list(map(
-            #         int,
-            #         tile_sources["features"][i]["geometry"]
-            #     ))
-            # )
             tile_sources["features"][i]["geometry"] = "POINT(0 0)"  # we dont' use this
-
-        # with open(out_path.replace("pbf", "json"), "w") as f:
-        #     json.dump(tile_sources, f, indent=2)
 
         encoded_tile = mvt.encode([tile_sources], extents=256)
 
@@ -849,7 +866,6 @@ def tile_markers(
     )
 
     if mp_procs > 1:
-        # ray version ==========================================================
         process_f = ray.remote(num_cpus=1)(process_catalog_file_chunk)
         boundaries = np.linspace(0, catalog_file_size, mp_procs + 1, dtype=np.int64)
 
@@ -878,52 +894,17 @@ def tile_markers(
         q.shutdown()
         catalog_values = list(chain.from_iterable(list(ray.get(remote_val_ids))))
         del q
-
-        # ======================================================================
-
-        # this queue manages a proc bar instance that can be shared among multiple
-        # processes, i have a feeling there is a better way to do this
-        # q = mp.Queue()
-        # monitor = mp.Process(target=procbar_listener, args=(q, bar))
-        # monitor.start()
-
-        # split the file by splitting the byte size of the file into even sized
-        # chunks. We always read to the end of the first line so its ok to get
-        # dropped into the middle of a link
-        # boundaries = np.linspace(0, catalog_file_size, mp_procs + 1, dtype=np.int64)
-        # file_chunk_pairs = list(zip(boundaries[:-1], boundaries[1:]))
-
-        # To keep the progress bar up to date we need an extra process that
-        # montiors the queue for updates from the workers. The extra process
-        # doesn't do much and so it shouldn't be a strain to add it.
-
-        # with Pool(mp_procs, process_catalog_file_chunk_init, [q]) as p:
-        #     catalog_values = list(
-        #         chain.from_iterable(p.starmap(process_f, file_chunk_pairs))
-        #     )
-
-        # this kills the iter in the monitor process
-
-        # q.put(None)
-        # monitor.join()
-        # del monitor
-
     else:
-        # process_catalog_file_chunk_init(utils.MockQueue(bar))
         catalog_values = process_f(0, catalog_file_size)
         q.shutdown()
         del q
 
-    # TEMP FIX FOR DREAM
-    # max_zoom += 2
     bar = tqdm(
         position=pbar_loc,
         desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
         disable=bool(os.getenv("DISBALE_TQDM", False)),
         total=max_zoom + 1 - min_zoom,
     )
-
-    # Continue ray here ========================================================
 
     # cluster the parsed sources
     # need to get super cluster stuff in here
@@ -979,44 +960,6 @@ def tile_markers(
             )
         )
 
-    tile_f = partial(
-        make_marker_tile, clusterer, os.path.join(out_dir, catalog_layer_name),
-    )
-
-    tracked_collection = tqdm(
-        tile_idxs,
-        position=pbar_loc,
-        desc="Tiling " + catalog_file,
-        disable=bool(os.getenv("DISBALE_TQDM", False)),
-    )
-
-    if mp_procs > 1:
-        with Pool(mp_procs) as p:
-            list(p.imap_unordered(tile_f, tracked_collection, chunksize=100))
-    else:
-        list(map(tile_f, tracked_collection))
-
-
-def async_worker(q: JoinableQueue) -> None:
-    """Function for async task processesing.
-
-    Args:
-        q (JoinableQueue): Queue to retrieve tasks (func, args) from
-
-    Returns:
-        None
-    """
-    BLOCK = True
-    TIMEOUT = 5
-
-    while True:
-        try:
-            f, args = q.get(BLOCK, TIMEOUT)
-            f(*args)
-            q.task_done()
-        except Empty:
-            break
-
 
 def files_to_map(
     files: List[str],
@@ -1035,6 +978,56 @@ def files_to_map(
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
 ) -> None:
+    """Converts a list of files into a LeafletJS map.
+
+    Args:
+        files (List[str]): List of files to convert into a map, can include image
+                           files (.fits, .png, .jpg) and catalog files (.cat)
+        out_dir (str): Directory to place the genreated web page and associated
+                       subdirectories
+        min_zoom (int): The minimum zoom to create tiles for. The default value
+                        is 0, but if it can be helpful to set it to a value
+                        greater than zero if don't want the map to be able
+                        to zoom all the way out.
+        title (str): The title to placed on the webpage
+        task_procs (int): The number of tasks to run in parallel
+        procs_per_task (int): The number of tiles to process in parallel
+        catalog_delim (str): The delimited for catalog (.cat) files. Deault is
+                             whitespace.
+        cat_wcs_fits_file (str): A fits file that has the WCS that will be used
+                                 to map ra and dec coordinates from the catalog
+                                 files to x and y coordinates in the map
+        max_catalog_zoom (int): The zoom level to stop clustering on, the
+                                default is the max zoom level of the image. For
+                                images with a high source density, setting this
+                                higher than the max zoom will help with
+                                performance.
+        tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
+                                     only [256, 256] is supported.
+        image_engine (str): The method that converts the image data into image
+                            tiles. The default is convert.IMG_ENGINE_MPL
+                            (matplotlib) the other option is
+                            convert.IMG_ENGINE_PIL (pillow). Pillow can render
+                            FITS files but doesn't do any scaling. Pillow may
+                            be more performant for only PNG images.
+        norm_kwargs (dict): Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. The default is
+                            linear scaling using min/max values. See documentation
+                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+        rows_per_column (int): If converting a catalog, the number of items in
+                               have in each column of the marker popup.
+                               By default produces all values in a single
+                               column. Setting this value can make it easier to
+                               work with catalogs that have a lot of values for
+                               each object.
+        prefer_xy (bool): If True x/y coordinates should be preferred if both
+                          ra/dec and x/y are present in a catalog
+        catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
+                                      the catalog is 0 indexed
+
+    Returns:
+        None
+    """
 
     if len(files) == 0:
         raise ValueError("No files provided `files` is an empty list")
@@ -1139,7 +1132,6 @@ def files_to_map(
 
     tasks = chain(img_tasks, cat_tasks)
 
-    # setup async structures
     if task_procs:
         # start runnning task_procs number of tasks
         in_progress = list(
@@ -1165,11 +1157,6 @@ def files_to_map(
                     # the tasks 'in_progress' are still running
                     pass
     else:
-        # def ff(func, args):
-        #     print("HERE!", func, args)
-        #     func(**args)
-        # any(map(ff, tasks))
-
         any(map(lambda func_args: func_args[0](**func_args[1]), tasks))
 
     ns = "\n" * (next(pbar_locations) - 1)
@@ -1192,169 +1179,6 @@ def files_to_map(
     print("Done.")
 
 
-# def files_to_map(
-#     files: List[str],
-#     out_dir: str = ".",
-#     min_zoom: int = 0,
-#     title: str = "FitsMap",
-#     task_procs: int = 0,
-#     procs_per_task: int = 0,
-#     catalog_delim: str = ",",
-#     cat_wcs_fits_file: str = None,
-#     max_catalog_zoom: int = -1,
-#     tile_size: Tuple[int, int] = [256, 256],
-#     image_engine: str = IMG_ENGINE_MPL,
-#     norm_kwargs: dict = {},
-#     rows_per_column: int = np.inf,
-#     prefer_xy: bool = False,
-#     catalog_starts_at_one: bool = True,
-# ) -> None:
-#     """Converts a list of files into a LeafletJS map.
-
-#     Args:
-#         files (List[str]): List of files to convert into a map, can include image
-#                            files (.fits, .png, .jpg) and catalog files (.cat)
-#         out_dir (str): Directory to place the genreated web page and associated
-#                        subdirectories
-#         min_zoom (int): The minimum zoom to create tiles for. The default value
-#                         is 0, but if it can be helpful to set it to a value
-#                         greater than zero if your running out of memory as the
-#                         lowest zoom images can be the most memory intensive.
-#         title (str): The title to placed on the webpage
-#         task_procs (int): The number of tasks to run in parallel
-#         procs_per_task (int): The number of tiles to process in parallel
-#         catalog_delim (str): The delimited for catalog (.cat) files. Deault is
-#                              whitespace.
-#         cat_wcs_fits_file (str): A fits file that has the WCS that will be used
-#                                  to map ra and dec coordinates from the catalog
-#                                  files to x and y coordinates in the map
-#         max_catalog_zoom (int): The zoom level to stop clustering on, the
-#                                 default is the max zoom level of the image. For
-#                                 images with a high source density, setting this
-#                                 higher than the max zoom will help with
-#                                 performance.
-#         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
-#                                      only [256, 256] is supported.
-#         image_engine (str): The method that converts the image data into image
-#                             tiles. The default is convert.IMG_ENGINE_MPL
-#                             (matplotlib) the other option is
-#                             convert.IMG_ENGINE_PIL (pillow). Pillow can render
-#                             FITS files but doesn't do any scaling. Pillow may
-#                             be more performant for only PNG images.
-#         norm_kwargs (dict): Optional normalization keyword arguments passed to
-#                             `astropy.visualization.simple_norm`. The default is
-#                             linear scaling using min/max values. See documentation
-#                             for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
-#         rows_per_column (int): If converting a catalog, the number of items in
-#                                have in each column of the marker popup.
-#                                By default produces all values in a single
-#                                column. Setting this value can make it easier to
-#                                work with catalogs that have a lot of values for
-#                                each object.
-#         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
-#                                       the catalog is 0 indexed
-
-#     Returns:
-#         None
-#     """
-
-#     if len(files) == 0:
-#         raise ValueError("No files provided `files` is an empty list")
-
-#     unlocatable_files = list(filterfalse(os.path.exists, files))
-#     if len(unlocatable_files) > 0:
-#         raise FileNotFoundError(unlocatable_files)
-
-#     if not os.path.exists(out_dir):
-#         os.makedirs(out_dir)
-
-#     if "js" not in os.listdir(out_dir):
-#         os.mkdir(os.path.join(out_dir, "js"))
-
-#     if "css" not in os.listdir(out_dir):
-#         os.mkdir(os.path.join(out_dir, "css"))
-
-#     img_f_kwargs = dict(
-#         tile_size=tile_size,
-#         min_zoom=min_zoom,
-#         image_engine=image_engine,
-#         out_dir=out_dir,
-#         mp_procs=procs_per_task,
-#         norm_kwargs=norm_kwargs,
-#     )
-
-#     img_files = filter_on_extension(files, IMG_FORMATS)
-#     img_layer_names = list(map(get_map_layer_name, img_files))
-#     img_job_f = partial(tile_img, **img_f_kwargs)
-
-#     cat_files = filter_on_extension(files, CAT_FORMAT)
-#     cat_layer_names = list(map(get_map_layer_name, cat_files))
-
-#     max_x, max_y = utils.peek_image_info(img_files)
-#     max_dim = max(max_x, max_y)
-#     if len(cat_files) > 0:
-#         # get highlevel image info for catalogging function
-#         max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / tile_size[0]))
-#         max_dim = 2 ** max_zoom * tile_size[0]
-#         if max_catalog_zoom == -1:
-#             max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / tile_size[0]))
-#         else:
-#             max_zoom = max_catalog_zoom
-
-#         cat_job_f = partial(
-#             tile_markers,
-#             cat_wcs_fits_file,
-#             out_dir,
-#             catalog_delim,
-#             procs_per_task,
-#             prefer_xy,
-#             min_zoom,
-#             max_zoom,
-#             tile_size[0],
-#             max_dim,
-#             max_dim,
-#             catalog_starts_at_one,
-#         )
-#     else:
-#         cat_job_f = None
-
-#     pbar_locations = count(0)
-
-#     img_tasks = zip(repeat(img_job_f), zip(img_files, pbar_locations))
-#     cat_tasks = zip(repeat(cat_job_f), zip(cat_files, pbar_locations))
-#     tasks = chain(img_tasks, cat_tasks)
-
-#     if task_procs:
-#         q = JoinableQueue()
-#         any(map(lambda t: q.put(t), tasks))
-
-#         workers = [Process(target=async_worker, args=[q]) for _ in range(task_procs)]
-#         [w.start() for w in workers]  # can use any-map if this returns None
-
-#         q.join()
-#     else:
-#         any(map(lambda func_args: func_args[0](*func_args[1]), tasks))
-
-#     ns = "\n" * (next(pbar_locations) - 1)
-#     print(ns + "Building index.html")
-
-#     if cat_wcs_fits_file is not None:
-#         cat_wcs = WCS(cat_wcs_fits_file)
-#     else:
-#         cat_wcs = None
-
-#     cartographer.chart(
-#         out_dir,
-#         title,
-#         img_layer_names,
-#         cat_layer_names,
-#         cat_wcs,
-#         rows_per_column,
-#         (max_x, max_y),
-#     )
-#     print("Done.")
-
-
 def dir_to_map(
     directory: str,
     out_dir: str = ".",
@@ -1370,6 +1194,8 @@ def dir_to_map(
     image_engine: str = IMG_ENGINE_MPL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
+    prefer_xy: bool = False,
+    catalog_starts_at_one: bool = True,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1384,8 +1210,8 @@ def dir_to_map(
                                       processed
         min_zoom (int): The minimum zoom to create tiles for. The default value
                         is 0, but if it can be helpful to set it to a value
-                        greater than zero if your running out of memory as the
-                        lowest zoom images can be the most memory intensive.
+                        greater than zero if don't want the map to be able
+                        to zoom all the way out.
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
@@ -1421,6 +1247,10 @@ def dir_to_map(
                                column. Setting this value can make it easier to
                                work with catalogs that have a lot of values for
                                each object.
+        prefer_xy (bool): If True x/y coordinates should be preferred if both
+                          ra/dec and x/y are present in a catalog
+        catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
+                                      the catalog is 0 indexed
     Returns:
         None
 
@@ -1454,4 +1284,6 @@ def dir_to_map(
         image_engine=image_engine,
         norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
+        prefer_xy=prefer_xy,
+        catalog_starts_at_one=catalog_starts_at_one,
     )

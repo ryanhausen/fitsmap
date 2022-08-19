@@ -29,8 +29,10 @@ FitsMap
     :target: https://doi.org/10.1016/j.ascom.2022.100586
 
 
-FitsMap is a tool for displaying astronomical images and their associated
-catalogs, powered by `LeafletJS <https://leafletjs.com>`_.
+FitsMap is a tool developed in the `Computational Astrophysics Research Group
+<https://robertson.sites.ucsc.edu/research/>`_ at UC Santa Cruz for displaying
+astronomical images and their associated catalogs, powered by `LeafletJS
+<https://leafletjs.com>`_.
 
 Survey images can have dimensions in the tens of thousands of pixels in multiple
 bands. Examining images of this size can be difficult, especially in multiple
@@ -67,16 +69,16 @@ Installation
 Requirements:
 
 - ``astropy``
+- ``cbor2``
+- ``click``
 - ``imageio``
-- ``numpy``
+- ``mapbox_vector_tile``
 - ``matplotlib``
+- ``numpy``
 - ``pillow``
 - ``scikit-image``
-- ``sharedmem``
+- ``ray``
 - ``tqdm``
-- ``click``
-- ``mapbox_vector_tile``
-- ``cbor2``
 
 Use ``pip`` to install
 

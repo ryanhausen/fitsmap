@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2019 Ryan Hausen
+# Copyright 2022 Ryan Hausen and contributers
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -59,8 +59,6 @@ def setup(with_data=False):
             filter(lambda f: f.endswith("tar.xz"), os.listdir(TEST_PATH))
         )
 
-        print()
-
         def extract(f):
             with tarfile.open(with_test_path(f)) as f:
                 f.extractall(TEST_PATH)
@@ -95,8 +93,6 @@ def cat_to_json(fname):
 def __stable_idx_answer(shape, zoom, tile_size=256):
     dim0_tile_fraction = shape[0] / tile_size
     dim1_tile_fraction = shape[1] / tile_size
-
-    print(shape, dim0_tile_fraction, dim1_tile_fraction, tile_size, zoom)
 
     if dim0_tile_fraction < 1 or dim1_tile_fraction < 1:
         raise StopIteration()
