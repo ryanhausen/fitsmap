@@ -544,6 +544,71 @@ def test_tile_img_mpl_serial():
 
 @pytest.mark.unit
 @pytest.mark.convert
+def test_tile_img_mpl_fits_serial():
+    """Test convmax_percentert.tile_img"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_img_for_map.fits")
+    pbar_loc = 0
+    min_zoom = 0
+    image_engine = convert.IMG_ENGINE_MPL
+
+    convert.tile_img(
+        test_image,
+        pbar_loc,
+        min_zoom=min_zoom,
+        image_engine=image_engine,
+        out_dir=out_dir,
+        norm_kwargs=dict(stretch="log", max_percent=99.9),
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_img_for_map")
+    actual_dir = os.path.join(out_dir, "test_img_for_map")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+def test_simplify_mixed_ws():
+    """Test convert._simplify_mixed_ws"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    test_lines = [
+        "a b   c\n",
+        "test\tdata stuff\n",
+        "to     test\tstuff\n",
+    ]
+
+    out_file = os.path.join(helpers.DATA_DIR, "test.cat")
+    with open(out_file, "w") as f:
+        f.writelines(test_lines)
+
+    convert._simplify_mixed_ws(out_file)
+
+    expected_test_lines = [
+        "a b c\n",
+        "test data stuff\n",
+        "to test stuff\n",
+    ]
+
+    with open(out_file, "r") as f:
+        actual_lines = f.readlines()
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert expected_test_lines == actual_lines
+
+
+@pytest.mark.unit
+@pytest.mark.convert
 def test_tile_img_pil_serial_exists(capsys):
     """Test convert.tile_img skips tiling"""
     helpers.disbale_tqdm()

@@ -32,8 +32,6 @@ from typing import Any, Callable, Dict, Iterable, List, Tuple
 import cbor2
 import mapbox_vector_tile as mvt
 import matplotlib as mpl
-
-mpl.use("agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import ray
@@ -137,16 +135,7 @@ def balance_array(array: np.ndarray) -> np.ndarray:
     pad_dim1 = int(total_size - dim1)
 
     if pad_dim0 > 0 or pad_dim1 > 0:
-        if len(array.shape) == 3:
-            padding = [[0, pad_dim0], [0, pad_dim1], [0, 0]]
-        else:
-            padding = [[0, pad_dim0], [0, pad_dim1]]
-
         return pa.PaddedArray(array, (pad_dim0, pad_dim1))
-
-        return np.pad(
-            array.astype(np.float32), padding, mode="constant", constant_values=np.nan
-        )
     else:
         return array
 
