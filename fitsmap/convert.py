@@ -41,6 +41,7 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from imageio import imread
 from PIL import Image
+from fitsmap.output_manager import OutputManager
 from fitsmap.supercluster import Supercluster
 from tqdm import tqdm
 
@@ -422,7 +423,8 @@ def mem_safe_make_tile(
 
 def tile_img(
     file_location: str,
-    pbar_loc: int,
+    # pbar_loc: int,
+    pbar_ref: Tuple[int, queue.Queue],
     tile_size: Shape = [256, 256],
     min_zoom: int = 0,
     image_engine: str = IMG_ENGINE_MPL,
@@ -457,7 +459,8 @@ def tile_img(
 
     _, fname = os.path.split(file_location)
     if get_map_layer_name(file_location) in os.listdir(out_dir):
-        print(f"{fname} already tiled. Skipping tiling.")
+        OutputManager.write(pbar_ref, f"{fname} already tiled. Skipping tiling.")
+        # print(f"{fname} already tiled. Skipping tiling.")
         return
 
     # reset mpl vars just in case they have been set by another img
@@ -500,13 +503,17 @@ def tile_img(
         arr_obj_id = ray.put(array)
         make_tile_f = ray.remote(num_cpus=1)(mem_safe_make_tile)
 
-        pbar = tqdm(
-            desc="Converting " + name,
-            position=pbar_loc,
-            total=total_tiles,
-            unit="tile",
-            disable=bool(os.getenv("DISBALE_TQDM", False)),
-        )
+        # pbar = tqdm(
+        #     desc="Converting " + name,
+        #     position=pbar_loc,
+        #     total=total_tiles,
+        #     unit="tile",
+        #     disable=bool(os.getenv("DISBALE_TQDM", False)),
+        # )
+        OutputManager.set_description(pbar_ref, f"Converting {name}")
+        OutputManager.set_units_total(pbar_ref, unit="tile", total=total_tiles)
+
+        # TODO: Merge the batching on lux with pbar updates here.
 
         # in parallel we have to go one zoom level at a time because the images
         # at lower zoom levels are dependent on the tiles are higher zoom levels
@@ -522,7 +529,8 @@ def tile_img(
                             jobs,
                         )
                     ),
-                    pbar,
+                    # pbar,
+                    pbar_ref,
                     mp_procs,
                 )
             else:
@@ -533,31 +541,44 @@ def tile_img(
                 )
 
                 utils.backpressure_queue_ray(
-                    make_tile_f.remote, work, pbar, mp_procs,
+                    # make_tile_f.remote, work, pbar, mp_procs,
+                    make_tile_f.remote,
+                    work,
+                    pbar_ref,
+                    mp_procs,
                 )
     else:
         work = partial(mem_safe_make_tile, tile_dir, image_engine, array)
-        jobs = tqdm(
-            tile_params,
-            desc="Converting " + name,
-            total=total_tiles,
-            unit="tile",
-            position=pbar_loc,
-            disable=bool(os.getenv("DISBALE_TQDM", False)),
-        )
+        # jobs = tqdm(
+        #     tile_params,
+        #     desc="Converting " + name,
+        #     total=total_tiles,
+        #     unit="tile",
+        #     position=pbar_loc,
+        #     disable=bool(os.getenv("DISBALE_TQDM", False)),
+        # )
+        jobs = tile_params
+        OutputManager.set_description(pbar_ref, f"Converting {name}")
+        OutputManager.set_units_total(pbar_ref, "tile", total_tiles)
 
         for job in jobs:
             if job[0] == max_zoom:
                 work(job)
+                OutputManager.update(pbar_ref, 1)
             else:
                 break
 
         del array
         work = partial(mem_safe_make_tile, tile_dir, image_engine, None)
         work(job)
+        OutputManager.update(pbar_ref, 1)
 
-        any(map(work, jobs))
+        for job in jobs:
+            work(job)
+            OutputManager.update(pbar_ref, 1)
+        # any(map(work, jobs))
 
+    OutputManager.update_done(pbar_ref)
     if image_engine == IMG_ENGINE_MPL:
         plt.close("all")
 
@@ -1089,7 +1110,8 @@ def files_to_map(
         cat_task_f = None
         cat_f_kwargs = dict()
 
-    pbar_locations = count(0)
+    # pbar_locations = count(0)
+    output_manager = OutputManager()
 
     img_tasks = zip(
         repeat(img_task_f),
@@ -1099,7 +1121,8 @@ def files_to_map(
                 repeat(img_f_kwargs),
                 starmap(
                     lambda x, y: dict(file_location=x, pbar_loc=y),
-                    zip(img_files, pbar_locations),
+                    # zip(img_files, pbar_locations),
+                    zip(img_files, output_manager.make_bar()),
                 ),
             ),
         ),
@@ -1113,7 +1136,8 @@ def files_to_map(
                 repeat(cat_f_kwargs),
                 starmap(
                     lambda x, y: dict(catalog_file=x, pbar_loc=y),
-                    zip(cat_files, pbar_locations),
+                    # zip(cat_files, pbar_locations),
+                    zip(cat_files, output_manager.make_bar()),
                 ),
             ),
         ),
@@ -1133,6 +1157,7 @@ def files_to_map(
         while in_progress:
             _, in_progress = ray.wait(in_progress)
 
+            output_manager.check_for_updates()
             try:
                 # try to get a task with kwargs from the iterator
                 func, kwargs = next(tasks)
@@ -1148,8 +1173,10 @@ def files_to_map(
     else:
         any(map(lambda func_args: func_args[0](**func_args[1]), tasks))
 
-    ns = "\n" * (next(pbar_locations) - 1)
-    print(ns + "Building index.html")
+    output_manager.close_up()
+    print("Building index.html")
+    # ns = "\n" * (next(pbar_locations) - 1)
+    # print(ns + "Building index.html")
 
     if cat_wcs_fits_file is not None:
         cat_wcs = WCS(cat_wcs_fits_file)
