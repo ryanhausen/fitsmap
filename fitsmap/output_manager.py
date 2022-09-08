@@ -31,6 +31,10 @@ class OutputManager:
     SENTINEL = -1
 
     @staticmethod
+    def pbar_enabled():
+        return bool(os.getenv("DISBALE_TQDM", False))
+
+    @staticmethod
     def write(pbar_ref: Tuple[int, queue.Queue], message: str) -> None:
         idx, q = pbar_ref
 
@@ -75,7 +79,7 @@ class OutputManager:
     def make_bar(self) -> Tuple[int, queue.Queue]:
         for idx in self.idx:
             self.progress_bars[idx] = tqdm(
-                position=idx, disable=bool(os.getenv("DISBALE_TQDM", False)), leave=True
+                position=idx, disable=OutputManager.pbar_enabled(), leave=True
             )
             self.in_progress[idx] = True
             yield tuple([idx, self.q])

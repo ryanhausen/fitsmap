@@ -20,6 +20,7 @@
 """Tests convert.py"""
 
 import os
+import queue
 import shutil
 
 import numpy as np
@@ -487,13 +488,13 @@ def test_tile_img_pil_serial():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -519,13 +520,13 @@ def test_tile_img_mpl_serial():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -551,13 +552,13 @@ def test_tile_img_mpl_fits_serial():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_img_for_map.fits")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -609,36 +610,6 @@ def test_simplify_mixed_ws():
 
 @pytest.mark.unit
 @pytest.mark.convert
-def test_tile_img_pil_serial_exists(capsys):
-    """Test convert.tile_img skips tiling"""
-    helpers.disbale_tqdm()
-    helpers.setup(with_data=True)
-
-    out_dir = helpers.TEST_PATH
-    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
-    min_zoom = 0
-    image_engine = convert.IMG_ENGINE_PIL
-
-    os.mkdir(os.path.join(out_dir, "test_tiling_image"))
-
-    convert.tile_img(
-        test_image,
-        pbar_loc,
-        min_zoom=min_zoom,
-        image_engine=image_engine,
-        out_dir=out_dir,
-    )
-
-    captured = capsys.readouterr()
-    helpers.tear_down()
-    helpers.enable_tqdm()
-
-    assert "test_tiling_image.jpg already tiled. Skipping tiling." in captured.out
-
-
-@pytest.mark.unit
-@pytest.mark.convert
 def test_tile_img_pil_parallel():
     """Test convert.tile_img"""
     helpers.disbale_tqdm()
@@ -646,13 +617,13 @@ def test_tile_img_pil_parallel():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -679,13 +650,13 @@ def test_tile_img_mpl_parallel():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,

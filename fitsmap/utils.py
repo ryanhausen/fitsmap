@@ -24,11 +24,13 @@ from itertools import chain, filterfalse
 from typing import Any, Callable, Iterable, List, Tuple
 
 import ray
+import ray.util.queue as queue
 from astropy.io import fits
 from tqdm import tqdm
 from PIL import Image
 
 import fitsmap
+from fitsmap.output_manager import OutputManager
 
 
 def digit_to_string(digit: int) -> str:
@@ -136,8 +138,10 @@ def backpressure_queue(
     wait_f: Callable,
     work_f: Callable,
     f_args: List[List[Any]],
-    bar: tqdm,
+    # bar: tqdm,
+    pbar_ref: Tuple[int, queue.Queue],
     n_parallel_jobs: int,
+    batch_size: int = 1,
 ) -> None:
     """A queue that will limit things processed in parallel.
 
@@ -158,7 +162,8 @@ def backpressure_queue(
     while in_progress:
         # ray.wait blocks until at least one job is done
         _, in_progress = wait_f(in_progress)
-        bar.update()
+        # bar.update(batch_size)
+        OutputManager.update(pbar_ref, batch_size)
 
         if f_args:
             # add another job to the queue for ray to work on

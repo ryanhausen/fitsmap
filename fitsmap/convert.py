@@ -26,8 +26,18 @@ import io
 import os
 import sys
 from functools import partial
-from itertools import chain, count, filterfalse, groupby, product, repeat, starmap
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+from itertools import (
+    chain,
+    count,
+    filterfalse,
+    groupby,
+    islice,
+    product,
+    repeat,
+    starmap,
+)
+from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+from xmlrpc.server import CGIXMLRPCRequestHandler
 
 import cbor2
 import mapbox_vector_tile as mvt
@@ -41,13 +51,13 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from imageio import imread
 from PIL import Image
-from fitsmap.output_manager import OutputManager
-from fitsmap.supercluster import Supercluster
 from tqdm import tqdm
 
 import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
 import fitsmap.padded_array as pa
+from fitsmap.output_manager import OutputManager
+from fitsmap.supercluster import Supercluster
 
 # https://github.com/zimeon/iiif/issues/11#issuecomment-131129062
 Image.MAX_IMAGE_PIXELS = sys.maxsize
@@ -364,7 +374,9 @@ def mem_safe_make_tile(
     out_dir: str,
     img_engine: str,
     array: np.ndarray,
-    job: Tuple[int, int, int, slice, slice],
+    job: Union[
+        Tuple[int, int, int, slice, slice], List[Tuple[int, int, int, slice, slice]]
+    ],
 ) -> None:
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using PIL.
     Args:
@@ -379,47 +391,55 @@ def mem_safe_make_tile(
     Returns:
         None
     """
-    z, y, x, slice_ys, slice_xs = job
-    img_path = build_path(z, y, x, out_dir)
+    # If this is being run in parallel it will be a List of Tuples if its being
+    # run serially it will be a single Tuple, wrap the Tuple in a list to keep
+    # it simple
+    jobs = [job] if type(job) is tuple else job
 
-    with_out_dir = partial(os.path.join, out_dir)
+    try:
+        for z, y, x, slice_ys, slice_xs in jobs:
+            img_path = build_path(z, y, x, out_dir)
 
-    if os.path.exists(with_out_dir(f"{z+1}")):
-        top_left = imread_default_tranparent(
-            with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png")
-        )
-        top_right = imread_default_tranparent(
-            with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png")
-        )
-        bottom_left = imread_default_tranparent(
-            with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png")
-        )
-        bottom_right = imread_default_tranparent(
-            with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png")
-        )
+            with_out_dir = partial(os.path.join, out_dir)
 
-        tile = np.concatenate(
-            [
-                np.concatenate([top_left, top_right], axis=1),
-                np.concatenate([bottom_left, bottom_right], axis=1),
-            ],
-            axis=0,
-        )
-        img = Image.fromarray(np.flipud(tile).astype(np.uint8))
-    else:
-        tile = array[slice_ys, slice_xs].copy()
-        if img_engine == IMG_ENGINE_PIL:
-            img = make_tile_pil(tile)
-        else:
-            img = make_tile_mpl(tile)
+            if os.path.exists(with_out_dir(f"{z+1}")):
+                top_left = imread_default_tranparent(
+                    with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png")
+                )
+                top_right = imread_default_tranparent(
+                    with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png")
+                )
+                bottom_left = imread_default_tranparent(
+                    with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png")
+                )
+                bottom_right = imread_default_tranparent(
+                    with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png")
+                )
 
-    # if the tile is all transparent, don't save to disk
-    if np.array(img)[..., -1].sum() == 0:
-        pass
-    else:
-        img.thumbnail([256, 256], Image.Resampling.LANCZOS)
-        img.convert("RGBA").save(img_path, "PNG")
+                tile = np.concatenate(
+                    [
+                        np.concatenate([top_left, top_right], axis=1),
+                        np.concatenate([bottom_left, bottom_right], axis=1),
+                    ],
+                    axis=0,
+                )
+                img = Image.fromarray(np.flipud(tile).astype(np.uint8))
+            else:
+                tile = array[slice_ys, slice_xs].copy()
+                if img_engine == IMG_ENGINE_PIL:
+                    img = make_tile_pil(tile)
+                else:
+                    img = make_tile_mpl(tile)
 
+            # if the tile is all transparent, don't save to disk
+            if np.array(img)[..., -1].sum() == 0:
+                pass
+            else:
+                img.thumbnail([256, 256], Image.Resampling.LANCZOS)
+                img.convert("RGBA").save(img_path, "PNG")
+    except Exception as e:
+        print("Tile creation failed for tile:", job)
+        raise e
 
 def tile_img(
     file_location: str,
@@ -500,8 +520,18 @@ def tile_img(
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
     if mp_procs:
+        # We need to process batches to offset the cost of spinning up a process
+        def batch_params(iter, batch_size):
+            while True:
+                batch = list(islice(iter, batch_size))
+                if batch:
+                    yield batch
+                else:
+                    break
+
+
         arr_obj_id = ray.put(array)
-        make_tile_f = ray.remote(num_cpus=1)(mem_safe_make_tile)
+        make_tile_f = ray.remote(num_cpus=mp_procs)(mem_safe_make_tile)
 
         # pbar = tqdm(
         #     desc="Converting " + name,
@@ -513,10 +543,9 @@ def tile_img(
         OutputManager.set_description(pbar_ref, f"Converting {name}")
         OutputManager.set_units_total(pbar_ref, unit="tile", total=total_tiles)
 
-        # TODO: Merge the batching on lux with pbar updates here.
-
         # in parallel we have to go one zoom level at a time because the images
         # at lower zoom levels are dependent on the tiles are higher zoom levels
+        batch_size = 500
         for zoom, jobs in groupby(tile_params, lambda z: z[0]):
             if zoom == max_zoom:
                 utils.backpressure_queue_ray(
@@ -526,18 +555,24 @@ def tile_img(
                             repeat(tile_dir),
                             repeat(image_engine),
                             repeat(arr_obj_id),
-                            jobs,
+                            batch_params(jobs, batch_size),
                         )
                     ),
                     # pbar,
                     pbar_ref,
                     mp_procs,
+                    batch_size,
                 )
             else:
                 arr_obj_id = None
                 array = None
                 work = list(
-                    zip(repeat(tile_dir), repeat(image_engine), repeat(None), jobs)
+                    zip(
+                        repeat(tile_dir),
+                        repeat(image_engine),
+                        repeat(None),
+                        batch_params(jobs, batch_size),
+                    )
                 )
 
                 utils.backpressure_queue_ray(
@@ -546,6 +581,7 @@ def tile_img(
                     work,
                     pbar_ref,
                     mp_procs,
+                    batch_size,
                 )
     else:
         work = partial(mem_safe_make_tile, tile_dir, image_engine, array)
@@ -803,13 +839,15 @@ def tile_markers(
     max_y: int,
     catalog_starts_at_one: bool,
     catalog_file: str,
-    pbar_loc: int,
+    pbar_ref: Tuple[int, queue.Queue],
+    # pbar_loc: int,
 ) -> None:
     _, fname = os.path.split(catalog_file)
 
     catalog_layer_name = get_map_layer_name(catalog_file)
     if catalog_layer_name in os.listdir(out_dir):
-        print(f"{fname} already tiled. Skipping tiling.")
+        OutputManager.write(pbar_ref, f"{fname} already tiled. Skipping tiling.")
+        # print(f"{fname} already tiled. Skipping tiling.")
         return
     else:
         os.mkdir(os.path.join(out_dir, catalog_layer_name))
@@ -862,11 +900,12 @@ def tile_markers(
         catalog_starts_at_one=catalog_starts_at_one,
     )
 
-    bar = tqdm(
-        position=pbar_loc,
-        desc="Parsing " + catalog_file,
-        disable=bool(os.getenv("DISBALE_TQDM", False)),
-    )
+    OutputManager.set_description(pbar_ref, f"Parsing {catalog_file}")
+    # bar = tqdm(
+    #     position=pbar_loc,
+    #     desc="Parsing " + catalog_file,
+    #     disable=bool(os.getenv("DISBALE_TQDM", False)),
+    # )
 
     catalog_file_size = os.path.getsize(catalog_file)
 
@@ -897,7 +936,8 @@ def tile_markers(
         while remaining:
             try:
                 lines_processed = sum([q.get(timeout=0.0001) for _ in range(mp_procs)])
-                bar.update(lines_processed)
+                # bar.update(lines_processed)
+                OutputManager.update(pbar_ref, lines_processed)
             except queue.Empty:
                 pass
             _, remaining = ray.wait(remaining, timeout=0.01, fetch_local=False)
@@ -909,12 +949,14 @@ def tile_markers(
         q.shutdown()
         del q
 
-    bar = tqdm(
-        position=pbar_loc,
-        desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
-        disable=bool(os.getenv("DISBALE_TQDM", False)),
-        total=max_zoom + 1 - min_zoom,
-    )
+    # bar = tqdm(
+    #     position=pbar_loc,
+    #     desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
+    #     disable=bool(os.getenv("DISBALE_TQDM", False)),
+    #     total=max_zoom + 1 - min_zoom,
+    # )
+    OutputManager.set_description(pbar_ref, f"Clustering {catalog_file}(THIS MAY TAKE A WHILE)")
+    OutputManager.set_units_total(pbar_ref, unit="zoom levels", total=max_zoom + 1 - min_zoom)
 
     # cluster the parsed sources
     # need to get super cluster stuff in here
@@ -925,7 +967,7 @@ def tile_markers(
         radius=max(max(max_x, max_y) / tile_size, 40),
         node_size=np.log2(len(catalog_values)) * 2,
         alternate_CRS=(max_x, max_y),
-        update_f=lambda: bar.update(1),
+        update_f=lambda: OutputManager.update(pbar_ref, 1),
         log=True,
     ).load(catalog_values)
 
@@ -946,29 +988,34 @@ def tile_markers(
 
     catalog_layer_dir = os.path.join(out_dir, catalog_layer_name)
 
-    tracked_collection = tqdm(
-        tile_idxs,
-        position=pbar_loc,
-        desc="Tiling " + catalog_file,
-        disable=bool(os.getenv("DISBALE_TQDM", False)),
-    )
+    # tracked_collection = tqdm(
+    #     tile_idxs,
+    #     position=pbar_loc,
+    #     desc="Tiling " + catalog_file,
+    #     disable=bool(os.getenv("DISBALE_TQDM", False)),
+    # )
+    OutputManager.set_description(pbar_ref, f"Tiling {catalog_file}")
+    OutputManager.set_units_total(pbar_ref, unit="tile", total=len(tile_idxs))
 
     if mp_procs > 1:
         tile_f = ray.remote(num_cpus=1)(make_marker_tile)
         cluster_remote_id = ray.put(clusterer)
 
-        tile_f_args = zip(
+        tile_f_args = list(zip(
             repeat(cluster_remote_id), repeat(catalog_layer_dir), tile_idxs,
-        )
+        ))
 
-        utils.backpressure_queue_ray(tile_f, tile_f_args, bar, mp_procs)
+        utils.backpressure_queue_ray(tile_f.remote, tile_f_args, pbar_ref, mp_procs)
     else:
-        list(
-            starmap(
-                make_marker_tile,
-                zip(repeat(clusterer), repeat(catalog_layer_dir), tracked_collection),
-            )
-        )
+        for zyx in tile_idxs:
+            make_marker_tile(clusterer, catalog_layer_dir, zyx)
+            OutputManager.update(pbar_ref, 1)
+        # list(
+        #     starmap(
+        #         make_marker_tile,
+        #         zip(repeat(clusterer), repeat(catalog_layer_dir), tracked_collection),
+        #     )
+        # )
 
 
 def files_to_map(
@@ -1069,7 +1116,7 @@ def files_to_map(
     )
 
     if task_procs > 1:
-        img_task_f = ray.remote(num_cpus=1)(tile_img).remote
+        img_task_f = ray.remote(num_cpus=task_procs)(tile_img).remote
     else:
         img_task_f = tile_img
 
@@ -1120,8 +1167,9 @@ def files_to_map(
             zip(
                 repeat(img_f_kwargs),
                 starmap(
-                    lambda x, y: dict(file_location=x, pbar_loc=y),
+                    # lambda x, y: dict(file_location=x, pbar_loc=y),
                     # zip(img_files, pbar_locations),
+                    lambda x, y: dict(file_location=x, pbar_ref=y),
                     zip(img_files, output_manager.make_bar()),
                 ),
             ),
@@ -1135,8 +1183,9 @@ def files_to_map(
             zip(
                 repeat(cat_f_kwargs),
                 starmap(
-                    lambda x, y: dict(catalog_file=x, pbar_loc=y),
+                    # lambda x, y: dict(catalog_file=x, pbar_loc=y),
                     # zip(cat_files, pbar_locations),
+                    lambda x, y: dict(catalog_file=x, pbar_ref=y),
                     zip(cat_files, output_manager.make_bar()),
                 ),
             ),
@@ -1148,7 +1197,7 @@ def files_to_map(
     if task_procs:
         # start runnning task_procs number of tasks
         in_progress = list(
-            map(
+            starmap(
                 lambda i, func_kwargs: func_kwargs[0](**func_kwargs[1]),
                 zip(range(task_procs), tasks),
             )
