@@ -36,6 +36,7 @@ from itertools import (
     repeat,
     starmap,
 )
+from time import time
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 from xmlrpc.server import CGIXMLRPCRequestHandler
 
@@ -441,6 +442,7 @@ def mem_safe_make_tile(
         print("Tile creation failed for tile:", job)
         raise e
 
+
 def tile_img(
     file_location: str,
     # pbar_loc: int,
@@ -528,7 +530,6 @@ def tile_img(
                     yield batch
                 else:
                     break
-
 
         arr_obj_id = ray.put(array)
         make_tile_f = ray.remote(num_cpus=mp_procs)(mem_safe_make_tile)
@@ -955,8 +956,13 @@ def tile_markers(
     #     disable=bool(os.getenv("DISBALE_TQDM", False)),
     #     total=max_zoom + 1 - min_zoom,
     # )
-    OutputManager.set_description(pbar_ref, f"Clustering {catalog_file}(THIS MAY TAKE A WHILE)")
-    OutputManager.set_units_total(pbar_ref, unit="zoom levels", total=max_zoom + 1 - min_zoom)
+    OutputManager
+    OutputManager.set_description(
+        pbar_ref, f"Clustering {catalog_file}(THIS MAY TAKE A WHILE)"
+    )
+    OutputManager.set_units_total(
+        pbar_ref, unit="zoom levels", total=max_zoom + 1 - min_zoom
+    )
 
     # cluster the parsed sources
     # need to get super cluster stuff in here
@@ -1001,9 +1007,9 @@ def tile_markers(
         tile_f = ray.remote(num_cpus=1)(make_marker_tile)
         cluster_remote_id = ray.put(clusterer)
 
-        tile_f_args = list(zip(
-            repeat(cluster_remote_id), repeat(catalog_layer_dir), tile_idxs,
-        ))
+        tile_f_args = list(
+            zip(repeat(cluster_remote_id), repeat(catalog_layer_dir), tile_idxs,)
+        )
 
         utils.backpressure_queue_ray(tile_f.remote, tile_f_args, pbar_ref, mp_procs)
     else:
@@ -1204,23 +1210,27 @@ def files_to_map(
         )
 
         while in_progress:
-            _, in_progress = ray.wait(in_progress)
-
+            _, in_progress = ray.wait(in_progress, timeout=0.003)
             output_manager.check_for_updates()
-            try:
-                # try to get a task with kwargs from the iterator
-                func, kwargs = next(tasks)
-                in_progress.append(func(**kwargs))
-            except StopIteration:
-                # all of the tasks are in progress or completed
-                if not in_progress:
-                    # we're done!
-                    break
-                else:
-                    # the tasks 'in_progress' are still running
-                    pass
+            if len(in_progress) < task_procs:
+                try:
+                    # try to get a task with kwargs from the iterator
+                    func, kwargs = next(tasks)
+                    in_progress.append(func(**kwargs))
+                except StopIteration:
+                    # all of the tasks are in progress or completed
+                    if not in_progress:
+                        # we're done!
+                        break
+                    else:
+                        # the tasks 'in_progress' are still running
+                        pass
     else:
-        any(map(lambda func_args: func_args[0](**func_args[1]), tasks))
+
+        def f(func_args):
+            func_args[0](**func_args[1])
+
+        any(map(f, tasks))
 
     output_manager.close_up()
     print("Building index.html")

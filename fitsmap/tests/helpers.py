@@ -42,12 +42,16 @@ class MockTQDM:
 
     def update(self):
         pass
+
     def clear(self):
         pass
+
     def display(self, message):
         pass
+
     def set_description(self, desc):
         pass
+
     def reset(total):
         pass
 

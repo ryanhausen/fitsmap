@@ -30,11 +30,22 @@ class OutputManager:
 
     SENTINEL = -1
 
+    __instance = None
+
     @staticmethod
     def pbar_disabled():
         return bool(os.getenv("DISBALE_TQDM", False))
 
+    def check_for_updates(func):
+        def f(*args, **kwargs):
+            func(*args, **kwargs)
+            if OutputManager.__instance and not OutputManager.pbar_disabled():
+                OutputManager.__instance.check_for_updates()
+
+        return f
+
     @staticmethod
+    @check_for_updates
     def write(pbar_ref: Tuple[int, queue.Queue], message: str) -> None:
         idx, q = pbar_ref
 
@@ -45,20 +56,29 @@ class OutputManager:
         q.put([idx, write])
 
     @staticmethod
+    @check_for_updates
     def update(pbar_ref: Tuple[int, queue.Queue], value: int) -> None:
         idx, q = pbar_ref
         q.put([idx, lambda pbar: pbar.update(value)])
 
     @staticmethod
+    @check_for_updates
     def update_done(pbar_ref: Tuple[int, queue.Queue]) -> None:
         OutputManager.update(pbar_ref, OutputManager.SENTINEL)
 
     @staticmethod
+    @check_for_updates
     def set_description(pbar_ref: Tuple[int, queue.Queue], desc: str) -> None:
         idx, q = pbar_ref
-        q.put([idx, lambda pbar: pbar.set_description(desc)])
+
+        def write(pbar):
+            pbar.clear()
+            pbar.set_description(desc)
+
+        q.put([idx, write])
 
     @staticmethod
+    @check_for_updates
     def set_units_total(
         pbar_ref: Tuple[int, queue.Queue], unit: str, total: int
     ) -> None:
@@ -75,13 +95,15 @@ class OutputManager:
         self.in_progress = dict()
         self.q = queue.Queue()
         self.idx = count()
+        OutputManager.__instance = self
 
     def make_bar(self) -> Tuple[int, queue.Queue]:
         for idx in self.idx:
             self.progress_bars[idx] = tqdm(
                 position=idx, disable=OutputManager.pbar_disabled(), leave=True
             )
-            self.progress_bars[idx].display("Preparing...")
+            if not OutputManager.pbar_disabled():
+                self.progress_bars[idx].display("Preparing...")
             self.in_progress[idx] = True
             yield tuple([idx, self.q])
 
@@ -91,7 +113,7 @@ class OutputManager:
             running = not f == OutputManager.SENTINEL
             self.in_progress[idx] = running
 
-            if running:
+            if running and not OutputManager.pbar_disabled():
                 f(self.progress_bars[idx])
 
     def close_up(self):
