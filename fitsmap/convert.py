@@ -24,6 +24,7 @@ import copy
 import csv
 import io
 import os
+from ssl import ALERT_DESCRIPTION_BAD_RECORD_MAC
 import sys
 from functools import partial
 from itertools import (
@@ -64,6 +65,9 @@ from fitsmap.supercluster import Supercluster
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
 Shape = Tuple[int, int]
+
+
+from ray.util import inspect_serializability
 
 IMG_FORMATS = ["fits", "jpg", "png"]
 CAT_FORMAT = ["cat"]
@@ -270,7 +274,7 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
     return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
 
 
-def imread_default_tranparent(path: str, size: int = 256) -> np.ndarray:
+def imread_default(path: str, default:np.ndarray) -> np.ndarray:
     """Opens an image if it exists, if not returns a tranparent image.
     Args:
         path (str): Image file location
@@ -280,11 +284,9 @@ def imread_default_tranparent(path: str, size: int = 256) -> np.ndarray:
                     size (size, size, 4).
     """
     try:
-        arr = np.flipud(imread(path))
+        return np.flipud(imread(path))
     except FileNotFoundError:
-        arr = np.zeros([size, size, 4], dtype=np.uint8)
-
-    return arr
+        return default
 
 
 def make_tile_mpl(tile: np.ndarray) -> np.ndarray:
@@ -395,57 +397,62 @@ def mem_safe_make_tile(
     # If this is being run in parallel it will be a List of Tuples if its being
     # run serially it will be a single Tuple, wrap the Tuple in a list to keep
     # it simple
+    if type(array) is list:
+        array = pa.PaddedArray(*list(map(ray.get,array)))
+
+    default_array = np.zeros([256, 256, 4], dtype=np.uint8)
+    get_img = partial(imread_default, default=default_array)
+
     jobs = [job] if type(job) is tuple else job
 
-    try:
-        for z, y, x, slice_ys, slice_xs in jobs:
-            img_path = build_path(z, y, x, out_dir)
+    for z, y, x, slice_ys, slice_xs in jobs:
+        try:
+                img_path = build_path(z, y, x, out_dir)
 
-            with_out_dir = partial(os.path.join, out_dir)
+                with_out_dir = partial(os.path.join, out_dir)
 
-            if os.path.exists(with_out_dir(f"{z+1}")):
-                top_left = imread_default_tranparent(
-                    with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png")
-                )
-                top_right = imread_default_tranparent(
-                    with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png")
-                )
-                bottom_left = imread_default_tranparent(
-                    with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png")
-                )
-                bottom_right = imread_default_tranparent(
-                    with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png")
-                )
+                if os.path.exists(with_out_dir(f"{z+1}")):
+                    top_left = get_img(
+                        with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png")
+                    )
+                    top_right = get_img(
+                        with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png")
+                    )
+                    bottom_left = get_img(
+                        with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png")
+                    )
+                    bottom_right = get_img(
+                        with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png")
+                    )
 
-                tile = np.concatenate(
-                    [
-                        np.concatenate([top_left, top_right], axis=1),
-                        np.concatenate([bottom_left, bottom_right], axis=1),
-                    ],
-                    axis=0,
-                )
-                img = Image.fromarray(np.flipud(tile).astype(np.uint8))
-            else:
-                tile = array[slice_ys, slice_xs].copy()
-                if img_engine == IMG_ENGINE_PIL:
-                    img = make_tile_pil(tile)
+                    tile = np.concatenate(
+                        [
+                            np.concatenate([top_left, top_right], axis=1),
+                            np.concatenate([bottom_left, bottom_right], axis=1),
+                        ],
+                        axis=0,
+                    )
+                    img = Image.fromarray(np.flipud(tile))
                 else:
-                    img = make_tile_mpl(tile)
+                    tile = array[slice_ys, slice_xs]
+                    if img_engine == IMG_ENGINE_PIL:
+                        img = make_tile_pil(tile)
+                    else:
+                        img = make_tile_mpl(tile)
 
-            # if the tile is all transparent, don't save to disk
-            if np.array(img)[..., -1].sum() == 0:
-                pass
-            else:
-                img.thumbnail([256, 256], Image.Resampling.LANCZOS)
-                img.convert("RGBA").save(img_path, "PNG")
-    except Exception as e:
-        print("Tile creation failed for tile:", job)
-        raise e
+                # if the tile is all transparent, don't save to disk
+                if np.any(img[...,-1]):
+                    img.thumbnail([256, 256], Image.Resampling.LANCZOS)
+                    img.convert("RGBA").save(img_path, "PNG")
+                else:
+                    pass
+        except Exception as e:
+            print("Tile creation failed for tile:", z, y, x, slice_ys, slice_xs)
+            print(e)
 
 
 def tile_img(
     file_location: str,
-    # pbar_loc: int,
     pbar_ref: Tuple[int, queue.Queue],
     tile_size: Shape = [256, 256],
     min_zoom: int = 0,
@@ -532,6 +539,7 @@ def tile_img(
                     break
 
         arr_obj_id = ray.put(array)
+
         make_tile_f = ray.remote(num_cpus=mp_procs)(mem_safe_make_tile)
 
         # pbar = tqdm(

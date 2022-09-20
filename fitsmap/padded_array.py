@@ -18,20 +18,23 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from typing import Tuple
+from typing import Any, Tuple, Union
 
 import numpy as np
 
 
 class PaddedArray:
-    def __init__(self, array: np.ndarray, pad: Tuple[int, int]):
-        self.array = array.astype(np.float32)
+    def __init__(self, array: np.ndarray, pad: Tuple[int, int], tile_size=(256, 256)):
+        self.array = array
         self.pad = pad
 
         shape = [array.shape[0] + pad[0], array.shape[1] + pad[1]]
+        empty_tile_shape = list(tile_size)
         if len(array.shape) == 3:
             shape += [array.shape[2]]
+            empty_tile_shape += [array.shape[2]]
 
+        self.empty_tile = np.full(empty_tile_shape, np.nan, dtype=np.float32)
         self.shape = tuple(shape)
 
     def __get_internal_array(self, ys: slice, xs: slice) -> np.ndarray:
@@ -78,6 +81,9 @@ class PaddedArray:
         if stop_y < self.array.shape[0] and stop_x < self.array.shape[1]:
             return self.__get_internal_array(slice_ys, slice_xs)
         elif start_y > self.array.shape[0] or start_x > self.array.shape[1]:
-            return self.__get_padding(slice_ys, slice_xs)
+            return self.empty_tile #self.__get_padding(slice_ys, slice_xs)
         else:
             return self.__get_mixed(slice_ys, slice_xs)
+
+    def __reduce__(self) -> Union[str, Tuple[Any,...]]:
+        return PaddedArray, (self.array, self.pad)
