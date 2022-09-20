@@ -168,13 +168,12 @@ def get_array(file_location: str) -> np.ndarray:
     _, ext = os.path.splitext(file_location)
 
     if ext == ".fits":
-        array = fits.getdata(file_location)
+        array = fits.getdata(file_location).astype(np.float32)
         shape = array.shape
         if len(shape) != 2:
             raise ValueError("FitsMap only supports 2D FITS files.")
     else:
-        array = np.flipud(imread(file_location))
-        # array = imread(file_location)
+        array = np.flipud(imread(file_location)).astype(np.float32)
 
         if len(array.shape) == 3:
             shape = array.shape[:-1]
@@ -441,7 +440,7 @@ def mem_safe_make_tile(
                         img = make_tile_mpl(tile)
 
                 # if the tile is all transparent, don't save to disk
-                if np.any(img[...,-1]):
+                if np.any(np.array(img)[...,-1]):
                     img.thumbnail([256, 256], Image.Resampling.LANCZOS)
                     img.convert("RGBA").save(img_path, "PNG")
                 else:
