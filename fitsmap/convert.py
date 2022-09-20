@@ -273,7 +273,7 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
     return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
 
 
-def imread_default(path: str, default:np.ndarray) -> np.ndarray:
+def imread_default(path: str, default: np.ndarray) -> np.ndarray:
     """Opens an image if it exists, if not returns a tranparent image.
     Args:
         path (str): Image file location
@@ -393,58 +393,48 @@ def mem_safe_make_tile(
     Returns:
         None
     """
-    # If this is being run in parallel it will be a List of Tuples if its being
-    # run serially it will be a single Tuple, wrap the Tuple in a list to keep
-    # it simple
-    if type(array) is list:
-        array = pa.PaddedArray(*list(map(ray.get,array)))
 
     default_array = np.zeros([256, 256, 4], dtype=np.uint8)
     get_img = partial(imread_default, default=default_array)
 
+    # If this is being run in parallel it will be a List of Tuples if its being
+    # run serially it will be a single Tuple, wrap the Tuple in a list to keep
+    # it simple
     jobs = [job] if type(job) is tuple else job
 
     for z, y, x, slice_ys, slice_xs in jobs:
         try:
-                img_path = build_path(z, y, x, out_dir)
+            img_path = build_path(z, y, x, out_dir)
 
-                with_out_dir = partial(os.path.join, out_dir)
+            with_out_dir = partial(os.path.join, out_dir)
 
-                if os.path.exists(with_out_dir(f"{z+1}")):
-                    top_left = get_img(
-                        with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png")
-                    )
-                    top_right = get_img(
-                        with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png")
-                    )
-                    bottom_left = get_img(
-                        with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png")
-                    )
-                    bottom_right = get_img(
-                        with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png")
-                    )
+            if os.path.exists(with_out_dir(f"{z+1}")):
+                top_left = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png"))
+                top_right = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png"))
+                bottom_left = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png"))
+                bottom_right = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png"))
 
-                    tile = np.concatenate(
-                        [
-                            np.concatenate([top_left, top_right], axis=1),
-                            np.concatenate([bottom_left, bottom_right], axis=1),
-                        ],
-                        axis=0,
-                    )
-                    img = Image.fromarray(np.flipud(tile))
+                tile = np.concatenate(
+                    [
+                        np.concatenate([top_left, top_right], axis=1),
+                        np.concatenate([bottom_left, bottom_right], axis=1),
+                    ],
+                    axis=0,
+                )
+                img = Image.fromarray(np.flipud(tile))
+            else:
+                tile = array[slice_ys, slice_xs]
+                if img_engine == IMG_ENGINE_PIL:
+                    img = make_tile_pil(tile)
                 else:
-                    tile = array[slice_ys, slice_xs]
-                    if img_engine == IMG_ENGINE_PIL:
-                        img = make_tile_pil(tile)
-                    else:
-                        img = make_tile_mpl(tile)
+                    img = make_tile_mpl(tile)
 
-                # if the tile is all transparent, don't save to disk
-                if np.any(np.array(img)[...,-1]):
-                    img.thumbnail([256, 256], Image.Resampling.LANCZOS)
-                    img.convert("RGBA").save(img_path, "PNG")
-                else:
-                    pass
+            # if the tile is all transparent, don't save to disk
+            if np.any(np.array(img)[..., -1]):
+                img.thumbnail([256, 256], Image.Resampling.LANCZOS)
+                img.convert("RGBA").save(img_path, "PNG")
+            else:
+                pass
         except Exception as e:
             print("Tile creation failed for tile:", z, y, x, slice_ys, slice_xs)
             print(e)
@@ -488,7 +478,6 @@ def tile_img(
     _, fname = os.path.split(file_location)
     if get_map_layer_name(file_location) in os.listdir(out_dir):
         OutputManager.write(pbar_ref, f"{fname} already tiled. Skipping tiling.")
-        # print(f"{fname} already tiled. Skipping tiling.")
         return
 
     # reset mpl vars just in case they have been set by another img
@@ -541,13 +530,6 @@ def tile_img(
 
         make_tile_f = ray.remote(num_cpus=mp_procs)(mem_safe_make_tile)
 
-        # pbar = tqdm(
-        #     desc="Converting " + name,
-        #     position=pbar_loc,
-        #     total=total_tiles,
-        #     unit="tile",
-        #     disable=bool(os.getenv("DISBALE_TQDM", False)),
-        # )
         OutputManager.set_description(pbar_ref, f"Converting {name}")
         OutputManager.set_units_total(pbar_ref, unit="tile", total=total_tiles)
 
@@ -566,8 +548,7 @@ def tile_img(
                             batch_params(jobs, batch_size),
                         )
                     ),
-                    # pbar,
-                    pbar_ref,
+                    pbar_resf,
                     mp_procs,
                     batch_size,
                 )
@@ -584,23 +565,10 @@ def tile_img(
                 )
 
                 utils.backpressure_queue_ray(
-                    # make_tile_f.remote, work, pbar, mp_procs,
-                    make_tile_f.remote,
-                    work,
-                    pbar_ref,
-                    mp_procs,
-                    batch_size,
+                    make_tile_f.remote, work, pbar_ref, mp_procs, batch_size,
                 )
     else:
         work = partial(mem_safe_make_tile, tile_dir, image_engine, array)
-        # jobs = tqdm(
-        #     tile_params,
-        #     desc="Converting " + name,
-        #     total=total_tiles,
-        #     unit="tile",
-        #     position=pbar_loc,
-        #     disable=bool(os.getenv("DISBALE_TQDM", False)),
-        # )
         jobs = tile_params
         OutputManager.set_description(pbar_ref, f"Converting {name}")
         OutputManager.set_units_total(pbar_ref, "tile", total_tiles)
@@ -620,7 +588,6 @@ def tile_img(
         for job in jobs:
             work(job)
             OutputManager.update(pbar_ref, 1)
-        # any(map(work, jobs))
 
     OutputManager.update_done(pbar_ref)
     if image_engine == IMG_ENGINE_MPL:
@@ -855,7 +822,6 @@ def tile_markers(
     catalog_layer_name = get_map_layer_name(catalog_file)
     if catalog_layer_name in os.listdir(out_dir):
         OutputManager.write(pbar_ref, f"{fname} already tiled. Skipping tiling.")
-        # print(f"{fname} already tiled. Skipping tiling.")
         return
     else:
         os.mkdir(os.path.join(out_dir, catalog_layer_name))
@@ -909,11 +875,6 @@ def tile_markers(
     )
 
     OutputManager.set_description(pbar_ref, f"Parsing {catalog_file}")
-    # bar = tqdm(
-    #     position=pbar_loc,
-    #     desc="Parsing " + catalog_file,
-    #     disable=bool(os.getenv("DISBALE_TQDM", False)),
-    # )
 
     catalog_file_size = os.path.getsize(catalog_file)
 
@@ -944,7 +905,6 @@ def tile_markers(
         while remaining:
             try:
                 lines_processed = sum([q.get(timeout=0.0001) for _ in range(mp_procs)])
-                # bar.update(lines_processed)
                 OutputManager.update(pbar_ref, lines_processed)
             except queue.Empty:
                 pass
@@ -957,12 +917,6 @@ def tile_markers(
         q.shutdown()
         del q
 
-    # bar = tqdm(
-    #     position=pbar_loc,
-    #     desc="Clustering " + catalog_file + "(THIS MAY TAKE A WHILE)",
-    #     disable=bool(os.getenv("DISBALE_TQDM", False)),
-    #     total=max_zoom + 1 - min_zoom,
-    # )
     OutputManager
     OutputManager.set_description(
         pbar_ref, f"Clustering {catalog_file}(THIS MAY TAKE A WHILE)"
@@ -1001,12 +955,6 @@ def tile_markers(
 
     catalog_layer_dir = os.path.join(out_dir, catalog_layer_name)
 
-    # tracked_collection = tqdm(
-    #     tile_idxs,
-    #     position=pbar_loc,
-    #     desc="Tiling " + catalog_file,
-    #     disable=bool(os.getenv("DISBALE_TQDM", False)),
-    # )
     OutputManager.set_description(pbar_ref, f"Tiling {catalog_file}")
     OutputManager.set_units_total(pbar_ref, unit="tile", total=len(tile_idxs))
 
@@ -1023,12 +971,6 @@ def tile_markers(
         for zyx in tile_idxs:
             make_marker_tile(clusterer, catalog_layer_dir, zyx)
             OutputManager.update(pbar_ref, 1)
-        # list(
-        #     starmap(
-        #         make_marker_tile,
-        #         zip(repeat(clusterer), repeat(catalog_layer_dir), tracked_collection),
-        #     )
-        # )
 
 
 def files_to_map(
@@ -1170,7 +1112,6 @@ def files_to_map(
         cat_task_f = None
         cat_f_kwargs = dict()
 
-    # pbar_locations = count(0)
     output_manager = OutputManager()
 
     img_tasks = zip(
@@ -1180,8 +1121,6 @@ def files_to_map(
             zip(
                 repeat(img_f_kwargs),
                 starmap(
-                    # lambda x, y: dict(file_location=x, pbar_loc=y),
-                    # zip(img_files, pbar_locations),
                     lambda x, y: dict(file_location=x, pbar_ref=y),
                     zip(img_files, output_manager.make_bar()),
                 ),
@@ -1196,8 +1135,6 @@ def files_to_map(
             zip(
                 repeat(cat_f_kwargs),
                 starmap(
-                    # lambda x, y: dict(catalog_file=x, pbar_loc=y),
-                    # zip(cat_files, pbar_locations),
                     lambda x, y: dict(catalog_file=x, pbar_ref=y),
                     zip(cat_files, output_manager.make_bar()),
                 ),
@@ -1241,8 +1178,6 @@ def files_to_map(
 
     output_manager.close_up()
     print("Building index.html")
-    # ns = "\n" * (next(pbar_locations) - 1)
-    # print(ns + "Building index.html")
 
     if cat_wcs_fits_file is not None:
         cat_wcs = WCS(cat_wcs_fits_file)

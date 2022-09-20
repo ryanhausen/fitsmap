@@ -81,9 +81,9 @@ class PaddedArray:
         if stop_y < self.array.shape[0] and stop_x < self.array.shape[1]:
             return self.__get_internal_array(slice_ys, slice_xs)
         elif start_y > self.array.shape[0] or start_x > self.array.shape[1]:
-            return self.empty_tile #self.__get_padding(slice_ys, slice_xs)
+            return self.empty_tile
         else:
             return self.__get_mixed(slice_ys, slice_xs)
 
-    def __reduce__(self) -> Union[str, Tuple[Any,...]]:
+    def __reduce__(self) -> Union[str, Tuple[Any, ...]]:
         return PaddedArray, (self.array, self.pad)
