@@ -132,7 +132,7 @@ def layer_name_to_dict(
     if color:
         layer_dict["color"] = color
 
-        cat_col_path = os.path.join(out_dir, f"{name}.columns")
+        cat_col_path = "/".join([out_dir, f"{name}.columns"])
         with open(cat_col_path, "r") as f:
             columns = f.readline().strip().split(",")
             layer_dict["columns"] = [f'"{c}"' for c in columns]
@@ -371,7 +371,7 @@ def leaflet_search_control_declaration(cat_layer_dicts: List[Dict],) -> str:
         "const catalogPaths = [",
         *list(
             map(
-                lambda s: f'    "{os.path.join("catalog_assets", s)}/",',
+                lambda s: f'    "{"/".join(["catalog_assets", s])}/",',
                 map(lambda l: l["name"], cat_layer_dicts),
             )
         ),

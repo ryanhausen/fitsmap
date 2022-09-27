@@ -1,6 +1,6 @@
 # Runs the testing matrix and code coverage
 
-name: Build Windows
+name: Build OSX
 
 on:
   push:
