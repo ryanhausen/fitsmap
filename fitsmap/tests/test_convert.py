@@ -476,7 +476,13 @@ def test_line_to_json_ra_dec():
 
     helpers.tear_down()
 
-    assert expected_json == actual_json
+    np.testing.assert_allclose(
+        expected_json["geometry"]["coordinates"],
+        actual_json["geometry"]["coordinates"],
+        atol=1e-6
+    )
+
+    assert expected_json["tags"] == actual_json["tags"]
 
 
 @pytest.mark.unit
@@ -676,6 +682,7 @@ def test_tile_img_mpl_parallel():
 
 @pytest.mark.integration
 @pytest.mark.convert
+@pytest.mark.os_bandaid
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_files_to_map():
     """Integration test for making files into map"""
@@ -717,6 +724,7 @@ def test_files_to_map():
 
 @pytest.mark.integration
 @pytest.mark.convert
+@pytest.mark.os_bandaid
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_files_to_map_ellipse_markers():
     """Integration test for making files into map"""
@@ -807,6 +815,7 @@ def test_dir_to_map_fails_no_files():
 
 @pytest.mark.integration
 @pytest.mark.convert
+@pytest.mark.os_bandaid
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_dir_to_map():
     """Integration test for making files into map"""
