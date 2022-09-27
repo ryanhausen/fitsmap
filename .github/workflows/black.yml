@@ -1,0 +1,14 @@
+name: Lint
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_requests:
+    branches: [ "master" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: psf/black@stable

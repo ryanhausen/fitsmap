@@ -288,13 +288,13 @@ converted into transparent pixels.
 Notes on Catalog Conversion
 ---------------------------
 
-Catalogs should be delimited text files with the first line
-containing the column names, and the following lines containing values.
-Catalogs need to have an ``id`` column with a unique value for each row. It
-also needs to have coordinates for each source, which can be one of the
-following pairs of columns (``ra``/``dec``) or (``x``/``y``). **Note fitsmap
-assumes that the origin of the image starts at (1,1), which is a common
-convention in catalogs.**
+Catalogs should be delimited text files with the first line containing the
+column names, and the following lines containing values. Catalogs need to have
+an ``id`` column with a unique value for each row. It also needs to have
+coordinates for each source, which can be one of the following pairs of columns
+(``ra``/``dec``) or (``x``/``y``). **Note fitsmap assumes that the origin of the
+image starts at (1,1), but this can be changed to (0,0) by setting the
+kwarg**``catalog_starts_at_one=False``.
 
 Some catalogs have many columns for each row, which will create very tall
 pop-ups when the markers are clicked. To avoid this, you can pass an integer

@@ -19,18 +19,14 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Helpers for testing"""
 
-import filecmp
 import json
 import os
-import pstats
 import shutil
 import tarfile
-from functools import reduce
-from itertools import chain, product, repeat, starmap
+from itertools import product, starmap
 
 import numpy as np
 from PIL import Image
-from regex import F
 
 TEST_PATH = "./testing_tmp"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")

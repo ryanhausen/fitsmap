@@ -23,13 +23,12 @@
 import copy
 import csv
 import io
+import logging
 import os
-from ssl import ALERT_DESCRIPTION_BAD_RECORD_MAC
 import sys
 from functools import partial
 from itertools import (
     chain,
-    count,
     filterfalse,
     groupby,
     islice,
@@ -37,9 +36,7 @@ from itertools import (
     repeat,
     starmap,
 )
-from time import time
 from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
-from xmlrpc.server import CGIXMLRPCRequestHandler
 
 import cbor2
 import mapbox_vector_tile as mvt
@@ -53,7 +50,6 @@ from astropy.wcs import WCS
 from astropy.visualization import simple_norm
 from imageio import imread
 from PIL import Image
-from tqdm import tqdm
 
 import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
@@ -548,7 +544,7 @@ def tile_img(
                             batch_params(jobs, batch_size),
                         )
                     ),
-                    pbar_resf,
+                    pbar_ref,
                     mp_procs,
                     batch_size,
                 )
@@ -1069,6 +1065,15 @@ def files_to_map(
         mp_procs=procs_per_task,
         norm_kwargs=norm_kwargs,
     )
+
+    if task_procs > 1 or procs_per_task > 1:
+        # we want to init ray in such a way that it doesn't print any output
+        # to the console. These should be changed during development
+        ray.init(
+            include_dashboard=False,  # during dev == True
+            configure_logging=True,
+            logging_level=logging.CRITICAL,  # during dev == logging.INFO
+        )
 
     if task_procs > 1:
         img_task_f = ray.remote(num_cpus=task_procs)(tile_img).remote
