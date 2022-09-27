@@ -1,6 +1,6 @@
 # Runs the testing matrix and code coverage
 
-name: Testing and coverage
+name: Build Windows
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ubuntu-latest ] #, windows-latest, macos-latest]
+        os: [ ubuntu-latest ] #, windows-latest, macos-latest]
         python-version: ["3.7"] # TODO: decide how many versions to support
 
     runs-on: ${{ matrix.os }}

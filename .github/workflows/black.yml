@@ -2,8 +2,8 @@ name: Lint
 
 on:
   push:
-    branches: [ "master" ]
-  pull_requests:
+    branches: [ "push-jwst-hotfixes" ]
+  pull_request:
     branches: [ "master" ]
 
 jobs:
