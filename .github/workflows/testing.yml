@@ -5,7 +5,7 @@ name: Testing and coverage
 on:
   push:
     branches: [ "push-jwst-hotfixes" ]
-  pull_requests:
+  pull_request:
     branches: [ "master" ]
 
   # allows running manually
