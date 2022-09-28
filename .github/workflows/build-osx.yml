@@ -1,6 +1,6 @@
 # Runs the testing matrix and code coverage
 
-name: Build OSX
+name: OSX
 
 on:
   push:
@@ -37,4 +37,4 @@ jobs:
           python -m pip install .
 
       - name: Run tests
-        run: pytest -m "not os_bandaid" --cov=fitsmap -vv
+        run: pytest --cov=fitsmap -vv

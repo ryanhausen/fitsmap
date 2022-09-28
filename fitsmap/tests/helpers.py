@@ -181,10 +181,15 @@ def compare_file_directories(dir1, dir2) -> bool:
         if count_and_names_same:
             # compare file contents
             file_pairs = list(zip(map(get_path, dir1_files), map(get_path, dir2_files)))
-            files_comps = list(starmap(
-                compare_file_contents,
-                zip(map(get_path, dir1_files), map(get_path, dir2_files),),
-            ))
+            files_comps = list(
+                starmap(
+                    compare_file_contents,
+                    zip(
+                        map(get_path, dir1_files),
+                        map(get_path, dir2_files),
+                    ),
+                )
+            )
 
             files_same = all(files_comps)
 
@@ -202,36 +207,36 @@ def compare_file_directories(dir1, dir2) -> bool:
 
                 if count_and_names_same:
                     # compare sub dirs
-                    subdir_pairs = list(zip(
-                        map(get_path, dir1_subdirs),
-                        map(get_path, dir2_subdirs),
-                    ))
+                    subdir_pairs = list(
+                        zip(
+                            map(get_path, dir1_subdirs),
+                            map(get_path, dir2_subdirs),
+                        )
+                    )
                     subdir_comp = list(starmap(compare_subdirs, subdir_pairs))
                     subdirs_same = all(subdir_comp)
 
                     return subdirs_same
                 else:
-                    list(map(
-                        lambda x: print(x[1], "don't match"),
-                        filter(
-                            lambda x: not x[0],
-                            zip(subdir_comp,subdir_pairs)
+                    list(
+                        map(
+                            lambda x: print(x[1], "don't match"),
+                            filter(lambda x: not x[0], zip(subdir_comp, subdir_pairs)),
                         )
-                    ))
+                    )
                     return False
             else:
-                list(map(
-                    lambda x: print(x[1], "don't match"),
-                    filter(
-                        lambda x: not x[0],
-                        zip(files_comps,file_pairs)
+                list(
+                    map(
+                        lambda x: print(x[1], "don't match"),
+                        filter(lambda x: not x[0], zip(files_comps, file_pairs)),
                     )
-                ))
+                )
                 return False
         else:
-            missing_files = set(list(map(lambda f: f.name, dir1_files))).symmetric_difference(
-                set(list(map(lambda f: f.name, dir2_files)))
-            )
+            missing_files = set(
+                list(map(lambda f: f.name, dir1_files))
+            ).symmetric_difference(set(list(map(lambda f: f.name, dir2_files))))
             print(missing_files)
             return False
 

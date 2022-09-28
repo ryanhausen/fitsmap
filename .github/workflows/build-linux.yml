@@ -1,6 +1,6 @@
 # Runs the testing matrix and code coverage
 
-name: Build Linux
+name: Linux
 
 on:
   push:

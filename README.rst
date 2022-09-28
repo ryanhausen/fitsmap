@@ -10,8 +10,11 @@
 FitsMap
 =======
 
-.. image:: https://travis-ci.com/ryanhausen/fitsmap.svg?branch=master
-    :target: https://app.travis-ci.com/ryanhausen/fitsmap
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-linux.yml/badge.svg
+
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-osx.yml/badge.svg
+
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-windows.yml/badge.svg
 
 .. image:: https://readthedocs.org/projects/fitsmap/badge/?version=latest
     :target: https://fitsmap.readthedocs.io
@@ -145,7 +148,7 @@ in a new subdirectory called ``map`` within ``path/to/data``. The argument
 parse any catalog files and convert them into map markers. The ``norm_kwargs``
 argument should be a dictionary of kwargs that get passed to
 `astropy.visulization.simple_norm
-<https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html>`
+<https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html>`_
 which is used to scale the FITS files before rendering.
 
 Equivalently, using the FitsMap command line interface:
@@ -225,11 +228,11 @@ You can search the catalogs by the ``id`` column from the catalog and FitsMap
 will locate and pan to the source in the map.
 
 
-Parallelization *(Linux Only)*
+Parallelization
 **********************************
 
-FitsMap supports the parallelization(via ``multiprocessing``/``sharedmem``) of
-map creation in two ways:
+FitsMap supports the parallelization(via `ray <ray.io>`_) of map creation in two
+ways:
 
 - splitting images/catalogs into parallel tasks
 - parallel tiling of an image
@@ -241,32 +244,17 @@ The settings for parallelization are set using the following keyword arguments:
   time.
 - ``task_procs``: How many processes can work on a single task.
 
-Note that if you use parallelization you need to wrap your code like so:
-
-.. code-block:: python
-
-    from fitsmap import convert
-
-    if __name__=="__main__:
-        convert.dir_to_map.(
-            "path/to/data",
-            out_dir="path/to/data/map",
-            cat_wcs_fits_file="path/to/header_file.fits",
-            proces_per_task=2,
-            task_procs=2,
-        )
-
-For an explanation on why this is necessary, see the
-`Python Programming Guidelines
-<https://docs.python.org/3/library/multiprocessing.html#multiprocessing-programming>`_
-
 You can use both keyword arguments at the same time, but keep in mind the number
 of CPUs available. For example, if ``procs_per_task=2`` and ``task_procs=2``
 then that will generate 6 new processes, 2 new processes for each task, and each
 of those will generate 2 new processes to tile an image in parallel.
 
-Parallelization offers a significant speed up, so if there are cores available
+Parallelization can offer a significant speed up, so if there are cores available
 it makes sense to use them.
+
+**NOTE: ray's support for Windows is currently in beta, so you may experience
+some bugs running in parallel on Windows machines. Feel free to submit an issue
+if you run into any problems.**
 
 Notes
 *****
@@ -292,9 +280,9 @@ Catalogs should be delimited text files with the first line containing the
 column names, and the following lines containing values. Catalogs need to have
 an ``id`` column with a unique value for each row. It also needs to have
 coordinates for each source, which can be one of the following pairs of columns
-(``ra``/``dec``) or (``x``/``y``). **Note fitsmap assumes that the origin of the
+(``ra`` / ``dec``) or (``x`` / ``y``). **Note fitsmap assumes that the origin of the
 image starts at (1,1), but this can be changed to (0,0) by setting the
-kwarg**``catalog_starts_at_one=False``.
+kwarg** ``catalog_starts_at_one=False``.
 
 Some catalogs have many columns for each row, which will create very tall
 pop-ups when the markers are clicked. To avoid this, you can pass an integer
