@@ -3,11 +3,12 @@ name: Deploy to PyPI
 on:
   push:
     tags:
+      - "*"
 
   jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: testing
-        run: echo "Will hopefully deploy soon!"
+    deploy:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v3
+        - name: testing
+          run: echo "Will hopefully deploy soon!"

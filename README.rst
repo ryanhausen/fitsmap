@@ -11,10 +11,13 @@ FitsMap
 =======
 
 .. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-linux.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-linux.yml
 
 .. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-osx.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-osx.yml
 
 .. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-windows.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-windows.yml
 
 .. image:: https://readthedocs.org/projects/fitsmap/badge/?version=latest
     :target: https://fitsmap.readthedocs.io
