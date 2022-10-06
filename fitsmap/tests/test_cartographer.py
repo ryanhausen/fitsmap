@@ -430,10 +430,7 @@ def test_build_index_js():
     )
 
     actual_js = c.build_index_js(
-        img_layer_dict,
-        cat_layer_dict,
-        rows_per_column,
-        max_xy,
+        img_layer_dict, cat_layer_dict, rows_per_column, max_xy,
     )
 
     assert expected_js == actual_js

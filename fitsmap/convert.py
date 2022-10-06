@@ -142,7 +142,7 @@ def balance_array(array: np.ndarray) -> np.ndarray:
     dim0, dim1 = array.shape[0], array.shape[1]
 
     exp_val = np.ceil(np.log2(max(dim0, dim1)))
-    total_size = 2**exp_val
+    total_size = 2 ** exp_val
     pad_dim0 = int(total_size - dim0)
     pad_dim1 = int(total_size - dim1)
 
@@ -218,7 +218,7 @@ def make_dirs(out_dir: str, min_zoom: int, max_zoom: int) -> None:
         None
     """
 
-    row_count = lambda z: int(np.sqrt(4**z))
+    row_count = lambda z: int(np.sqrt(4 ** z))
 
     def build_z_ys(z, ys):
         list(
@@ -266,7 +266,7 @@ def get_total_tiles(min_zoom: int, max_zoom: int) -> int:
         The total number of tiles that will be generated
     """
 
-    return int(sum([4**i for i in range(min_zoom, max_zoom + 1)]))
+    return int(sum([4 ** i for i in range(min_zoom, max_zoom + 1)]))
 
 
 def imread_default(path: str, default: np.ndarray) -> np.ndarray:
@@ -340,10 +340,7 @@ def make_tile_mpl(tile: np.ndarray) -> np.ndarray:
 
     buf = io.BytesIO()
     mpl_f.savefig(
-        buf,
-        dpi=256,
-        bbox_inches=0,
-        facecolor=(0, 0, 0, 0),
+        buf, dpi=256, bbox_inches=0, facecolor=(0, 0, 0, 0),
     )
     buf.seek(0)
     return Image.open(buf)
@@ -508,7 +505,7 @@ def tile_img(
 
     tile_params = chain.from_iterable(
         [
-            slice_idx_generator(array.shape, z, 256 * (2**i))
+            slice_idx_generator(array.shape, z, 256 * (2 ** i))
             for (i, z) in enumerate(range(max_zoom, min_zoom - 1, -1), start=0)
         ]
     )
@@ -564,11 +561,7 @@ def tile_img(
                 )
 
                 utils.backpressure_queue_ray(
-                    make_tile_f.remote,
-                    work,
-                    pbar_ref,
-                    mp_procs,
-                    batch_size,
+                    make_tile_f.remote, work, pbar_ref, mp_procs, batch_size,
                 )
     else:
         work = partial(mem_safe_make_tile, tile_dir, image_engine, array)
@@ -655,12 +648,7 @@ def line_to_cols(raw_col_vals: str) -> List[str]:
     ]
 
     # make ra and dec lowercase for ease of access
-    raw_cols = list(
-        map(
-            lambda s: s.lower() if s in change_case else s,
-            raw_col_vals,
-        )
-    )
+    raw_cols = list(map(lambda s: s.lower() if s in change_case else s, raw_col_vals,))
 
     # if header line starts with a '#' exclude it
     if raw_cols[0] == "#":
@@ -723,9 +711,7 @@ def line_to_json(
         cbor2.dump(dict(id=src_id, v=src_vals), f)
 
     return dict(
-        geometry=dict(
-            coordinates=[x, y],
-        ),
+        geometry=dict(coordinates=[x, y],),
         tags=dict(
             a=a,
             b=b,
@@ -785,9 +771,7 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
 
 
 def make_marker_tile(
-    cluster: Supercluster,
-    out_dir: str,
-    zyx: Tuple[int, Tuple[int, int]],
+    cluster: Supercluster, out_dir: str, zyx: Tuple[int, Tuple[int, int]],
 ) -> None:
     z, (y, x) = zyx
 
@@ -850,20 +834,13 @@ def tile_markers(
     x_y_coords = "x" in columns and "y" in columns
     use_xy = (not ra_dec_coords) or (prefer_xy)
 
-    if (not ra_dec_coords and not x_y_coords) or "id" not in columns:
-        err_msg = " ".join(
-            [
-                catalog_file + " is missing coordinate columns (ra/dec, xy),",
-                "an 'id' column, or all of the above",
-            ]
-        )
-        raise ValueError(err_msg)
-
-    if (not use_xy) and (wcs_file is None):
-        err_msg = " ".join(
-            [catalog_file + " uses ra/dec coords, but a WCS file wasn't", "provided."]
-        )
-        raise ValueError(err_msg)
+    assert ra_dec_coords or x_y_coords, (
+        catalog_file + " is missing coordinate columns (ra/dec, xy),"
+    )
+    assert "id" in columns, catalog_file + " missing 'id' column"
+    assert use_xy or (wcs_file is not None), (
+        catalog_file + " uses ra/dec coords, but a WCS file wasn't provided."
+    )
 
     wcs = WCS(wcs_file) if wcs_file else None
 
@@ -957,8 +934,8 @@ def tile_markers(
 
     # tile the sources and save using protobuf
     zs = range(min_zoom, max_zoom + 1)
-    ys = [range(2**z) for z in zs]
-    xs = [range(2**z) for z in zs]
+    ys = [range(2 ** z) for z in zs]
+    xs = [range(2 ** z) for z in zs]
     tile_idxs = list(
         chain.from_iterable(
             [zip(repeat(zs[i]), product(ys[i], xs[i])) for i in range(len(zs))]
@@ -975,11 +952,7 @@ def tile_markers(
         cluster_remote_id = ray.put(clusterer)
 
         tile_f_args = list(
-            zip(
-                repeat(cluster_remote_id),
-                repeat(catalog_layer_dir),
-                tile_idxs,
-            )
+            zip(repeat(cluster_remote_id), repeat(catalog_layer_dir), tile_idxs,)
         )
 
         utils.backpressure_queue_ray(tile_f.remote, tile_f_args, pbar_ref, mp_procs)
@@ -1057,12 +1030,10 @@ def files_to_map(
         None
     """
 
-    if len(files) == 0:
-        raise ValueError("No files provided `files` is an empty list")
+    assert len(files) > 0, "No files provided `files` is an empty list"
 
     unlocatable_files = list(filterfalse(os.path.exists, files))
-    if len(unlocatable_files) > 0:
-        raise FileNotFoundError(unlocatable_files)
+    assert len(unlocatable_files) == 0, f"Files not found:{unlocatable_files}"
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -1109,7 +1080,7 @@ def files_to_map(
     if len(cat_files) > 0:
         # get highlevel image info for catalogging function
         max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / tile_size[0]))
-        max_dim = 2**max_zoom * tile_size[0]
+        max_dim = 2 ** max_zoom * tile_size[0]
         if max_catalog_zoom == -1:
             max_zoom = int(np.log2(2 ** np.ceil(np.log2(max_dim)) / tile_size[0]))
         else:
@@ -1303,17 +1274,13 @@ def dir_to_map(
     dir_files = list(
         map(
             lambda d: os.path.join(directory, d),
-            filterfalse(
-                exclude_predicate,
-                os.listdir(directory),
-            ),
+            filterfalse(exclude_predicate, os.listdir(directory),),
         )
     )
 
-    if len(dir_files) == 0:
-        raise ValueError(
-            "No files in `directory` or `exclude_predicate` excludes everything"
-        )
+    assert (
+        len(dir_files) > 0
+    ), "No files in `directory` or `exclude_predicate` excludes everything"
 
     files_to_map(
         sorted(dir_files),

@@ -207,7 +207,7 @@ class Supercluster:
     # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L151
     def get_tile(self, z, x, y):
         tree = self.trees[self._limit_zoom(z)]
-        z2 = 2**z
+        z2 = 2 ** z
         p = self.radius / self.extent
         top = (y - p) / z2
         bottom = (y + 1 + p) / z2
@@ -223,22 +223,12 @@ class Supercluster:
 
         if x == 0:
             tile = self._add_tile_features(
-                tree.range(1 - p / z2, top, 1, bottom),
-                tree.points,
-                z2,
-                y,
-                z2,
-                tile,
+                tree.range(1 - p / z2, top, 1, bottom), tree.points, z2, y, z2, tile,
             )
 
         if x == z2 - 1:
             tile = self._add_tile_features(
-                tree.range(0, top, p / z2, bottom),
-                tree.points,
-                -1,
-                y,
-                z2,
-                tile,
+                tree.range(0, top, p / z2, bottom), tree.points, -1, y, z2, tile,
             )
 
         return tile if len(tile["features"]) else None
@@ -269,11 +259,7 @@ class Supercluster:
                     skipped += props["point_count"]
                 else:
                     skipped = self._append_leaves(
-                        result,
-                        props["cluster_id"],
-                        limit,
-                        offset,
-                        skipped,
+                        result, props["cluster_id"], limit, offset, skipped,
                     )
             elif skipped < offset:
                 skipped += 1
@@ -334,7 +320,7 @@ class Supercluster:
     # https://github.com/mapbox/supercluster/blob/60d13df9c7d96e9ad16b43c8aca897b5aea38ac9/index.js#L246
     def _cluster(self, points, zoom: int):
         clusters = []
-        r = self.radius / (self.extent * 2**zoom)
+        r = self.radius / (self.extent * 2 ** zoom)
 
         for i in range(len(points)):
             p = points[i]

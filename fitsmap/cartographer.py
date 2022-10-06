@@ -199,7 +199,7 @@ def get_colors() -> Iterable[str]:
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
     max_zoom = max(map(lambda t: t["max_native_zoom"], tile_layers))
 
-    scale_factor = int(2**max_zoom)
+    scale_factor = int(2 ** max_zoom)
 
     js = [
         "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
@@ -346,8 +346,7 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
 
 
 def leaflet_layer_control_declaration(
-    img_layer_dicts: List[Dict],
-    cat_layer_dicts: List[Dict],
+    img_layer_dicts: List[Dict], cat_layer_dicts: List[Dict],
 ) -> str:
     img_layer_label_pairs = ",".join(
         list(map(lambda l: '"{0}":{0}'.format(l["name"]), img_layer_dicts))
@@ -367,9 +366,7 @@ def leaflet_layer_control_declaration(
     return "\n".join(control_js)
 
 
-def leaflet_search_control_declaration(
-    cat_layer_dicts: List[Dict],
-) -> str:
+def leaflet_search_control_declaration(cat_layer_dicts: List[Dict],) -> str:
     search_js = [
         "const catalogPaths = [",
         *list(

@@ -40,11 +40,11 @@ class PaddedArray:
     def __get_internal_array(self, ys: slice, xs: slice) -> np.ndarray:
         return self.array[ys, xs]
 
-    def __get_padding(self, ys: slice, xs: slice) -> np.ndarray:
-        shape = [ys.stop - ys.start, xs.stop - xs.start]
-        if len(self.shape) == 3:
-            shape += [self.shape[2]]
-        return np.full(shape, np.nan, dtype=np.float32)
+    # def __get_padding(self, ys: slice, xs: slice) -> np.ndarray:
+    #     shape = [ys.stop - ys.start, xs.stop - xs.start]
+    #     if len(self.shape) == 3:
+    #         shape += [self.shape[2]]
+    #     return np.full(shape, np.nan, dtype=np.float32)
 
     def __get_mixed(self, ys: slice, xs: slice) -> np.ndarray:
         start_y, stop_y = ys.start, ys.stop

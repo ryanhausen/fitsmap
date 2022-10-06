@@ -51,19 +51,12 @@ class KDBush:
         _sort(self.ids, self.coords, self.node_size, 0, n_points - 1, 0)
 
     def range(
-        self,
-        min_x: int,
-        min_y: int,
-        max_x: int,
-        max_y: int,
+        self, min_x: int, min_y: int, max_x: int, max_y: int,
     ):
         return _range(self.ids, self.coords, min_x, min_y, max_x, max_y, self.node_size)
 
     def within(
-        self,
-        x: int,
-        y: int,
-        r: int,
+        self, x: int, y: int, r: int,
     ):
         return _within(self.ids, self.coords, x, y, r, self.node_size)
 
@@ -156,11 +149,7 @@ def _swap_item(
 
 # based on:
 # https://github.com/mourner/kdbush/blob/ea3a81d272e1a87df3efe8c404021435dfa6cbfd/src/sort.js#L64
-def _swap(
-    arr: np.ndarray,
-    i: int,
-    j: int,
-) -> None:  # updated in place
+def _swap(arr: np.ndarray, i: int, j: int,) -> None:  # updated in place
     tmp = arr[i]
     arr[i] = arr[j]
     arr[j] = tmp
@@ -230,12 +219,7 @@ def _range(
 # based on:
 # https://github.com/mourner/kdbush/blob/ea3a81d272e1a87df3efe8c404021435dfa6cbfd/src/within.js#L2
 def _within(
-    ids: np.ndarray,
-    coords: np.ndarray,
-    qx: int,
-    qy: int,
-    r: int,
-    node_size: int,
+    ids: np.ndarray, coords: np.ndarray, qx: int, qy: int, r: int, node_size: int,
 ) -> List[int]:
     stack = [0, len(ids) - 1, 0]
     result = []

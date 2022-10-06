@@ -444,21 +444,10 @@ def test_line_to_json_xy():
 
     expected_json = dict(
         geometry=dict(coordinates=[9.5, 19.5]),
-        tags=dict(
-            a=-1,
-            b=-1,
-            theta=-1,
-            catalog_id="1",
-            cat_path="catalog_assets",
-        ),
+        tags=dict(a=-1, b=-1, theta=-1, catalog_id="1", cat_path="catalog_assets",),
     )
 
-    actual_json = convert.line_to_json(
-        in_wcs,
-        columns,
-        catalog_assets_path,
-        in_line,
-    )
+    actual_json = convert.line_to_json(in_wcs, columns, catalog_assets_path, in_line,)
 
     helpers.tear_down()
 
@@ -481,21 +470,10 @@ def test_line_to_json_ra_dec():
 
     expected_json = dict(
         geometry=dict(coordinates=[289.87867109328727, 301.2526406693396]),
-        tags=dict(
-            a=-1,
-            b=-1,
-            theta=-1,
-            catalog_id="1",
-            cat_path="catalog_assets",
-        ),
+        tags=dict(a=-1, b=-1, theta=-1, catalog_id="1", cat_path="catalog_assets",),
     )
 
-    actual_json = convert.line_to_json(
-        in_wcs,
-        columns,
-        catalog_assets_path,
-        in_line,
-    )
+    actual_json = convert.line_to_json(in_wcs, columns, catalog_assets_path, in_line,)
 
     helpers.tear_down()
 
@@ -769,9 +747,7 @@ def test_files_to_map_ellipse_markers():
     ]
 
     convert.files_to_map(
-        files,
-        out_dir=out_dir,
-        catalog_delim=" ",
+        files, out_dir=out_dir, catalog_delim=" ",
     )
 
     expected_dir = with_path("expected_test_web_ellipse")
@@ -812,7 +788,7 @@ def test_files_to_map_fails_file_not_found():
         with_path("does_not_exist.txt"),
     ]
 
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(AssertionError):
         convert.files_to_map(
             files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
         )
@@ -835,7 +811,7 @@ def test_dir_to_map_fails_no_files():
     if not os.path.exists(in_dir):
         os.mkdir(in_dir)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(AssertionError):
         convert.dir_to_map(
             in_dir, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
         )
@@ -931,8 +907,7 @@ def test_dir_to_map_no_markers():
         f.writelines(converted)
 
     convert.dir_to_map(
-        in_dir,
-        out_dir=out_dir,
+        in_dir, out_dir=out_dir,
     )
 
     actual_dir = out_dir
