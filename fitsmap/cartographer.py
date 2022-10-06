@@ -136,7 +136,6 @@ def layer_name_to_dict(
         with open(cat_col_path, "r") as f:
             columns = f.readline().strip().split(",")
             layer_dict["columns"] = [f'"{c}"' for c in columns]
-        os.remove(cat_col_path)
 
     return layer_dict
 
