@@ -4,11 +4,10 @@ on:
   push:
     tags:
       - "*"
-
-  jobs:
-    deploy:
-      runs-on: ubuntu-latest
-      steps:
-        - uses: actions/checkout@v3
-        - name: testing
-          run: echo "Will hopefully deploy soon!"
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: testing
+        run: echo "Will hopefully deploy soon!"
