@@ -128,7 +128,10 @@ def __server(out_dir: str, port: int) -> None:
         # https://docs.python.org/3.8/library/http.server.html
         server = http.server.HTTPServer(
             ("", port),
-            functools.partial(http.server.SimpleHTTPRequestHandler, directory=out_dir,),
+            functools.partial(
+                http.server.SimpleHTTPRequestHandler,
+                directory=out_dir,
+            ),
         )
         server.serve_forever()
 

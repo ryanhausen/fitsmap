@@ -184,7 +184,10 @@ def compare_file_directories(dir1, dir2) -> bool:
             files_comps = list(
                 starmap(
                     compare_file_contents,
-                    zip(map(get_path, dir1_files), map(get_path, dir2_files),),
+                    zip(
+                        map(get_path, dir1_files),
+                        map(get_path, dir2_files),
+                    ),
                 )
             )
 
@@ -205,7 +208,10 @@ def compare_file_directories(dir1, dir2) -> bool:
                 if count_and_names_same:
                     # compare sub dirs
                     subdir_pairs = list(
-                        zip(map(get_path, dir1_subdirs), map(get_path, dir2_subdirs),)
+                        zip(
+                            map(get_path, dir1_subdirs),
+                            map(get_path, dir2_subdirs),
+                        )
                     )
                     subdir_comp = list(starmap(compare_subdirs, subdir_pairs))
                     subdirs_same = all(subdir_comp)
