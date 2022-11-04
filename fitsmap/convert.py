@@ -41,6 +41,7 @@ from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 import cbor2
 import mapbox_vector_tile as mvt
 import matplotlib as mpl
+mpl.use('Agg') # need to use this for processes safe matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import ray
@@ -61,9 +62,6 @@ from fitsmap.supercluster import Supercluster
 Image.MAX_IMAGE_PIXELS = sys.maxsize
 
 Shape = Tuple[int, int]
-
-
-from ray.util import inspect_serializability
 
 IMG_FORMATS = ["fits", "jpg", "png"]
 CAT_FORMAT = ["cat"]
@@ -1077,14 +1075,14 @@ def files_to_map(
         norm_kwargs=norm_kwargs,
     )
 
-    if task_procs > 1 or procs_per_task > 1:
-        # we want to init ray in such a way that it doesn't print any output
-        # to the console. These should be changed during development
-        ray.init(
-            include_dashboard=False,  # during dev == True
-            configure_logging=True,
-            logging_level=logging.CRITICAL,  # during dev == logging.INFO
-        )
+    # we want to init ray in such a way that it doesn't print any output
+    # to the console. These should be changed during development
+    ray.init(
+        include_dashboard=False,  # during dev == True
+        configure_logging=True,
+        logging_level=logging.CRITICAL,  # during dev == logging.INFO
+        log_to_driver=False, # during dev = True
+    )
 
     if task_procs > 1:
         img_task_f = ray.remote(num_cpus=task_procs)(tile_img).remote
