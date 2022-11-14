@@ -41,7 +41,8 @@ from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
 import cbor2
 import mapbox_vector_tile as mvt
 import matplotlib as mpl
-mpl.use('Agg') # need to use this for processes safe matplotlib
+
+mpl.use("Agg")  # need to use this for processes safe matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import ray
@@ -446,6 +447,7 @@ def tile_img(
     out_dir: str = ".",
     mp_procs: int = 0,
     norm_kwargs: dict = {},
+    batch_size: int = 500,
 ) -> None:
     """Extracts tiles from the array at ``file_location``.
 
@@ -467,6 +469,8 @@ def tile_img(
                             `astropy.visualization.simple_norm`. The default is
                             linear scaling using min/max values. See documentation
                             for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+        batch_size (int): The number of tiles to process at a time, when tiling
+                          in parallel. The default is 500.
 
     Returns:
         None
@@ -525,14 +529,13 @@ def tile_img(
 
         arr_obj_id = ray.put(array)
 
-        make_tile_f = ray.remote(num_cpus=mp_procs)(mem_safe_make_tile)
+        make_tile_f = ray.remote(num_cpus=1)(mem_safe_make_tile)
 
         OutputManager.set_description(pbar_ref, f"Converting {name}")
         OutputManager.set_units_total(pbar_ref, unit="tile", total=total_tiles)
 
         # in parallel we have to go one zoom level at a time because the images
         # at lower zoom levels are dependent on the tiles are higher zoom levels
-        batch_size = 500
         for zoom, jobs in groupby(tile_params, lambda z: z[0]):
             if zoom == max_zoom:
                 utils.backpressure_queue_ray(
@@ -550,8 +553,9 @@ def tile_img(
                     batch_size,
                 )
             else:
-                arr_obj_id = None
-                array = None
+                if "arr_obj_id" in locals():
+                    del arr_obj_id
+                    del array
                 work = list(
                     zip(
                         repeat(tile_dir),
@@ -825,7 +829,7 @@ def tile_markers(
     catalog_starts_at_one: bool,
     catalog_file: str,
     pbar_ref: Tuple[int, queue.Queue],
-    # pbar_loc: int,
+    batch_size: int = 500,
 ) -> None:
     _, fname = os.path.split(catalog_file)
 
@@ -920,7 +924,6 @@ def tile_markers(
         q.shutdown()
         del q
 
-    OutputManager
     OutputManager.set_description(
         pbar_ref, f"Clustering {catalog_file}(THIS MAY TAKE A WHILE)"
     )
@@ -962,6 +965,15 @@ def tile_markers(
     OutputManager.set_units_total(pbar_ref, unit="tile", total=len(tile_idxs))
 
     if mp_procs > 1:
+        # We need to process batches to offset the cost of spinning up a process
+        def batch_params(iter, batch_size):
+            while True:
+                batch = list(islice(iter, batch_size))
+                if batch:
+                    yield batch
+                else:
+                    break
+
         tile_f = ray.remote(num_cpus=1)(make_marker_tile)
         cluster_remote_id = ray.put(clusterer)
 
@@ -996,6 +1008,7 @@ def files_to_map(
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
+    img_tile_batch_size: int = 500,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1043,7 +1056,8 @@ def files_to_map(
                           ra/dec and x/y are present in a catalog
         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
                                       the catalog is 0 indexed
-
+        img_tile_batch_size (int): The number of image tiles to process in
+                                   parallel when task_procs > 1
     Returns:
         None
     """
@@ -1073,19 +1087,20 @@ def files_to_map(
         out_dir=out_dir,
         mp_procs=procs_per_task,
         norm_kwargs=norm_kwargs,
+        batch_size=img_tile_batch_size,
     )
 
     # we want to init ray in such a way that it doesn't print any output
     # to the console. These should be changed during development
     ray.init(
-        include_dashboard=False,  # during dev == True
-        configure_logging=True,
-        logging_level=logging.CRITICAL,  # during dev == logging.INFO
-        log_to_driver=False, # during dev = True
+        include_dashboard=True,  # during dev == True
+        configure_logging=False,  # during dev == False
+        logging_level=logging.INFO,  # during dev == logging.INFO, test == logging.CRITICAL
+        log_to_driver=True,  # during dev = True
     )
 
     if task_procs > 1:
-        img_task_f = ray.remote(num_cpus=task_procs)(tile_img).remote
+        img_task_f = ray.remote(num_cpus=1)(tile_img).remote
     else:
         img_task_f = tile_img
 
@@ -1227,6 +1242,7 @@ def dir_to_map(
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
+    img_tile_batch_size: int = 500,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1282,6 +1298,8 @@ def dir_to_map(
                           ra/dec and x/y are present in a catalog
         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
                                       the catalog is 0 indexed
+        img_tile_batch_size (int): The number of image tiles to process in
+                                   parallel when task_procs > 1
     Returns:
         None
 
@@ -1319,4 +1337,5 @@ def dir_to_map(
         rows_per_column=rows_per_column,
         prefer_xy=prefer_xy,
         catalog_starts_at_one=catalog_starts_at_one,
+        img_tile_batch_size=img_tile_batch_size,
     )

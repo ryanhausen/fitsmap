@@ -162,6 +162,7 @@ def backpressure_queue(
     in_progress = [
         work_f(*f_args.pop(0)) for _ in zip(range(n_parallel_jobs), range(len(f_args)))
     ]
+    # print("in_progress", len(in_progress))
     while in_progress:
         # ray.wait blocks until at least one job is done
         _, in_progress = wait_f(in_progress)
