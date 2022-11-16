@@ -398,7 +398,7 @@ def mem_safe_make_tile(
     # If this is being run in parallel it will be a List of Tuples if its being
     # run serially it will be a single Tuple, wrap the Tuple in a list to keep
     # it simple
-    jobs = [job] if type(job) is tuple else job
+    jobs = [job] if isinstance(job, tuple) else job
 
     for z, y, x, slice_ys, slice_xs in jobs:
         try:
@@ -789,30 +789,35 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
 def make_marker_tile(
     cluster: Supercluster,
     out_dir: str,
-    zyx: Tuple[int, Tuple[int, int]],
+    job: Union[
+        Tuple[int, Tuple[int, int]], List[Tuple[int, Tuple[int, int]]]
+    ]
 ) -> None:
-    z, (y, x) = zyx
 
-    if not os.path.exists(os.path.join(out_dir, str(z))):
-        os.mkdir(os.path.join(out_dir, str(z)))
+    jobs = [job] if isinstance(job, tuple) else job
 
-    if not os.path.exists(os.path.join(out_dir, str(z), str(y))):
-        os.mkdir(os.path.join(out_dir, str(z), str(y)))
+    for z, (y, x) in jobs:
 
-    out_path = os.path.join(out_dir, str(z), str(y), f"{x}.pbf")
+        if not os.path.exists(os.path.join(out_dir, str(z))):
+            os.mkdir(os.path.join(out_dir, str(z)))
 
-    tile_sources = cluster.get_tile(z, x, y)
+        if not os.path.exists(os.path.join(out_dir, str(z), str(y))):
+            os.mkdir(os.path.join(out_dir, str(z), str(y)))
 
-    if tile_sources:
-        tile_sources["name"] = "Points"
+        out_path = os.path.join(out_dir, str(z), str(y), f"{x}.pbf")
 
-        for i in range(len(tile_sources["features"])):
-            tile_sources["features"][i]["geometry"] = "POINT(0 0)"  # we dont' use this
+        tile_sources = cluster.get_tile(z, x, y)
 
-        encoded_tile = mvt.encode([tile_sources], extents=256)
+        if tile_sources:
+            tile_sources["name"] = "Points"
 
-        with open(out_path, "wb") as f:
-            f.write(encoded_tile)
+            for i in range(len(tile_sources["features"])):
+                tile_sources["features"][i]["geometry"] = "POINT(0 0)"  # we dont' use this
+
+            encoded_tile = mvt.encode([tile_sources], extents=256)
+
+            with open(out_path, "wb") as f:
+                f.write(encoded_tile)
 
 
 def tile_markers(
@@ -977,15 +982,17 @@ def tile_markers(
         tile_f = ray.remote(num_cpus=1)(make_marker_tile)
         cluster_remote_id = ray.put(clusterer)
 
-        tile_f_args = list(
-            zip(
+        utils.backpressure_queue_ray(
+            tile_f.remote,
+            list(zip(
                 repeat(cluster_remote_id),
                 repeat(catalog_layer_dir),
-                tile_idxs,
-            )
+                batch_params(tile_idxs, batch_size),
+            )),
+            pbar_ref,
+            mp_procs,
+            batch_size,
         )
-
-        utils.backpressure_queue_ray(tile_f.remote, tile_f_args, pbar_ref, mp_procs)
     else:
         for zyx in tile_idxs:
             make_marker_tile(clusterer, catalog_layer_dir, zyx)
