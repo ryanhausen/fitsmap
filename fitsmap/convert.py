@@ -793,11 +793,9 @@ def make_marker_tile(
         Tuple[int, Tuple[int, int]], List[Tuple[int, Tuple[int, int]]]
     ]
 ) -> None:
-
     jobs = [job] if isinstance(job, tuple) else job
-
+    
     for z, (y, x) in jobs:
-
         if not os.path.exists(os.path.join(out_dir, str(z))):
             os.mkdir(os.path.join(out_dir, str(z)))
 
@@ -969,6 +967,7 @@ def tile_markers(
     OutputManager.set_description(pbar_ref, f"Tiling {catalog_file}")
     OutputManager.set_units_total(pbar_ref, unit="tile", total=len(tile_idxs))
 
+    
     if mp_procs > 1:
         # We need to process batches to offset the cost of spinning up a process
         def batch_params(iter, batch_size):
@@ -987,7 +986,7 @@ def tile_markers(
             list(zip(
                 repeat(cluster_remote_id),
                 repeat(catalog_layer_dir),
-                batch_params(tile_idxs, batch_size),
+                batch_params(iter(tile_idxs), batch_size),
             )),
             pbar_ref,
             mp_procs,

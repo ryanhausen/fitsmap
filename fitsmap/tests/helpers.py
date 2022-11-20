@@ -27,6 +27,7 @@ from itertools import product, starmap
 
 import numpy as np
 from PIL import Image
+import ray
 
 TEST_PATH = "./testing_tmp"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
@@ -76,11 +77,14 @@ def setup(with_data=False):
         any(map(extract, compressed_files))
 
 
-def tear_down():
+def tear_down(include_ray=False):
     """Tears down testing structure"""
 
     if os.path.exists(TEST_PATH):
         shutil.rmtree(TEST_PATH)
+
+    if include_ray:
+        ray.shutdown()
 
 
 def disbale_tqdm():
