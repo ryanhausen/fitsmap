@@ -165,7 +165,7 @@ def compare_file_directories(dir1, dir2) -> bool:
                 np.array(Image.open(file1)),
                 np.array(Image.open(file2)),
                 rtol=1e-05,
-                atol=1e-08,
+                atol=3,  # these are integer images so 3 is a good tolerance
                 equal_nan=True,
             )
             # return (np.array(Image.open(file1)) == np.array(Image.open(file2))).all()
