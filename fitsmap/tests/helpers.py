@@ -161,14 +161,26 @@ def compare_file_directories(dir1, dir2) -> bool:
     def compare_file_contents(file1, file2) -> bool:
         f_ext = get_file_extension(file1)
         if f_ext in [".png", ".tiff", ".ico"]:
-            return np.allclose(
-                np.array(Image.open(file1)),
-                np.array(Image.open(file2)),
+            arr1 = np.array(Image.open(file1))
+            arr2 = np.array(Image.open(file2))
+            same = np.isclose(
+                arr1,
+                arr2,
                 rtol=1e-05,
                 atol=3,  # these are integer images so 3 is a good tolerance
                 equal_nan=True,
             )
-            # return (np.array(Image.open(file1)) == np.array(Image.open(file2))).all()
+
+            if not same.all():
+                ys, xs, cs = np.where(~same)
+                print(f"Found {len(ys)} differences in {file1}")
+                print(f"First difference at {ys[0]}, {xs[0]}, {cs[0]}")
+                print(
+                    f"First difference is {arr1[ys[0], xs[0], cs[0]]} vs {arr2[ys[0], xs[0], cs[0]]}"
+                )
+                return False
+
+            return same.all()
         else:
             mode = "r" + "b" * int(f_ext in [".cbor", ".pbf"])
             with open(file1, mode) as f1, open(file2, mode) as f2:
