@@ -45,6 +45,7 @@ REQUIRES = [
     "scikit-image",
     "tqdm",
     "click",
+    "protobuf<4.21",  # mapbox-vector-tile requires protobuf<4.21,>=3.0.0
     "mapbox_vector_tile",
 ]
 

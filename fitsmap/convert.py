@@ -789,12 +789,10 @@ def _simplify_mixed_ws(catalog_fname: str) -> None:
 def make_marker_tile(
     cluster: Supercluster,
     out_dir: str,
-    job: Union[
-        Tuple[int, Tuple[int, int]], List[Tuple[int, Tuple[int, int]]]
-    ]
+    job: Union[Tuple[int, Tuple[int, int]], List[Tuple[int, Tuple[int, int]]]],
 ) -> None:
     jobs = [job] if isinstance(job, tuple) else job
-    
+
     for z, (y, x) in jobs:
         if not os.path.exists(os.path.join(out_dir, str(z))):
             os.mkdir(os.path.join(out_dir, str(z)))
@@ -810,7 +808,9 @@ def make_marker_tile(
             tile_sources["name"] = "Points"
 
             for i in range(len(tile_sources["features"])):
-                tile_sources["features"][i]["geometry"] = "POINT(0 0)"  # we dont' use this
+                tile_sources["features"][i][
+                    "geometry"
+                ] = "POINT(0 0)"  # we dont' use this
 
             encoded_tile = mvt.encode([tile_sources], extents=256)
 
@@ -967,7 +967,6 @@ def tile_markers(
     OutputManager.set_description(pbar_ref, f"Tiling {catalog_file}")
     OutputManager.set_units_total(pbar_ref, unit="tile", total=len(tile_idxs))
 
-    
     if mp_procs > 1:
         # We need to process batches to offset the cost of spinning up a process
         def batch_params(iter, batch_size):
@@ -983,11 +982,13 @@ def tile_markers(
 
         utils.backpressure_queue_ray(
             tile_f.remote,
-            list(zip(
-                repeat(cluster_remote_id),
-                repeat(catalog_layer_dir),
-                batch_params(iter(tile_idxs), batch_size),
-            )),
+            list(
+                zip(
+                    repeat(cluster_remote_id),
+                    repeat(catalog_layer_dir),
+                    batch_params(iter(tile_idxs), batch_size),
+                )
+            ),
             pbar_ref,
             mp_procs,
             batch_size,
