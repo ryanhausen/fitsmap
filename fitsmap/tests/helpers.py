@@ -161,7 +161,14 @@ def compare_file_directories(dir1, dir2) -> bool:
     def compare_file_contents(file1, file2) -> bool:
         f_ext = get_file_extension(file1)
         if f_ext in [".png", ".tiff", ".ico"]:
-            return (np.array(Image.open(file1)) == np.array(Image.open(file2))).all()
+            return np.allclose(
+                np.array(Image.open(file1)),
+                np.array(Image.open(file2)),
+                rtol=1e-05,
+                atol=1e-08,
+                equal_nan=True,
+            )
+            # return (np.array(Image.open(file1)) == np.array(Image.open(file2))).all()
         else:
             mode = "r" + "b" * int(f_ext in [".cbor", ".pbf"])
             with open(file1, mode) as f1, open(file2, mode) as f2:
