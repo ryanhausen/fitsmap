@@ -37,7 +37,6 @@ with open("./fitsmap/__version__.py", "r") as f:
 REQUIRES = [
     "astropy",
     "cbor2",
-    "imageio",
     "numpy",
     "matplotlib",
     "pillow",

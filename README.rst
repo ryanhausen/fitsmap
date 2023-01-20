@@ -77,7 +77,6 @@ Requirements:
 - ``astropy``
 - ``cbor2``
 - ``click``
-- ``imageio``
 - ``mapbox_vector_tile``
 - ``matplotlib``
 - ``numpy``

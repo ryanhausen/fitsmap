@@ -1,7 +1,7 @@
 astropy
 cbor2
 click
-imageio
+protobuf<4.0.0
 mapbox_vector_tile
 matplotlib
 numpy

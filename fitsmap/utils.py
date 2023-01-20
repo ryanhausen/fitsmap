@@ -166,7 +166,6 @@ def backpressure_queue(
     while in_progress:
         # ray.wait blocks until at least one job is done
         _, in_progress = wait_f(in_progress)
-        # bar.update(batch_size)
         OutputManager.update(pbar_ref, batch_size)
 
         if f_args:

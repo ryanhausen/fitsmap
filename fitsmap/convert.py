@@ -50,7 +50,6 @@ import ray.util.queue as queue
 from astropy.io import fits
 from astropy.wcs import WCS
 from astropy.visualization import simple_norm
-from imageio import imread
 from PIL import Image
 
 import fitsmap.utils as utils
@@ -168,12 +167,7 @@ def get_array(file_location: str) -> np.ndarray:
         if len(shape) != 2:
             raise ValueError("FitsMap only supports 2D FITS files.")
     else:
-        array = np.flipud(imread(file_location)).astype(np.float32)
-
-        if len(array.shape) == 3:
-            shape = array.shape[:-1]
-        elif len(array.shape) == 2:
-            shape = array.shape
+        array = np.flipud(Image.open(file_location)).astype(np.float32)
 
     return balance_array(array)
 
@@ -278,7 +272,8 @@ def imread_default(path: str, default: np.ndarray) -> np.ndarray:
                     size (size, size, 4).
     """
     try:
-        return np.flipud(imread(path))
+        # return np.flipud(imread(path))
+        return np.flipud(Image.open(path))
     except FileNotFoundError:
         return default
 
@@ -357,15 +352,18 @@ def make_tile_pil(tile: np.ndarray) -> np.ndarray:
     """
 
     if len(tile.shape) < 3:
-        tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
+        img_tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
     elif tile.shape[2] == 3:
-        tile = np.concatenate(
+        img_tile = np.concatenate(
             (tile, np.ones(list(tile.shape[:-1]) + [1], dtype=np.float32) * 255),
             axis=2,
         )
+    else:
+        img_tile = tile.copy()
+
     ys, xs = np.where(np.isnan(tile[:, :, 0]))
-    tile[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
-    img = Image.fromarray(np.flipud(tile).astype(np.uint8))
+    img_tile[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+    img = Image.fromarray(np.flipud(img_tile).astype(np.uint8))
 
     return img
 
@@ -527,7 +525,10 @@ def tile_img(
                 else:
                     break
 
+        # Put the array in the ray object store. After it's there remove the
+        # reference to it so that it can be garbage collected.
         arr_obj_id = ray.put(array)
+        del array
 
         make_tile_f = ray.remote(num_cpus=1)(mem_safe_make_tile)
 
@@ -555,7 +556,6 @@ def tile_img(
             else:
                 if "arr_obj_id" in locals():
                     del arr_obj_id
-                    del array
                 work = list(
                     zip(
                         repeat(tile_dir),
@@ -1010,12 +1010,12 @@ def files_to_map(
     cat_wcs_fits_file: str = None,
     max_catalog_zoom: int = -1,
     tile_size: Tuple[int, int] = [256, 256],
-    image_engine: str = IMG_ENGINE_MPL,
+    image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
-    img_tile_batch_size: int = 500,
+    img_tile_batch_size: int = 1000,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1213,6 +1213,7 @@ def files_to_map(
         any(map(f, tasks))
 
     output_manager.close_up()
+    ray.shutdown()
     print("Building index.html")
 
     if cat_wcs_fits_file is not None:
@@ -1244,12 +1245,12 @@ def dir_to_map(
     cat_wcs_fits_file: str = None,
     max_catalog_zoom: int = -1,
     tile_size: Shape = [256, 256],
-    image_engine: str = IMG_ENGINE_MPL,
+    image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
-    img_tile_batch_size: int = 500,
+    img_tile_batch_size: int = 1000,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 

@@ -167,7 +167,7 @@ def compare_file_directories(dir1, dir2) -> bool:
                 arr1,
                 arr2,
                 rtol=1e-05,
-                atol=15,  # these are integer images so 15 is a reasonable tolerance
+                atol=5,  # these are integer images so 15 is a reasonable tolerance
                 equal_nan=True,
             )
 
