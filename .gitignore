@@ -20,3 +20,5 @@ fitsmap/tests/__pycache__/
 .coverage*
 
 testing_tmp/
+
+fitsmap/tests/data/test.columns
