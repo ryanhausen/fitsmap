@@ -53,6 +53,24 @@ class MockTQDM:
         pass
 
 
+class MockWCS:
+    """Mock WCS object for testing"""
+
+    def __init__(self, include_cd: bool):
+        if include_cd:
+            self.cd = np.array([[1, 0], [0, 1]])
+        else:
+            self.crpix = np.array([1, 1])
+            self.crval = np.array([1, 1])
+
+    def all_pix2world(self, *args, **kwargs):
+        return np.array([[1, 1], [1, 1], [1, 1]]).astype(np.float64)
+
+    @property
+    def wcs(self):
+        return self
+
+
 def setup(with_data=False):
     """Builds testing structure"""
 

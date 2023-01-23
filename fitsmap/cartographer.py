@@ -389,6 +389,25 @@ def leaflet_search_control_declaration(
     return "\n".join(search_js) if cat_layer_dicts else ""
 
 
+def extract_cd_matrix_as_string(wcs: WCS) -> str:
+    if hasattr(wcs.wcs, "cd"):
+        return str(wcs.wcs.cd.tolist())
+    else:
+        # Manual "CD" matrix
+        delta = wcs.all_pix2world(
+            [
+                wcs.wcs.crpix,
+                wcs.wcs.crpix + np.array([1, 0]),
+                wcs.wcs.crpix + np.array([0, 1]),
+            ],
+            0,
+        )
+
+        _cd = np.array([delta[1, :] - delta[0, :], delta[2, :] - delta[0, :]])
+        _cd[0, :] *= np.cos(wcs.wcs.crval[1] / 180 * np.pi)
+        return str(_cd.tolist())
+
+
 def build_urlCoords_js(img_wcs: WCS) -> str:
 
     wcs_js_file = os.path.join(os.path.dirname(__file__), "support", "urlCoords.js.tmp")
@@ -400,23 +419,7 @@ def build_urlCoords_js(img_wcs: WCS) -> str:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "1")
         wcs_js = wcs_js.replace("_CRPIX", str(img_wcs.wcs.crpix.tolist()))
         wcs_js = wcs_js.replace("_CRVAL", str(img_wcs.wcs.crval.tolist()))
-
-        if hasattr(img_wcs.wcs, "cd"):
-            wcs_js = wcs_js.replace("_CD", str(img_wcs.wcs.cd.tolist()))
-        else:
-            # Manual "CD" matrix
-            delta = img_wcs.all_pix2world(
-                [
-                    img_wcs.wcs.crpix,
-                    img_wcs.wcs.crpix + np.array([1, 0]),
-                    img_wcs.wcs.crpix + np.array([0, 1]),
-                ],
-                0,
-            )
-
-            _cd = np.array([delta[1, :] - delta[0, :], delta[2, :] - delta[0, :]])
-            _cd[0, :] *= np.cos(img_wcs.wcs.crval[1] / 180 * np.pi)
-            wcs_js = wcs_js.replace("_CD", str(_cd.tolist()))
+        wcs_js = wcs_js.replace("_CD", extract_cd_matrix_as_string(img_wcs))
     else:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "0")
         wcs_js = wcs_js.replace("_CRPIX", "[1, 1]")

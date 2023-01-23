@@ -375,6 +375,41 @@ def test_get_total_tiles():
 
 @pytest.mark.unit
 @pytest.mark.convert
+def test_imread_default():
+    """Test convert.imread_default() with valid path"""
+
+    helpers.setup(with_data=True)
+
+    test_file = os.path.join(helpers.TEST_PATH, "test_tiling_image.jpg")
+    expected_array = np.flipud(Image.open(test_file))
+    empty_array = np.zeros([256, 256])
+
+    actual_array = convert.imread_default(test_file, empty_array)
+
+    helpers.tear_down()
+
+    np.testing.assert_equal(expected_array, actual_array)
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_imread_default_invalid_path():
+    """Test convert.imread_default() with valid path"""
+
+    helpers.setup(with_data=True)
+
+    test_file = os.path.join(helpers.TEST_PATH, "doesnt_exist.jpg")
+    empty_array = np.zeros([256, 256])
+
+    actual_array = convert.imread_default(test_file, empty_array)
+
+    helpers.tear_down()
+
+    np.testing.assert_equal(empty_array, actual_array)
+
+
+@pytest.mark.unit
+@pytest.mark.convert
 def test_get_map_layer_name():
     """Test convert.get_map_layer_name"""
 

@@ -265,6 +265,34 @@ def test_leaflet_crs_js():
 
 @pytest.mark.unit
 @pytest.mark.cartographer
+def test_extract_cd_matrix_as_string_with_cd():
+    """test cartographer.extract_cd_matrix_as_string"""
+
+    wcs = helpers.MockWCS(include_cd=True)
+
+    actual = c.extract_cd_matrix_as_string(wcs)
+
+    expected = "[[1, 0], [0, 1]]"
+
+    assert actual == expected
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
+def test_extract_cd_matrix_as_string_without_cd():
+    """test cartographer.extract_cd_matrix_as_string"""
+
+    wcs = helpers.MockWCS(include_cd=False)
+
+    actual = c.extract_cd_matrix_as_string(wcs)
+
+    expected = "[[0.0, 0.0], [0.0, 0.0]]"
+
+    assert actual == expected
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
 def test_leaflet_map_js():
     """test cartographer.leaflet_map_js"""
 

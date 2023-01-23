@@ -272,7 +272,6 @@ def imread_default(path: str, default: np.ndarray) -> np.ndarray:
                     size (size, size, 4).
     """
     try:
-        # return np.flipud(imread(path))
         return np.flipud(Image.open(path))
     except FileNotFoundError:
         return default
