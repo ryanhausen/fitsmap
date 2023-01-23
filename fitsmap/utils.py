@@ -141,7 +141,6 @@ def backpressure_queue(
     wait_f: Callable,
     work_f: Callable,
     f_args: List[List[Any]],
-    # bar: tqdm,
     pbar_ref: Tuple[int, queue.Queue],
     n_parallel_jobs: int,
     batch_size: int = 1,

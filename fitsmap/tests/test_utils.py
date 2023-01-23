@@ -18,7 +18,9 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Tests utils.py"""
+from functools import partial
 import os
+from typing import Any, List
 import pytest
 
 import fitsmap.utils as u
@@ -106,8 +108,54 @@ def test_make_fname_js_safe_no_change():
 
 @pytest.mark.unit
 def test_MockQueue():
+    """Test the MockQueue class."""
     bar = tqdm()
 
     q = u.MockQueue(bar)
     q.put(100)
     assert q.bar.n == 100
+
+
+@pytest.mark.unit
+def test_backpressure_queue():
+    """Test backpressure_queue."""
+    helpers.setup()
+
+    pbar_ref = (0, u.MockQueue(helpers.MockTQDM()))
+    n_parallel_jobs = 1
+
+    f_args = [
+        [None],
+        [None],
+        [None]
+    ]
+
+    hit_all_queue = [
+        False,
+        False,
+        False
+    ]
+
+    wait_one = [True]
+
+    def wait_f(in_progress:List[Any]):
+        still_running = in_progress[1:] if len(in_progress)>1 else []
+
+        if len(still_running) == 0 and wait_one[0]:
+            wait_one[0] = False
+            return None, in_progress
+
+        return None, still_running
+
+    def work_f(hit_all_queue, *args):
+        hit_all_queue[hit_all_queue.index(False)] = True
+        return args
+
+    work_f_with_check = partial(work_f, hit_all_queue)
+
+    u.backpressure_queue(wait_f, work_f_with_check, f_args, pbar_ref, n_parallel_jobs)
+
+    helpers.tear_down()
+
+    assert all(hit_all_queue)
+
