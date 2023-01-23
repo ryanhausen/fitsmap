@@ -177,16 +177,17 @@ Once FitsMap is finished, the following will have been generated:
     - catalog/
     - css/
     - catalog_assets/
+    - imgs/
     - js/
     - index.html
 
 The directories ``F125W``, ``F160W``, ``RGB``, ``catalog`` contain tiled
 versions of the input fits files. The ``css`` directory contains some supporting
-CSS files for clustering the markers and rendering pixels. The ``js`` directory
-contains supporting JavaScript for the map. ``catalog_assets`` contains JSON
-files for each source in each that are rendered when the marker associated with
-that source is clicked. Finally, ``index.html`` is the webpage that contains the
-map.
+CSS files for clustering the markers and rendering pixels. The ``imgs``
+directory contains supporting images. The ``js`` directory contains supporting
+JavaScript for the map. ``catalog_assets`` contains JSON files for each source
+in each that are rendered when the marker associated with that source is
+clicked. Finally, ``index.html`` is the webpage that contains the map.
 
 To use the map, run ``fitsmap serve`` in the same directory as ``index.html``
 
@@ -282,8 +283,8 @@ Catalogs should be delimited text files with the first line containing the
 column names, and the following lines containing values. Catalogs need to have
 an ``id`` column with a unique value for each row. It also needs to have
 coordinates for each source, which can be one of the following pairs of columns
-(``ra`` / ``dec``) or (``x`` / ``y``). **Note fitsmap assumes that the origin of the
-image starts at (1,1), but this can be changed to (0,0) by setting the
+(``ra`` / ``dec``) or (``x`` / ``y``). **Note fitsmap assumes that the origin of
+the image starts at (1,1), but this can be changed to (0,0) by setting the
 kwarg** ``catalog_starts_at_one=False``.
 
 Some catalogs have many columns for each row, which will create very tall

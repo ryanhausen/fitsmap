@@ -5,6 +5,9 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
     options: {
         tileURL: "",
         color: "#4C72B0",
+        fillOpacity: 0.2,
+        strokeOpacity: 1.0,
+        radius: 10,
         rowsPerCol: Infinity,
         catalogColumns: [],
     },
@@ -94,7 +97,10 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
             if (src.a==-1){
                 return L.circleMarker(latlng, {
                     color: this.options.color,
-                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`
+                    assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`,
+                    opacity: this.options.strokeOpacity,
+                    fillOpacity: this.options.fillOpacity,
+                    radius: this.options.radius,
                 }).bindPopup(p);
             } else {
                 return L.ellipse(latlng, [src.a, src.b], src.theta, {
