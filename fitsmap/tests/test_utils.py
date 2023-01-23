@@ -124,22 +124,14 @@ def test_backpressure_queue():
     pbar_ref = (0, u.MockQueue(helpers.MockTQDM()))
     n_parallel_jobs = 1
 
-    f_args = [
-        [None],
-        [None],
-        [None]
-    ]
+    f_args = [[None], [None], [None]]
 
-    hit_all_queue = [
-        False,
-        False,
-        False
-    ]
+    hit_all_queue = [False, False, False]
 
     wait_one = [True]
 
-    def wait_f(in_progress:List[Any]):
-        still_running = in_progress[1:] if len(in_progress)>1 else []
+    def wait_f(in_progress: List[Any]):
+        still_running = in_progress[1:] if len(in_progress) > 1 else []
 
         if len(still_running) == 0 and wait_one[0]:
             wait_one[0] = False
@@ -158,4 +150,3 @@ def test_backpressure_queue():
     helpers.tear_down()
 
     assert all(hit_all_queue)
-

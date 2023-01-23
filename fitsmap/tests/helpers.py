@@ -37,7 +37,7 @@ TQDM_ENV_VAR = "DISBALE_TQDM"
 class MockTQDM:
     unit = ""
 
-    def update(self, n:int=1):
+    def update(self, n: int = 1):
         pass
 
     def clear(self):
