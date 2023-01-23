@@ -1,3 +1,4 @@
+// Forked from below to here: https://github.com/ryanhausen/Leaflet.Ellipse
 /**
  * Copyright 2014 JD Fergason
  *
@@ -13,17 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
- /*
-  * Adapted from the following fork:
-  * https://github.com/SlidEnergy/Leaflet.Ellipse
-  * which fixes the CRS.Simple bug but breaks compatibility with MarkerSearch
-  * so I removed the lines that are compatible with a non CRS.Simple map and 
-  * it works as expected for my use case only. 
-  */
 
 
-L.SVG.include ({
+ L.SVG.include ({
     _updateEllipse: function (layer) {
         var c = layer._point,
             rx = layer._radiusX,
@@ -43,28 +36,27 @@ L.Canvas.include ({
     _updateEllipse: function (layer) {
         if (layer._empty()) { return; }
 
-        var p = layer._point,
+        let p = layer._point,
             ctx = this._ctx,
             r = layer._radiusX,
             s = (layer._radiusY || r) / r;
 
-        this._drawnLayers[layer._leaflet_id] = layer;
+        if (this.hasOwnProperty('_drawnLayers')) {
+            this._drawnlayers[layer._leaflet_id] = layer;
+        } else if (this.hasOwnProperty('_layers')) {
+            this._layers[layer._leaflet_id] = layer;
+        } else {
+            throw new Error("Cannot find property _drawnLayers or _layers");
+        }
 
         ctx.save();
+	    ctx.beginPath();
+	    console.log(p.x, p.y, layer._tilt, layer._tiltDeg);
+        ctx.ellipse(p.x, p.y, layer._radiusX, layer._radiusY, layer._tilt, 0, 2 * Math.PI, true);
 
-        ctx.translate(p.x, p.y);
-        if (layer._tilt !== 0) {
-            ctx.rotate( layer._tilt );
-        }
-        if (s !== 1) {
-            ctx.scale(1, s);
-        }
-
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
         ctx.restore();
 
-        this._fillStroke(ctx, layer);
+        this._fillStroke(ctx, layer)
     },
 });
 
@@ -78,14 +70,20 @@ L.Ellipse = L.Path.extend({
 
     initialize: function (latlng, radii, tilt, options) {
 
+	console.log(latlng, tilt);
         L.setOptions(this, options);
         this._latlng = L.latLng(latlng);
 
         if (tilt) {
-            this._tiltDeg = tilt;
+            // multiply by -1 and add 180 so that degress start from the west
+            // and increase counter clockwise
+            this._tiltDeg = tilt * -1 + 180;
+            this._tilt = Math.PI * this._tiltDeg / 180;
         } else {
             this._tiltDeg = 0;
+            this._tilt = 0;
         }
+
 
         if (radii) {
             this._mRadiusX = radii[0];
@@ -175,16 +173,20 @@ L.Ellipse = L.Path.extend({
         this._renderer._updateEllipse(this);
     },
 
-    // this is changed to not check for non.CRS.simple
-    // https://raw.githubusercontent.com/SlidEnergy/Leaflet.Ellipse/master/l.ellipse.js
     _getLatRadius: function () {
+      var simpleCrs = !!this._map.options.crs.infinite;
+      if(simpleCrs)
         return this._mRadiusY;
+      else
+        return (this._mRadiusY / 40075017) * 360;
     },
 
-    // this is changed to not check for non.CRS.simple
-    // https://raw.githubusercontent.com/SlidEnergy/Leaflet.Ellipse/master/l.ellipse.js
     _getLngRadius: function () {
+      var simpleCrs = !!this._map.options.crs.infinite;
+      if(simpleCrs)
         return this._mRadiusX;
+      else
+        return ((this._mRadiusX / 40075017) * 360) / Math.cos((Math.PI / 180) * this._latlng.lat);
     },
 
     _centerPointToEndPoint: function () {

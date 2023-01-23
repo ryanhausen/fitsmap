@@ -17,6 +17,8 @@ fitsmap.egg-info/**
 
 fitsmap/tests/__pycache__/
 
-.coverage
+.coverage*
 
 testing_tmp/
+
+fitsmap/tests/data/test.columns

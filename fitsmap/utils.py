@@ -19,15 +19,18 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 import os
 import string
-from functools import reduce
+from functools import partial, reduce
 from itertools import chain, filterfalse
-from typing import Iterable, List, Tuple
+from typing import Any, Callable, Iterable, List, Tuple
 
+import ray
+import ray.util.queue as queue
 from astropy.io import fits
 from tqdm import tqdm
 from PIL import Image
 
 import fitsmap
+from fitsmap.output_manager import OutputManager
 
 
 def digit_to_string(digit: int) -> str:
@@ -107,7 +110,10 @@ def peek_image_info(img_file_names: List[str]) -> Tuple[int, int]:
     """
 
     fits_sizes = list(
-        map(get_fits_image_size, filter(lambda f: f.endswith("fits"), img_file_names),)
+        map(
+            get_fits_image_size,
+            filter(lambda f: f.endswith("fits"), img_file_names),
+        )
     )
 
     standard_sizes = list(
@@ -129,6 +135,50 @@ def peek_image_info(img_file_names: List[str]) -> Tuple[int, int]:
 def get_version():
     with open(os.path.join(fitsmap.__path__[0], "__version__.py"), "r") as f:
         return f.readline().strip().replace('"', "")
+
+
+def backpressure_queue(
+    wait_f: Callable,
+    work_f: Callable,
+    f_args: List[List[Any]],
+    pbar_ref: Tuple[int, queue.Queue],
+    n_parallel_jobs: int,
+    batch_size: int = 1,
+) -> None:
+    """A queue that will limit things processed in parallel.
+
+    Args:
+        wait_f (Callable): A function that will block until a process is finished
+        work_f (Callable): A function that accepts a single element from args
+        f_args (List[List[Any]]): A list of function args for work_f
+        bar (tqdm): A tqdm progress bar
+        n_parallel_jobs (int): The number of args to process in parallel
+
+    Returns:
+        None
+    """
+    # queue n jobs to be processed by ray
+    in_progress = [
+        work_f(*f_args.pop(0)) for _ in zip(range(n_parallel_jobs), range(len(f_args)))
+    ]
+    # print("in_progress", len(in_progress))
+    while in_progress:
+        # ray.wait blocks until at least one job is done
+        _, in_progress = wait_f(in_progress)
+        OutputManager.update(pbar_ref, batch_size)
+
+        if f_args:
+            # add another job to the queue for ray to work on
+            in_progress.append(work_f(*f_args.pop(0)))
+        elif in_progress:
+            # the only jobs left are already in the queue
+            pass
+        else:
+            # all jobs complete
+            break
+
+
+backpressure_queue_ray = partial(backpressure_queue, ray.wait)
 
 
 class MockQueue:

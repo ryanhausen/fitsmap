@@ -20,7 +20,9 @@
 """Tests convert.py"""
 
 import os
+import queue
 import shutil
+import sys
 
 import numpy as np
 import pytest
@@ -201,7 +203,7 @@ def test_balance_array_2d():
     out_array = convert.balance_array(test_array)
 
     assert out_array.shape == expected_shape
-    assert np.isnan(out_array).sum() == expected_num_nans
+    assert np.isnan(out_array[:]).sum() == expected_num_nans
 
 
 @pytest.mark.unit
@@ -218,7 +220,7 @@ def test_balance_array_3d():
     out_array = convert.balance_array(test_array)
 
     assert out_array.shape == expected_shape
-    assert np.isnan(out_array).sum() == expected_num_nans
+    assert np.isnan(out_array[:]).sum() == expected_num_nans
 
 
 @pytest.mark.unit
@@ -241,7 +243,7 @@ def test_get_array_fits():
 
     helpers.tear_down()
 
-    np.testing.assert_equal(expected_array, actual_array)
+    np.testing.assert_equal(expected_array, actual_array[:])
 
 
 @pytest.mark.unit
@@ -373,6 +375,41 @@ def test_get_total_tiles():
 
 @pytest.mark.unit
 @pytest.mark.convert
+def test_imread_default():
+    """Test convert.imread_default() with valid path"""
+
+    helpers.setup(with_data=True)
+
+    test_file = os.path.join(helpers.TEST_PATH, "test_tiling_image.jpg")
+    expected_array = np.flipud(Image.open(test_file))
+    empty_array = np.zeros([256, 256])
+
+    actual_array = convert.imread_default(test_file, empty_array)
+
+    helpers.tear_down()
+
+    np.testing.assert_equal(expected_array, actual_array)
+
+
+@pytest.mark.unit
+@pytest.mark.convert
+def test_imread_default_invalid_path():
+    """Test convert.imread_default() with valid path"""
+
+    helpers.setup(with_data=True)
+
+    test_file = os.path.join(helpers.TEST_PATH, "doesnt_exist.jpg")
+    empty_array = np.zeros([256, 256])
+
+    actual_array = convert.imread_default(test_file, empty_array)
+
+    helpers.tear_down()
+
+    np.testing.assert_equal(empty_array, actual_array)
+
+
+@pytest.mark.unit
+@pytest.mark.convert
 def test_get_map_layer_name():
     """Test convert.get_map_layer_name"""
 
@@ -442,10 +479,21 @@ def test_line_to_json_xy():
 
     expected_json = dict(
         geometry=dict(coordinates=[9.5, 19.5]),
-        tags=dict(a=-1, b=-1, theta=-1, catalog_id="1", cat_path="catalog_assets",),
+        tags=dict(
+            a=-1,
+            b=-1,
+            theta=-1,
+            catalog_id="1",
+            cat_path="catalog_assets",
+        ),
     )
 
-    actual_json = convert.line_to_json(in_wcs, columns, catalog_assets_path, in_line,)
+    actual_json = convert.line_to_json(
+        in_wcs,
+        columns,
+        catalog_assets_path,
+        in_line,
+    )
 
     helpers.tear_down()
 
@@ -468,55 +516,31 @@ def test_line_to_json_ra_dec():
 
     expected_json = dict(
         geometry=dict(coordinates=[289.87867109328727, 301.2526406693396]),
-        tags=dict(a=-1, b=-1, theta=-1, catalog_id="1", cat_path="catalog_assets",),
+        tags=dict(
+            a=-1,
+            b=-1,
+            theta=-1,
+            catalog_id="1",
+            cat_path="catalog_assets",
+        ),
     )
 
-    actual_json = convert.line_to_json(in_wcs, columns, catalog_assets_path, in_line,)
+    actual_json = convert.line_to_json(
+        in_wcs,
+        columns,
+        catalog_assets_path,
+        in_line,
+    )
 
     helpers.tear_down()
 
-    assert expected_json == actual_json
+    np.testing.assert_allclose(
+        expected_json["geometry"]["coordinates"],
+        actual_json["geometry"]["coordinates"],
+        atol=1e-6,
+    )
 
-
-# this needs to be top-level to be pickle-able in test_async_worker_completes
-def mock_f(v1, v2):
-    pass
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_async_worker_completes():
-    """Test convert.async_worker"""
-
-    q = JoinableQueue()
-    q.put((mock_f, ["v1", "v2"]))
-
-    convert.async_worker(q)
-
-    assert True  # if we make it here it works
-
-
-@pytest.mark.unit
-@pytest.mark.convert
-def test_make_tile_mpl():
-    """Test convert.make_tile_mpl"""
-    helpers.setup()
-
-    out_dir = helpers.TEST_PATH
-    test_arr = np.arange(100 * 100).reshape([100, 100])
-    test_job = (0, 0, 0, slice(0, 100), slice(0, 100))
-
-    os.makedirs(os.path.join(out_dir, "0/0/"))
-
-    convert.make_tile_mpl(out_dir, test_arr, test_job)
-
-    actual_img = np.array(Image.open(os.path.join(out_dir, "0/0/0.png")))
-
-    expected_img = test_arr // 256
-
-    np.array_equal(expected_img, actual_img)
-
-    helpers.tear_down()
+    assert expected_json["tags"] == actual_json["tags"]
 
 
 @pytest.mark.unit
@@ -528,13 +552,13 @@ def test_tile_img_pil_serial():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -560,13 +584,13 @@ def test_tile_img_mpl_serial():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -585,32 +609,67 @@ def test_tile_img_mpl_serial():
 
 @pytest.mark.unit
 @pytest.mark.convert
-def test_tile_img_pil_serial_exists(capsys):
-    """Test convert.tile_img skips tiling"""
+def test_tile_img_mpl_fits_serial():
+    """Test convmax_percentert.tile_img"""
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
     out_dir = helpers.TEST_PATH
-    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    test_image = os.path.join(out_dir, "test_img_for_map.fits")
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
-    image_engine = convert.IMG_ENGINE_PIL
-
-    os.mkdir(os.path.join(out_dir, "test_tiling_image"))
+    image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
+        norm_kwargs=dict(stretch="log", max_percent=99.9),
     )
 
-    captured = capsys.readouterr()
+    expected_dir = os.path.join(out_dir, "expected_test_img_for_map")
+    actual_dir = os.path.join(out_dir, "test_img_for_map")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
     helpers.tear_down()
     helpers.enable_tqdm()
 
-    assert "test_tiling_image.jpg already tiled. Skipping tiling." in captured.out
+    assert dirs_match
+
+
+def test_simplify_mixed_ws():
+    """Test convert._simplify_mixed_ws"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    test_lines = [
+        "a b   c\n",
+        "test\tdata stuff\n",
+        "to     test\tstuff\n",
+    ]
+
+    out_file = os.path.join(helpers.DATA_DIR, "test.cat")
+    with open(out_file, "w") as f:
+        f.writelines(test_lines)
+
+    convert._simplify_mixed_ws(out_file)
+
+    expected_test_lines = [
+        "a b c\n",
+        "test data stuff\n",
+        "to test stuff\n",
+    ]
+
+    with open(out_file, "r") as f:
+        actual_lines = f.readlines()
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert expected_test_lines == actual_lines
 
 
 @pytest.mark.unit
@@ -622,13 +681,13 @@ def test_tile_img_pil_parallel():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_PIL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -640,7 +699,7 @@ def test_tile_img_pil_parallel():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    helpers.tear_down()
+    helpers.tear_down(include_ray=True)
     helpers.enable_tqdm()
 
     assert dirs_match
@@ -655,13 +714,13 @@ def test_tile_img_mpl_parallel():
 
     out_dir = helpers.TEST_PATH
     test_image = os.path.join(out_dir, "test_tiling_image.jpg")
-    pbar_loc = 0
+    pbar_ref = [0, queue.Queue()]
     min_zoom = 0
     image_engine = convert.IMG_ENGINE_MPL
 
     convert.tile_img(
         test_image,
-        pbar_loc,
+        pbar_ref,
         min_zoom=min_zoom,
         image_engine=image_engine,
         out_dir=out_dir,
@@ -673,14 +732,18 @@ def test_tile_img_mpl_parallel():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    helpers.tear_down()
+    helpers.tear_down(include_ray=True)
     helpers.enable_tqdm()
 
     assert dirs_match
 
 
-# @pytest.mark.integration
+@pytest.mark.integration
 @pytest.mark.convert
+@pytest.mark.skipif(
+    condition=not sys.platform.startswith("linux"),
+    reason="temp fix, need osx/windows artififacts for cbor/pbf files",
+)
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_files_to_map():
     """Integration test for making files into map"""
@@ -714,7 +777,54 @@ def test_files_to_map():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    helpers.tear_down()
+    helpers.tear_down(include_ray=True)
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+@pytest.mark.integration
+@pytest.mark.convert
+@pytest.mark.skipif(
+    condition=not sys.platform.startswith("linux"),
+    reason="temp fix, need osx/windows artififacts for cbor/pbf files",
+)
+@pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+def test_files_to_map_ellipse_markers():
+    """Integration test for making files into map"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
+    out_dir = with_path("test_web")
+
+    files = [
+        with_path("test_tiling_image.jpg"),
+        with_path("test_catalog_xy_ellipse.cat"),
+    ]
+
+    convert.files_to_map(
+        files,
+        out_dir=out_dir,
+        catalog_delim=" ",
+    )
+
+    expected_dir = with_path("expected_test_web_ellipse")
+
+    # inject current version in to test_index.html
+    version = helpers.get_version()
+    raw_path = os.path.join(expected_dir, "index.html")
+    with open(raw_path, "r") as f:
+        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+
+    with open(raw_path, "w") as f:
+        f.writelines(converted)
+
+    actual_dir = with_path("test_web")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down(include_ray=True)
     helpers.enable_tqdm()
 
     assert dirs_match
@@ -737,7 +847,7 @@ def test_files_to_map_fails_file_not_found():
         with_path("does_not_exist.txt"),
     ]
 
-    with pytest.raises(FileNotFoundError):
+    with pytest.raises(AssertionError):
         convert.files_to_map(
             files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
         )
@@ -760,7 +870,7 @@ def test_dir_to_map_fails_no_files():
     if not os.path.exists(in_dir):
         os.mkdir(in_dir)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(AssertionError):
         convert.dir_to_map(
             in_dir, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
         )
@@ -771,6 +881,10 @@ def test_dir_to_map_fails_no_files():
 
 @pytest.mark.integration
 @pytest.mark.convert
+@pytest.mark.skipif(
+    condition=not sys.platform.startswith("linux"),
+    reason="temp fix, need osx/windows artififacts for cbor/pbf files",
+)
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
 def test_dir_to_map():
     """Integration test for making files into map"""
@@ -813,7 +927,7 @@ def test_dir_to_map():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    helpers.tear_down()
+    helpers.tear_down(include_ray=True)
     helpers.enable_tqdm()
 
     assert dirs_match
@@ -860,7 +974,7 @@ def test_dir_to_map_no_markers():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    helpers.tear_down()
+    helpers.tear_down(include_ray=True)
     helpers.enable_tqdm()
 
     assert dirs_match

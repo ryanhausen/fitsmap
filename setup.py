@@ -37,14 +37,14 @@ with open("./fitsmap/__version__.py", "r") as f:
 REQUIRES = [
     "astropy",
     "cbor2",
-    "imageio",
     "numpy",
     "matplotlib",
     "pillow",
+    "ray",
     "scikit-image",
-    "sharedmem",
     "tqdm",
     "click",
+    "protobuf<4.21",  # mapbox-vector-tile requires protobuf<4.21,>=3.0.0
     "mapbox_vector_tile",
 ]
 

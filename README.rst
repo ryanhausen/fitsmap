@@ -10,8 +10,14 @@
 FitsMap
 =======
 
-.. image:: https://travis-ci.com/ryanhausen/fitsmap.svg?branch=master
-    :target: https://app.travis-ci.com/ryanhausen/fitsmap
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-linux.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-linux.yml
+
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-osx.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-osx.yml
+
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-windows.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-windows.yml
 
 .. image:: https://readthedocs.org/projects/fitsmap/badge/?version=latest
     :target: https://fitsmap.readthedocs.io
@@ -29,8 +35,10 @@ FitsMap
     :target: https://doi.org/10.1016/j.ascom.2022.100586
 
 
-FitsMap is a tool for displaying astronomical images and their associated
-catalogs, powered by `LeafletJS <https://leafletjs.com>`_.
+FitsMap is a tool developed in the `Computational Astrophysics Research Group
+<https://robertson.sites.ucsc.edu/research/>`_ at UC Santa Cruz for displaying
+astronomical images and their associated catalogs, powered by `LeafletJS
+<https://leafletjs.com>`_.
 
 Survey images can have dimensions in the tens of thousands of pixels in multiple
 bands. Examining images of this size can be difficult, especially in multiple
@@ -67,16 +75,15 @@ Installation
 Requirements:
 
 - ``astropy``
-- ``imageio``
-- ``numpy``
-- ``matplotlib``
-- ``pillow``
-- ``scikit-image``
-- ``sharedmem``
-- ``tqdm``
+- ``cbor2``
 - ``click``
 - ``mapbox_vector_tile``
-- ``cbor2``
+- ``matplotlib``
+- ``numpy``
+- ``pillow``
+- ``scikit-image``
+- ``ray``
+- ``tqdm``
 
 Use ``pip`` to install
 
@@ -143,7 +150,7 @@ in a new subdirectory called ``map`` within ``path/to/data``. The argument
 parse any catalog files and convert them into map markers. The ``norm_kwargs``
 argument should be a dictionary of kwargs that get passed to
 `astropy.visulization.simple_norm
-<https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html>`
+<https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html>`_
 which is used to scale the FITS files before rendering.
 
 Equivalently, using the FitsMap command line interface:
@@ -170,16 +177,17 @@ Once FitsMap is finished, the following will have been generated:
     - catalog/
     - css/
     - catalog_assets/
+    - imgs/
     - js/
     - index.html
 
 The directories ``F125W``, ``F160W``, ``RGB``, ``catalog`` contain tiled
 versions of the input fits files. The ``css`` directory contains some supporting
-CSS files for clustering the markers and rendering pixels. The ``js`` directory
-contains supporting JavaScript for the map. ``catalog_assets`` contains JSON
-files for each source in each that are rendered when the marker associated with
-that source is clicked. Finally, ``index.html`` is the webpage that contains the
-map.
+CSS files for clustering the markers and rendering pixels. The ``imgs``
+directory contains supporting images. The ``js`` directory contains supporting
+JavaScript for the map. ``catalog_assets`` contains JSON files for each source
+in each that are rendered when the marker associated with that source is
+clicked. Finally, ``index.html`` is the webpage that contains the map.
 
 To use the map, run ``fitsmap serve`` in the same directory as ``index.html``
 
@@ -223,11 +231,11 @@ You can search the catalogs by the ``id`` column from the catalog and FitsMap
 will locate and pan to the source in the map.
 
 
-Parallelization *(Linux Only)*
+Parallelization
 **********************************
 
-FitsMap supports the parallelization(via ``multiprocessing``/``sharedmem``) of
-map creation in two ways:
+FitsMap supports the parallelization(via `ray <ray.io>`_) of map creation in two
+ways:
 
 - splitting images/catalogs into parallel tasks
 - parallel tiling of an image
@@ -239,32 +247,17 @@ The settings for parallelization are set using the following keyword arguments:
   time.
 - ``task_procs``: How many processes can work on a single task.
 
-Note that if you use parallelization you need to wrap your code like so:
-
-.. code-block:: python
-
-    from fitsmap import convert
-
-    if __name__=="__main__:
-        convert.dir_to_map.(
-            "path/to/data",
-            out_dir="path/to/data/map",
-            cat_wcs_fits_file="path/to/header_file.fits",
-            proces_per_task=2,
-            task_procs=2,
-        )
-
-For an explanation on why this is necessary, see the
-`Python Programming Guidelines
-<https://docs.python.org/3/library/multiprocessing.html#multiprocessing-programming>`_
-
 You can use both keyword arguments at the same time, but keep in mind the number
 of CPUs available. For example, if ``procs_per_task=2`` and ``task_procs=2``
 then that will generate 6 new processes, 2 new processes for each task, and each
 of those will generate 2 new processes to tile an image in parallel.
 
-Parallelization offers a significant speed up, so if there are cores available
+Parallelization can offer a significant speed up, so if there are cores available
 it makes sense to use them.
+
+**NOTE: ray's support for Windows is currently in beta, so you may experience
+some bugs running in parallel on Windows machines. Feel free to submit an issue
+if you run into any problems.**
 
 Notes
 *****
@@ -286,13 +279,13 @@ converted into transparent pixels.
 Notes on Catalog Conversion
 ---------------------------
 
-Catalogs should be delimited text files with the first line
-containing the column names, and the following lines containing values.
-Catalogs need to have an ``id`` column with a unique value for each row. It
-also needs to have coordinates for each source, which can be one of the
-following pairs of columns (``ra``/``dec``) or (``x``/``y``). **Note fitsmap
-assumes that the origin of the image starts at (1,1), which is a common
-convention in catalogs.**
+Catalogs should be delimited text files with the first line containing the
+column names, and the following lines containing values. Catalogs need to have
+an ``id`` column with a unique value for each row. It also needs to have
+coordinates for each source, which can be one of the following pairs of columns
+(``ra`` / ``dec``) or (``x`` / ``y``). **Note fitsmap assumes that the origin of
+the image starts at (1,1), but this can be changed to (0,0) by setting the
+kwarg** ``catalog_starts_at_one=False``.
 
 Some catalogs have many columns for each row, which will create very tall
 pop-ups when the markers are clicked. To avoid this, you can pass an integer
@@ -302,6 +295,16 @@ will break the information into ``rows_per_column`` sized columns.
 Catalog pop-ups are rendered as a simple HTML table, so you can put any HTML
 friendly things, for example <img> tags, in the catalog and they should be
 rendered appropriately.
+
+FitsMap will render your markers as Ellipses if you have the following columns
+in your catalog: ``a``, ``b``, and ``theta``. Where ``a`` is the major axis
+radius in **pixels**, ``b`` is the minor axis radius in **pixels**, and theta
+is the rotation of the ellipse in units of degrees starting from the negative
+x-axis and moving counter-clockwise.
+
+.. image:: docs/ellipse_fig.png
+    :alt: EllipseOrientaton
+    :align: center
 
 ----
 

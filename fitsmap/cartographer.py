@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2021 Ryan Hausen and contributors
+# Copyright 2022 Ryan Hausen and contributers
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
@@ -57,16 +57,37 @@ def chart(
     """
     # convert layer names into a single javascript string
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
-    zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)))
-    zooms = [0] if len(zooms) == 0 else zooms
-    convert_layer_name_func = partial(
-        layer_name_to_dict, out_dir, min(zooms), max(zooms)
+    img_zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)), [0])
+    cat_zooms = reduce(
+        lambda x, y: x + y, list(map(layer_zooms, marker_layer_names)), [0]
     )
+    # be able to zoom in 5 levels further than the native zoom
+    # this seems to work well in general, but could become a parameter.
+    max_overall_zoom = max(img_zooms + cat_zooms) + 5
+
+    convert_layer_name_func = partial(layer_name_to_dict, out_dir, max_overall_zoom)
     img_layer_dicts = list(
-        starmap(convert_layer_name_func, zip(img_layer_names, repeat(None)))
+        starmap(
+            convert_layer_name_func,
+            zip(
+                repeat(min(img_zooms)),
+                repeat(max(img_zooms)),
+                img_layer_names,
+                repeat(None),
+            ),
+        )
     )
+
     cat_layer_dicts = list(
-        starmap(convert_layer_name_func, zip(marker_layer_names, get_colors()))
+        starmap(
+            convert_layer_name_func,
+            zip(
+                repeat(min(cat_zooms)),
+                repeat(max(cat_zooms)),
+                marker_layer_names,
+                get_colors(),
+            ),
+        )
     )
 
     # generated javascript =====================================================
@@ -92,26 +113,29 @@ def chart(
 
 
 def layer_name_to_dict(
-    out_dir: str, min_zoom: int, max_zoom: int, name: str, color: str,
+    out_dir: str,
+    max_zoom: int,
+    min_zoom: int,
+    max_native_zoom: int,
+    name: str,
+    color: str,
 ) -> dict:
     """Convert layer name to dict for conversion."""
 
     layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.png",
+        directory=name + "/{z}/{y}/{x}." + ("pbf" if color else "png"),
         name=name,
         min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
+        max_zoom=max_zoom,
+        max_native_zoom=max_native_zoom,
     )
     if color:
         layer_dict["color"] = color
-        layer_dict["directory"] = layer_dict["directory"].replace("png", "pbf")
 
-        cat_col_path = os.path.join(out_dir, f"{name}.columns")
+        cat_col_path = "/".join([out_dir, f"{name}.columns"])
         with open(cat_col_path, "r") as f:
             columns = f.readline().strip().split(",")
             layer_dict["columns"] = [f'"{c}"' for c in columns]
-        os.remove(cat_col_path)
 
     return layer_dict
 
@@ -142,9 +166,12 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
         " = L.gridLayer.tiledMarkers(",
         "{ ",
         'tileURL:"' + layer["directory"] + '", ',
+        "radius: 10, ",
         'color: "' + layer["color"] + '", ',
+        "fillOpacity: 0.2, ",
+        "strokeOpacity: 1.0, ",
         f"rowsPerColumn: {rpc_str}, ",
-        f'catalogColumns: [{",".join(layer["columns"])}],',
+        f'catalogColumns: [{",".join(layer["columns"])}], ',
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
@@ -174,7 +201,7 @@ def get_colors() -> Iterable[str]:
 def leaflet_crs_js(tile_layers: List[dict]) -> str:
     max_zoom = max(map(lambda t: t["max_native_zoom"], tile_layers))
 
-    scale_factor = int(2 ** max_zoom)
+    scale_factor = int(2**max_zoom)
 
     js = [
         "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
@@ -269,7 +296,7 @@ def build_conditional_css(out_dir: str) -> str:
     return "\n".join(map(lambda s: css_string.format(s), [search_css] + local_css))
 
 
-def build_conditional_js(out_dir: str, include_markerjs:bool) -> str:
+def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_js_dir = os.path.join(out_dir, "js")
@@ -294,7 +321,8 @@ def build_conditional_js(out_dir: str, include_markerjs:bool) -> str:
     # sucessfully run. Other files get placed after index.js so that the map
     # can load first and then those will load in the background
     pre_index_files = [
-        "https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js" * include_markerjs,
+        "https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js"
+        * include_markerjs,
         "js/customSearch.min.js" * include_markerjs,
         "js/tiledMarkers.min.js" * include_markerjs,
         "js/urlCoords.js",
@@ -310,14 +338,18 @@ def build_conditional_js(out_dir: str, include_markerjs:bool) -> str:
 
     js_string = "    <script defer src='{}'></script>"
     js_tags = list(
-        map(lambda s: js_string.format(s), filter(lambda x: x, pre_index_files + post_index_files))
+        map(
+            lambda s: js_string.format(s),
+            filter(lambda x: x, pre_index_files + post_index_files),
+        )
     )
 
     return "\n".join(js_tags)
 
 
 def leaflet_layer_control_declaration(
-    img_layer_dicts: List[Dict], cat_layer_dicts: List[Dict],
+    img_layer_dicts: List[Dict],
+    cat_layer_dicts: List[Dict],
 ) -> str:
     img_layer_label_pairs = ",".join(
         list(map(lambda l: '"{0}":{0}'.format(l["name"]), img_layer_dicts))
@@ -337,12 +369,14 @@ def leaflet_layer_control_declaration(
     return "\n".join(control_js)
 
 
-def leaflet_search_control_declaration(cat_layer_dicts: List[Dict],) -> str:
+def leaflet_search_control_declaration(
+    cat_layer_dicts: List[Dict],
+) -> str:
     search_js = [
         "const catalogPaths = [",
         *list(
             map(
-                lambda s: f'    "{os.path.join("catalog_assets", s)}/",',
+                lambda s: f'    "{"/".join(["catalog_assets", s])}/",',
                 map(lambda l: l["name"], cat_layer_dicts),
             )
         ),
@@ -353,6 +387,25 @@ def leaflet_search_control_declaration(cat_layer_dicts: List[Dict],) -> str:
     ]
 
     return "\n".join(search_js) if cat_layer_dicts else ""
+
+
+def extract_cd_matrix_as_string(wcs: WCS) -> str:
+    if hasattr(wcs.wcs, "cd"):
+        return str(wcs.wcs.cd.tolist())
+    else:
+        # Manual "CD" matrix
+        delta = wcs.all_pix2world(
+            [
+                wcs.wcs.crpix,
+                wcs.wcs.crpix + np.array([1, 0]),
+                wcs.wcs.crpix + np.array([0, 1]),
+            ],
+            0,
+        )
+
+        _cd = np.array([delta[1, :] - delta[0, :], delta[2, :] - delta[0, :]])
+        _cd[0, :] *= np.cos(wcs.wcs.crval[1] / 180 * np.pi)
+        return str(_cd.tolist())
 
 
 def build_urlCoords_js(img_wcs: WCS) -> str:
@@ -366,23 +419,7 @@ def build_urlCoords_js(img_wcs: WCS) -> str:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "1")
         wcs_js = wcs_js.replace("_CRPIX", str(img_wcs.wcs.crpix.tolist()))
         wcs_js = wcs_js.replace("_CRVAL", str(img_wcs.wcs.crval.tolist()))
-
-        if hasattr(img_wcs.wcs, "cd"):
-            wcs_js = wcs_js.replace("_CD", str(img_wcs.wcs.cd.tolist()))
-        else:
-            # Manual "CD" matrix
-            delta = img_wcs.all_pix2world(
-                [
-                    img_wcs.wcs.crpix,
-                    img_wcs.wcs.crpix + np.array([1, 0]),
-                    img_wcs.wcs.crpix + np.array([0, 1]),
-                ],
-                0,
-            )
-
-            _cd = np.array([delta[1, :] - delta[0, :], delta[2, :] - delta[0, :]])
-            _cd[0, :] *= np.cos(img_wcs.wcs.crval[1] / 180 * np.pi)
-            wcs_js = wcs_js.replace("_CD", str(_cd.tolist()))
+        wcs_js = wcs_js.replace("_CD", extract_cd_matrix_as_string(img_wcs))
     else:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "0")
         wcs_js = wcs_js.replace("_CRPIX", "[1, 1]")
@@ -426,7 +463,8 @@ def build_index_js(
             "",
             "// Map event setup =============================================================",
             loading_screen_js(image_layer_dicts),
-            "" 'map.on("moveend", updateLocationBar);',
+            "",
+            'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
             "",
             'if (urlParam("zoom")==null) {',
