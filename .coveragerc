@@ -4,3 +4,4 @@ omit =
     fitsmap/__*__.py
     fitsmap/kdbush.py
     fitsmap/supercluster.py
+show_missing=True
