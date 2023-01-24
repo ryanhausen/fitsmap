@@ -4,7 +4,7 @@ name: OSX
 
 on:
   push:
-    branches: [ "push-jwst-hotfixes" ]
+    branches: [ "push-jwst-hotfixes", "master" ]
   pull_request:
     branches: [ "master" ]
 
