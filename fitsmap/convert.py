@@ -1099,10 +1099,10 @@ def files_to_map(
     # we want to init ray in such a way that it doesn't print any output
     # to the console. These should be changed during development
     ray.init(
-        include_dashboard=True,  # during dev == True
+        include_dashboard=False,  # during dev == True
         configure_logging=False,  # during dev == False
-        logging_level=logging.INFO,  # during dev == logging.INFO, test == logging.CRITICAL
-        log_to_driver=True,  # during dev = True
+        logging_level=logging.CRITICAL,  # during dev == logging.INFO, test == logging.CRITICAL
+        log_to_driver=False,  # during dev = True
     )
 
     if task_procs > 1:

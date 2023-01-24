@@ -738,6 +738,37 @@ def test_tile_img_mpl_parallel():
     assert dirs_match
 
 
+@pytest.mark.unit
+@pytest.mark.convert
+@pytest.mark.skipif(
+    condition=not sys.platform.startswith("linux"),
+    reason="temp fix, need osx/windows artififacts for cbor/pbf files",
+)
+def test_version_not_hard_coded():
+    """Tests that the version in the testing artifacts is not hard coded"""
+
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    file = "index.html"
+    dirs = [
+        "expected_test_web",
+        "expected_test_web_ellipse",
+        "expected_test_web_no_marker",
+    ]
+
+    tests = {}
+    for d in dirs:
+        with open(os.path.join(helpers.TEST_PATH, d, file), "r") as f:
+            text = f.read()
+            tests[d] = "vVERSION" in text
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+    failed = [d for d, v in tests.items() if v == False]
+    assert len(failed) == 0, "VERSION not found in {}, likely hardcoded".format(failed)
+
+
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.skipif(
