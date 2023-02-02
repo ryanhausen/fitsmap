@@ -280,9 +280,8 @@ def imread_default(path: str, default: np.ndarray) -> np.ndarray:
 
 
 def make_tile_mpl(
-    mpl_f:mpl.figure.Figure,
-    mpl_img:mpl.image.AxesImage,
-    mpl_alpha_f:Callable[[np.ndarray], np.ndarray],
+    mpl_norm: mpl.colors.Normalize,
+    mpl_cmap: mpl.colors.Colormap,
     tile: np.ndarray
 ) -> np.ndarray:
     """Converts array data into an image using matplotlib
@@ -296,22 +295,13 @@ def make_tile_mpl(
     Returns:
         np.ndarray: The array data converted into an image using Matplotlib
     """
-    if type(mpl_f) == ray._raylet.ObjectRef:
-        mpl_f = ray.get(mpl_f)
-        mpl_img = ray.get(mpl_img)
-        mpl_alpha_f = ray.get(mpl_alpha_f)
+    if type(mpl_norm) == ray._raylet.ObjectRef:
+        mpl_norm = ray.get(mpl_norm)
+        mpl_cmap = ray.get(mpl_cmap)
 
-    mpl_img.set_data(mpl_alpha_f(tile))
 
-    buf = io.BytesIO()
-    mpl_f.savefig(
-        buf,
-        dpi=256,
-        bbox_inches=0,
-        facecolor=(0, 0, 0, 0),
-    )
-    buf.seek(0)
-    return Image.open(buf)
+    tile_image = mpl_cmap(mpl_norm(tile))
+    return Image.fromarray((tile_image * 255).astype(np.uint8))
 
 
 def make_tile_pil(tile: np.ndarray) -> np.ndarray:
@@ -409,49 +399,55 @@ def mem_safe_make_tile(
             print(e)
 
 
-def build_mpl_objects(shape:Union[Tuple[int, int], Tuple[int, int, int]], mpl_norm: mpl.colors.Normalize,
-) -> Tuple[mpl.figure.Figure, mpl.image.AxesImage, Callable[[np.ndarray], np.ndarray]]:
+def build_mpl_objects(array: np.ndarray, norm_kwargs: Dict[str, Any]) -> Tuple[mpl.colors.Normalize, mpl.colors.Colormap]:
+    mpl_norm = simple_norm(array, **norm_kwargs) if len(norm_kwargs) else None
+    mpl_cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
+    mpl_cmap.set_bad(color=(0, 0, 0, 0))
+    return mpl_norm, mpl_cmap
 
-    if len(shape) == 2:
-        cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
-        cmap.set_bad(color=(0, 0, 0, 0))
+# def build_mpl_objects(shape:Union[Tuple[int, int], Tuple[int, int, int]], mpl_norm: mpl.colors.Normalize,
+# ) -> Tuple[mpl.figure.Figure, mpl.image.AxesImage, Callable[[np.ndarray], np.ndarray]]:
 
-        img_kwargs = dict(
-            origin="lower", cmap=cmap, interpolation="nearest", norm=mpl_norm
-        )
-        primer_tile = np.zeros([256, 256], dtype=np.float32)
-        mpl_alpha_f = lambda arr: arr
-    else:
-        img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
+#     if len(shape) == 2:
+#         cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
+#         cmap.set_bad(color=(0, 0, 0, 0))
 
-        def adjust_pixels(arr):
-            tmp = arr
-            if tmp.shape[2] == 3:
-                tmp = np.concatenate(
-                    (
-                        tmp,
-                        np.ones(list(tmp.shape[:-1]) + [1], dtype=np.float32) * 255,
-                    ),
-                    axis=2,
-                )
+#         img_kwargs = dict(
+#             origin="lower", cmap=cmap, interpolation="nearest", norm=mpl_norm
+#         )
+#         primer_tile = np.zeros([256, 256], dtype=np.float32)
+#         mpl_alpha_f = lambda arr: arr
+#     else:
+#         img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
 
-            ys, xs = np.where(np.isnan(tmp[:, :, 0]))
-            tmp[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+#         def adjust_pixels(arr):
+#             tmp = arr
+#             if tmp.shape[2] == 3:
+#                 tmp = np.concatenate(
+#                     (
+#                         tmp,
+#                         np.ones(list(tmp.shape[:-1]) + [1], dtype=np.float32) * 255,
+#                     ),
+#                     axis=2,
+#                 )
 
-            return tmp.astype(np.uint8)
+#             ys, xs = np.where(np.isnan(tmp[:, :, 0]))
+#             tmp[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
 
-        primer_tile = np.zeros([256, 256, 4], dtype=np.float32)
-        mpl_alpha_f = lambda arr: adjust_pixels(arr)
+#             return tmp.astype(np.uint8)
+
+#         primer_tile = np.zeros([256, 256, 4], dtype=np.float32)
+#         mpl_alpha_f = lambda arr: adjust_pixels(arr)
 
 
-    mpl_f = plt.figure(dpi=256)
-    mpl_f.set_size_inches([256 / 256, 256 / 256])
-    t = mpl_alpha_f(primer_tile)
-    mpl_img = mpl_f.gca().imshow(t, **img_kwargs) # equivalent to plt.imshow
-    mpl_f.subplots_adjust(left=0, right=1, top=1, bottom=0)
-    mpl_f.gca().axis("off") # equivalent to plt.axis("off")
+#     mpl_f = plt.figure(dpi=256)
+#     mpl_f.set_size_inches([256 / 256, 256 / 256])
+#     t = mpl_alpha_f(primer_tile)
+#     mpl_img = mpl_f.gca().imshow(t, **img_kwargs) # equivalent to plt.imshow
+#     mpl_f.subplots_adjust(left=0, right=1, top=1, bottom=0)
+#     mpl_f.gca().axis("off") # equivalent to plt.axis("off")
 
-    return mpl_f, mpl_img, mpl_alpha_f
+#     return mpl_f, mpl_img, mpl_alpha_f
 
 def tile_img(
     file_location: str,
@@ -502,8 +498,7 @@ def tile_img(
     # if we're using matplotlib we need to instantiate the matplotlib objects
     # before we pass them to ray
     if image_engine == IMG_ENGINE_MPL:
-        mpl_norm = simple_norm(array.array, **norm_kwargs) if len(norm_kwargs) else None
-        mpl_f, mpl_img, mpl_alpha_f = build_mpl_objects(array.shape, mpl_norm)
+        mpl_norm, mpl_cmap = build_mpl_objects(array.array, norm_kwargs)
 
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
@@ -542,14 +537,12 @@ def tile_img(
         del array
 
         if image_engine==IMG_ENGINE_MPL:
-            mpl_f_obj_id = ray.put(mpl_f)
-            mpl_img_obj_id = ray.put(mpl_img)
-            mpl_alpha_f_obj_id = ray.put(mpl_alpha_f)
+            mpl_norm = ray.put(mpl_norm)
+            mpl_cmap = ray.put(mpl_cmap)
             tile_f = partial(
                 make_tile_mpl,
-                mpl_f_obj_id,
-                mpl_img_obj_id,
-                mpl_alpha_f_obj_id,
+                mpl_norm,
+                mpl_cmap,
             )
         else:
             tile_f = make_tile_pil
@@ -599,7 +592,7 @@ def tile_img(
                 )
     else:
         if image_engine==IMG_ENGINE_MPL:
-            tile_f = partial(make_tile_mpl, mpl_f, mpl_img, mpl_alpha_f)
+            tile_f = partial(make_tile_mpl, mpl_norm, mpl_cmap)
         else:
             tile_f = make_tile_pil
 
@@ -625,8 +618,6 @@ def tile_img(
             OutputManager.update(pbar_ref, 1)
 
     OutputManager.update_done(pbar_ref)
-    if image_engine == IMG_ENGINE_MPL:
-        plt.close("all")
 
 
 def get_map_layer_name(file_location: str) -> str:
