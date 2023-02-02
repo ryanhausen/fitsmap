@@ -43,6 +43,7 @@ import mapbox_vector_tile as mvt
 import matplotlib as mpl
 
 mpl.use("Agg")  # need to use this for processes safe matplotlib
+import astropy
 import matplotlib.pyplot as plt
 import numpy as np
 import ray
@@ -144,10 +145,11 @@ def balance_array(array: np.ndarray) -> np.ndarray:
     pad_dim0 = int(total_size - dim0)
     pad_dim1 = int(total_size - dim1)
 
-    if pad_dim0 > 0 or pad_dim1 > 0:
-        return pa.PaddedArray(array, (pad_dim0, pad_dim1))
-    else:
-        return array
+    return pa.PaddedArray(array, (pad_dim0, pad_dim1))
+    # if pad_dim0 > 0 or pad_dim1 > 0:
+    #     return pa.PaddedArray(array, (pad_dim0, pad_dim1))
+    # else:
+    #     return array
 
 
 def get_array(file_location: str) -> np.ndarray:
@@ -277,59 +279,29 @@ def imread_default(path: str, default: np.ndarray) -> np.ndarray:
         return default
 
 
-def make_tile_mpl(tile: np.ndarray) -> np.ndarray:
+def make_tile_mpl(
+    mpl_f:mpl.figure.Figure,
+    mpl_img:mpl.image.AxesImage,
+    mpl_alpha_f:Callable[[np.ndarray], np.ndarray],
+    tile: np.ndarray
+) -> np.ndarray:
     """Converts array data into an image using matplotlib
     Args:
+        mpl_f (mpl.figure.Figure): The matplotlib figure to use
+        mpl_img (mpl.image.AxesImage): The matplotlib image to use
+        mpl_alpha_f (Callable[[np.ndarray], np.ndarray]): A function that
+                                                          converts the input
+                                                          array into an RGBA
         tile (np.ndarray): The array data
     Returns:
         np.ndarray: The array data converted into an image using Matplotlib
     """
+    if type(mpl_f) == ray._raylet.ObjectRef:
+        mpl_f = ray.get(mpl_f)
+        mpl_img = ray.get(mpl_img)
+        mpl_alpha_f = ray.get(mpl_alpha_f)
 
-    global mpl_f
-    global mpl_img
-    global mpl_alpha_f
-    global mpl_norm
-
-    if mpl_f:
-        # this is a singleton and starts out as null
-        mpl_img.set_data(mpl_alpha_f(tile))  # pylint: disable=not-callable
-    else:
-        if len(tile.shape) == 2:
-            cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
-            cmap.set_bad(color=(0, 0, 0, 0))
-
-            img_kwargs = dict(
-                origin="lower", cmap=cmap, interpolation="nearest", norm=mpl_norm
-            )
-
-            mpl_alpha_f = lambda arr: arr
-        else:
-            img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
-
-            def adjust_pixels(arr):
-                tmp = arr
-                if tmp.shape[2] == 3:
-                    tmp = np.concatenate(
-                        (
-                            tmp,
-                            np.ones(list(tmp.shape[:-1]) + [1], dtype=np.float32) * 255,
-                        ),
-                        axis=2,
-                    )
-
-                ys, xs = np.where(np.isnan(tmp[:, :, 0]))
-                tmp[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
-
-                return tmp.astype(np.uint8)
-
-            mpl_alpha_f = lambda arr: adjust_pixels(arr)
-
-        mpl_f = plt.figure(dpi=256)
-        mpl_f.set_size_inches([256 / 256, 256 / 256])
-        t = mpl_alpha_f(tile)
-        mpl_img = plt.imshow(t, **img_kwargs)
-        plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-        plt.axis("off")
+    mpl_img.set_data(mpl_alpha_f(tile))
 
     buf = io.BytesIO()
     mpl_f.savefig(
@@ -369,7 +341,7 @@ def make_tile_pil(tile: np.ndarray) -> np.ndarray:
 
 def mem_safe_make_tile(
     out_dir: str,
-    img_engine: str,
+    tile_f: Callable[[np.ndarray], np.ndarray],
     array: np.ndarray,
     job: Union[
         Tuple[int, int, int, slice, slice], List[Tuple[int, int, int, slice, slice]]
@@ -378,6 +350,11 @@ def mem_safe_make_tile(
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using PIL.
     Args:
         out_dir (str): The directory to save tile in
+        tile_f (Callable[[np.ndarray], np.ndarray]): A function that converts a
+                                                     subset of the image array
+                                                     into an png tile. Is one
+                                                     of `make_tile_pil` or
+                                                     `make_tile_mpl`
         array (np.ndarray): Array to extract a slice from
         job (Tuple[int, int, int, slice, slice]): A tuple containing z, y, x,
                                                   dim0_slices, dim1_slices. Where
@@ -419,10 +396,7 @@ def mem_safe_make_tile(
                 img = Image.fromarray(np.flipud(tile))
             else:
                 tile = array[slice_ys, slice_xs]
-                if img_engine == IMG_ENGINE_PIL:
-                    img = make_tile_pil(tile)
-                else:
-                    img = make_tile_mpl(tile)
+                img = tile_f(tile)
 
             # if the tile is all transparent, don't save to disk
             if np.any(np.array(img)[..., -1]):
@@ -434,6 +408,50 @@ def mem_safe_make_tile(
             print("Tile creation failed for tile:", z, y, x, slice_ys, slice_xs)
             print(e)
 
+
+def build_mpl_objects(shape:Union[Tuple[int, int], Tuple[int, int, int]], mpl_norm: mpl.colors.Normalize,
+) -> Tuple[mpl.figure.Figure, mpl.image.AxesImage, Callable[[np.ndarray], np.ndarray]]:
+
+    if len(shape) == 2:
+        cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
+        cmap.set_bad(color=(0, 0, 0, 0))
+
+        img_kwargs = dict(
+            origin="lower", cmap=cmap, interpolation="nearest", norm=mpl_norm
+        )
+        primer_tile = np.zeros([256, 256], dtype=np.float32)
+        mpl_alpha_f = lambda arr: arr
+    else:
+        img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
+
+        def adjust_pixels(arr):
+            tmp = arr
+            if tmp.shape[2] == 3:
+                tmp = np.concatenate(
+                    (
+                        tmp,
+                        np.ones(list(tmp.shape[:-1]) + [1], dtype=np.float32) * 255,
+                    ),
+                    axis=2,
+                )
+
+            ys, xs = np.where(np.isnan(tmp[:, :, 0]))
+            tmp[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
+
+            return tmp.astype(np.uint8)
+
+        primer_tile = np.zeros([256, 256, 4], dtype=np.float32)
+        mpl_alpha_f = lambda arr: adjust_pixels(arr)
+
+
+    mpl_f = plt.figure(dpi=256)
+    mpl_f.set_size_inches([256 / 256, 256 / 256])
+    t = mpl_alpha_f(primer_tile)
+    mpl_img = mpl_f.gca().imshow(t, **img_kwargs) # equivalent to plt.imshow
+    mpl_f.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    mpl_f.gca().axis("off") # equivalent to plt.axis("off")
+
+    return mpl_f, mpl_img, mpl_alpha_f
 
 def tile_img(
     file_location: str,
@@ -478,20 +496,14 @@ def tile_img(
         OutputManager.write(pbar_ref, f"{fname} already tiled. Skipping tiling.")
         return
 
-    # reset mpl vars just in case they have been set by another img
-    global mpl_f
-    global mpl_img
-    global mpl_norm
-
-    if mpl_f:
-        mpl_f = None
-        mpl_img = None
-
     # get image
     array = get_array(file_location)
 
-    if image_engine == IMG_ENGINE_MPL and norm_kwargs:
-        mpl_norm = simple_norm(array[:], **norm_kwargs)
+    # if we're using matplotlib we need to instantiate the matplotlib objects
+    # before we pass them to ray
+    if image_engine == IMG_ENGINE_MPL:
+        mpl_norm = simple_norm(array.array, **norm_kwargs) if len(norm_kwargs) else None
+        mpl_f, mpl_img, mpl_alpha_f = build_mpl_objects(array.shape, mpl_norm)
 
     zooms = get_zoom_range(array.shape, tile_size)
     min_zoom = max(min_zoom, zooms[0])
@@ -529,6 +541,20 @@ def tile_img(
         arr_obj_id = ray.put(array)
         del array
 
+        if image_engine==IMG_ENGINE_MPL:
+            mpl_f_obj_id = ray.put(mpl_f)
+            mpl_img_obj_id = ray.put(mpl_img)
+            mpl_alpha_f_obj_id = ray.put(mpl_alpha_f)
+            tile_f = partial(
+                make_tile_mpl,
+                mpl_f_obj_id,
+                mpl_img_obj_id,
+                mpl_alpha_f_obj_id,
+            )
+        else:
+            tile_f = make_tile_pil
+
+
         make_tile_f = ray.remote(num_cpus=1)(mem_safe_make_tile)
 
         OutputManager.set_description(pbar_ref, f"Converting {name}")
@@ -543,7 +569,7 @@ def tile_img(
                     list(
                         zip(
                             repeat(tile_dir),
-                            repeat(image_engine),
+                            repeat(tile_f),
                             repeat(arr_obj_id),
                             batch_params(jobs, batch_size),
                         )
@@ -558,7 +584,7 @@ def tile_img(
                 work = list(
                     zip(
                         repeat(tile_dir),
-                        repeat(image_engine),
+                        repeat(make_tile_pil),
                         repeat(None),
                         batch_params(jobs, batch_size),
                     )
@@ -572,7 +598,12 @@ def tile_img(
                     batch_size,
                 )
     else:
-        work = partial(mem_safe_make_tile, tile_dir, image_engine, array)
+        if image_engine==IMG_ENGINE_MPL:
+            tile_f = partial(make_tile_mpl, mpl_f, mpl_img, mpl_alpha_f)
+        else:
+            tile_f = make_tile_pil
+
+        work = partial(mem_safe_make_tile, tile_dir, tile_f, array)
         jobs = tile_params
         OutputManager.set_description(pbar_ref, f"Converting {name}")
         OutputManager.set_units_total(pbar_ref, "tile", total_tiles)
