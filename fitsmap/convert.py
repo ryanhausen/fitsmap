@@ -130,13 +130,13 @@ def slice_idx_generator(
     return map(transform_iteration, rows_cols)
 
 
-def balance_array(array: np.ndarray) -> np.ndarray:
+def balance_array(array: np.ndarray) -> pa.PaddedArray:
     """Pads input array with zeros so that the long side is a multiple of the short side.
 
     Args:
         array (np.ndarray): array to balance
     Returns:
-        a balanced version of ``array``
+        a balanced version of ``array`` via a PaddedArray
     """
     dim0, dim1 = array.shape[0], array.shape[1]
 
@@ -146,13 +146,9 @@ def balance_array(array: np.ndarray) -> np.ndarray:
     pad_dim1 = int(total_size - dim1)
 
     return pa.PaddedArray(array, (pad_dim0, pad_dim1))
-    # if pad_dim0 > 0 or pad_dim1 > 0:
-    #     return pa.PaddedArray(array, (pad_dim0, pad_dim1))
-    # else:
-    #     return array
 
 
-def get_array(file_location: str) -> np.ndarray:
+def get_array(file_location: str) -> pa.PaddedArray:
     """Opens the array at ``file_location`` can be an image or a fits file
 
     Args:
@@ -300,7 +296,7 @@ def make_tile_mpl(
         mpl_cmap = ray.get(mpl_cmap)
 
 
-    tile_image = mpl_cmap(mpl_norm(tile))
+    tile_image = mpl_cmap(mpl_norm(np.flipud(tile)))
     return Image.fromarray((tile_image * 255).astype(np.uint8))
 
 
@@ -400,61 +396,17 @@ def mem_safe_make_tile(
 
 
 def build_mpl_objects(array: np.ndarray, norm_kwargs: Dict[str, Any]) -> Tuple[mpl.colors.Normalize, mpl.colors.Colormap]:
-    mpl_norm = simple_norm(array, **norm_kwargs) if len(norm_kwargs) else None
+    mpl_norm = simple_norm(array, **norm_kwargs)
     mpl_cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
     mpl_cmap.set_bad(color=(0, 0, 0, 0))
     return mpl_norm, mpl_cmap
 
-# def build_mpl_objects(shape:Union[Tuple[int, int], Tuple[int, int, int]], mpl_norm: mpl.colors.Normalize,
-# ) -> Tuple[mpl.figure.Figure, mpl.image.AxesImage, Callable[[np.ndarray], np.ndarray]]:
-
-#     if len(shape) == 2:
-#         cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
-#         cmap.set_bad(color=(0, 0, 0, 0))
-
-#         img_kwargs = dict(
-#             origin="lower", cmap=cmap, interpolation="nearest", norm=mpl_norm
-#         )
-#         primer_tile = np.zeros([256, 256], dtype=np.float32)
-#         mpl_alpha_f = lambda arr: arr
-#     else:
-#         img_kwargs = dict(interpolation="nearest", origin="lower", norm=mpl_norm)
-
-#         def adjust_pixels(arr):
-#             tmp = arr
-#             if tmp.shape[2] == 3:
-#                 tmp = np.concatenate(
-#                     (
-#                         tmp,
-#                         np.ones(list(tmp.shape[:-1]) + [1], dtype=np.float32) * 255,
-#                     ),
-#                     axis=2,
-#                 )
-
-#             ys, xs = np.where(np.isnan(tmp[:, :, 0]))
-#             tmp[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
-
-#             return tmp.astype(np.uint8)
-
-#         primer_tile = np.zeros([256, 256, 4], dtype=np.float32)
-#         mpl_alpha_f = lambda arr: adjust_pixels(arr)
-
-
-#     mpl_f = plt.figure(dpi=256)
-#     mpl_f.set_size_inches([256 / 256, 256 / 256])
-#     t = mpl_alpha_f(primer_tile)
-#     mpl_img = mpl_f.gca().imshow(t, **img_kwargs) # equivalent to plt.imshow
-#     mpl_f.subplots_adjust(left=0, right=1, top=1, bottom=0)
-#     mpl_f.gca().axis("off") # equivalent to plt.axis("off")
-
-#     return mpl_f, mpl_img, mpl_alpha_f
 
 def tile_img(
     file_location: str,
     pbar_ref: Tuple[int, queue.Queue],
     tile_size: Shape = [256, 256],
     min_zoom: int = 0,
-    image_engine: str = IMG_ENGINE_MPL,
     out_dir: str = ".",
     mp_procs: int = 0,
     norm_kwargs: dict = {},
@@ -470,9 +422,6 @@ def tile_img(
                         is 0, but if it can be helpful to set it to a value
                         greater than zero if your running out of memory as the
                         lowest zoom images can be the most memory intensive.
-        img_engine (str): Method to convert array tile to an image. Can be one
-                          of convert.IMAGE_ENGINE_PIL (using pillow(PIL)) or
-                          of convert.IMAGE_ENGINE_MPL (using matplotlib)
         out_dir (str): The root directory to save the tiles in
         mp_procs (int): The number of multiprocessing processes to use for
                         generating tiles.
@@ -497,6 +446,7 @@ def tile_img(
 
     # if we're using matplotlib we need to instantiate the matplotlib objects
     # before we pass them to ray
+    image_engine = IMG_ENGINE_MPL if file_location.endswith(".fits") else IMG_ENGINE_PIL
     if image_engine == IMG_ENGINE_MPL:
         mpl_norm, mpl_cmap = build_mpl_objects(array.array, norm_kwargs)
 
@@ -1023,7 +973,6 @@ def tile_markers(
 def files_to_map(
     files: List[str],
     out_dir: str = ".",
-    min_zoom: int = 0,
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
@@ -1031,7 +980,6 @@ def files_to_map(
     cat_wcs_fits_file: str = None,
     max_catalog_zoom: int = -1,
     tile_size: Tuple[int, int] = [256, 256],
-    image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
@@ -1045,10 +993,6 @@ def files_to_map(
                            files (.fits, .png, .jpg) and catalog files (.cat)
         out_dir (str): Directory to place the genreated web page and associated
                        subdirectories
-        min_zoom (int): The minimum zoom to create tiles for. The default value
-                        is 0, but if it can be helpful to set it to a value
-                        greater than zero if don't want the map to be able
-                        to zoom all the way out.
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
@@ -1064,12 +1008,6 @@ def files_to_map(
                                 performance.
         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
                                      only [256, 256] is supported.
-        image_engine (str): The method that converts the image data into image
-                            tiles. The default is convert.IMG_ENGINE_MPL
-                            (matplotlib) the other option is
-                            convert.IMG_ENGINE_PIL (pillow). Pillow can render
-                            FITS files but doesn't do any scaling. Pillow may
-                            be more performant for only PNG images.
         norm_kwargs (dict): Optional normalization keyword arguments passed to
                             `astropy.visualization.simple_norm`. The default is
                             linear scaling using min/max values. See documentation
@@ -1110,8 +1048,6 @@ def files_to_map(
 
     img_f_kwargs = dict(
         tile_size=tile_size,
-        min_zoom=min_zoom,
-        image_engine=image_engine,
         out_dir=out_dir,
         mp_procs=procs_per_task,
         norm_kwargs=norm_kwargs,
@@ -1158,7 +1094,7 @@ def files_to_map(
             catalog_delim=catalog_delim,
             mp_procs=procs_per_task,
             prefer_xy=prefer_xy,
-            min_zoom=min_zoom,
+            min_zoom=0,
             max_zoom=max_zoom,
             tile_size=tile_size[0],
             max_x=max_dim,
@@ -1237,10 +1173,7 @@ def files_to_map(
     ray.shutdown()
     print("Building index.html")
 
-    if cat_wcs_fits_file is not None:
-        cat_wcs = WCS(cat_wcs_fits_file)
-    else:
-        cat_wcs = None
+    cat_wcs = WCS(cat_wcs_fits_file) if cat_wcs_fits_file else None
 
     cartographer.chart(
         out_dir,
@@ -1258,7 +1191,6 @@ def dir_to_map(
     directory: str,
     out_dir: str = ".",
     exclude_predicate: Callable = lambda f: False,
-    min_zoom: int = 0,
     title: str = "FitsMap",
     task_procs: int = 0,
     procs_per_task: int = 0,
@@ -1266,7 +1198,6 @@ def dir_to_map(
     cat_wcs_fits_file: str = None,
     max_catalog_zoom: int = -1,
     tile_size: Shape = [256, 256],
-    image_engine: str = IMG_ENGINE_PIL,
     norm_kwargs: dict = {},
     rows_per_column: int = np.inf,
     prefer_xy: bool = False,
@@ -1284,10 +1215,6 @@ def dir_to_map(
                                       file should not be processed as a part of
                                       the map, and False if it should be
                                       processed
-        min_zoom (int): The minimum zoom to create tiles for. The default value
-                        is 0, but if it can be helpful to set it to a value
-                        greater than zero if don't want the map to be able
-                        to zoom all the way out.
         title (str): The title to placed on the webpage
         task_procs (int): The number of tasks to run in parallel
         procs_per_task (int): The number of tiles to process in parallel
@@ -1307,12 +1234,6 @@ def dir_to_map(
                                 performance.
         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
                                      only [256, 256] is supported.
-        image_engine (str): The method that converts the image data into image
-                            tiles. The default is convert.IMG_ENGINE_MPL
-                            (matplotlib) the other option is
-                            convert.IMG_ENGINE_PIL (pillow). Pillow can render
-                            FITS files but doesn't do any scaling. Pillow may
-                            be more performant for only PNG images.
         norm_kwargs (dict): Optional normalization keyword arguments passed to
                             `astropy.visualization.simple_norm`. The default is
                             linear scaling using min/max values. See documentation
@@ -1353,7 +1274,6 @@ def dir_to_map(
     files_to_map(
         sorted(dir_files),
         out_dir=out_dir,
-        min_zoom=min_zoom,
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,
@@ -1361,7 +1281,6 @@ def dir_to_map(
         cat_wcs_fits_file=cat_wcs_fits_file,
         max_catalog_zoom=max_catalog_zoom,
         tile_size=tile_size,
-        image_engine=image_engine,
         norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
         prefer_xy=prefer_xy,
