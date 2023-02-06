@@ -669,7 +669,7 @@ def test_tile_img_mpl_parallel():
     helpers.setup(with_data=True)
 
     out_dir = helpers.TEST_PATH
-    test_image = os.path.join(out_dir, "test_tiling_image.jpg")
+    test_image = os.path.join(out_dir, "test_img_for_map.fits")
     pbar_ref = [0, queue.Queue()]
 
     convert.tile_img(
@@ -677,10 +677,11 @@ def test_tile_img_mpl_parallel():
         pbar_ref,
         out_dir=out_dir,
         mp_procs=2,
+        norm_kwargs=dict(stretch="log", max_percent=99.9),
     )
 
-    expected_dir = os.path.join(out_dir, "expected_test_tiling_image_mpl")
-    actual_dir = os.path.join(out_dir, "test_tiling_image")
+    expected_dir = os.path.join(out_dir, "expected_test_img_for_map")
+    actual_dir = os.path.join(out_dir, "test_img_for_map")
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
