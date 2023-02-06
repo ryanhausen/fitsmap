@@ -1012,10 +1012,15 @@ def files_to_map(
                                 performance.
         tile_size (Tuple[int, int]): The tile size for the leaflet map. Currently
                                      only [256, 256] is supported.
-        norm_kwargs (dict): Optional normalization keyword arguments passed to
-                            `astropy.visualization.simple_norm`. The default is
-                            linear scaling using min/max values. See documentation
-                            for more information: https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+        norm_kwargs (Union[Dict[str, Any], Dict[str, Dict[str, Any]]]):
+                            Optional normalization keyword arguments passed to
+                            `astropy.visualization.simple_norm`. Can either be
+                            a single dictionary of keyword arguments, or a
+                            dictionary of keyword arguments for each image
+                            where the keys are the image names not full paths.
+                            The default is linear scaling using min/max values.
+                            See documentation for more information:
+                            https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
         rows_per_column (int): If converting a catalog, the number of items in
                                have in each column of the marker popup.
                                By default produces all values in a single
@@ -1028,6 +1033,17 @@ def files_to_map(
                                       the catalog is 0 indexed
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
+
+    Example of image specific norm_kwargs vs single norm_kwargs:
+
+    >>> norm_kwargs = {
+    >>>    "test.fits": {"stretch": "log", "min_percent": 1, "max_percent": 99.5},
+    >>>    "test2.fits": {"stretch": "linear", "min_percent": 5, "max_percent": 99.5},
+    >>> }
+    >>> # or
+    >>> norm_kwargs = {"stretch": "log", "min_percent": 1, "max_percent": 99.5}
+
+
     Returns:
         None
     """
@@ -1264,7 +1280,7 @@ def dir_to_map(
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
 
-    Example of image specific kwargs vs single kwargs:
+    Example of image specific norm_kwargs vs single norm_kwargs:
 
     >>> norm_kwargs = {
     >>>    "test.fits": {"stretch": "log", "min_percent": 1, "max_percent": 99.5},
@@ -1272,8 +1288,6 @@ def dir_to_map(
     >>> }
     >>> # or
     >>> norm_kwargs = {"stretch": "log", "min_percent": 1, "max_percent": 99.5}
-
-
 
     Returns:
         None

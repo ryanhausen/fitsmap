@@ -217,6 +217,33 @@ This will produce a map in ``out_dir`` using the files that were passed in using
 the ``paths_to_files`` variable.
 
 
+File Specific ``norm_kwargs``
+-----------------------------
+
+The ``norm_kwargs`` argument to |dir_to_map| and |files_to_map| can be a
+dictionary of kwargs where the keys are the filenames (not paths) and the values
+are the ``simple_norm`` kwargs for that file. For example:
+
+.. code-block:: python
+
+    from fitsmap import convert
+
+    paths_to_files = [
+        "fits_images/F125W.fits",
+        "fits_images/F160W.fits",
+    ]
+
+    convert.files_to_map.(
+        paths_to_files,
+        out_dir="path/to/data/map",
+        cat_wcs_fits_file="path/to/header_file.fits",
+        norm_kwargs={
+            "F125W.fits":dict(stretch="log", max_percent=99.5),
+            "F160W.fits":dict(stretch="log", max_percent=99.9, min_percent=0.1),
+        }
+    )
+
+
 Saveable Views
 **************
 
@@ -265,9 +292,9 @@ Notes
 Notes on Image Conversion
 -------------------------
 
-FITS images are rendered into PNG map tiles using Matplotlib.imshow. The default
-colormap used when rendering tiles is "gray". This can be changed by setting the
-value of ``convert.MPL_CMAP`` to any valid `Matplotlib colormap
+FITS images are rendered into PNG map tiles using Matplotlib colormaps. The
+default colormap used when rendering tiles is "gray". This can be changed by
+setting the value of ``convert.MPL_CMAP`` to any valid `Matplotlib colormap
 <https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html>`_.
 
 To ensure that pixels are rendered correctly and that map markers are placed
