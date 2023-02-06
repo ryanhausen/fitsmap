@@ -600,6 +600,37 @@ def test_tile_img_mpl_fits_serial():
     assert dirs_match
 
 
+@pytest.mark.unit
+@pytest.mark.convert
+def test_tile_img_mpl_fits_serial_with_fname_kwargs():
+    """Test convmax_percentert.tile_img"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_img_for_map.fits")
+    pbar_ref = [0, queue.Queue()]
+
+    convert.tile_img(
+        test_image,
+        pbar_ref,
+        out_dir=out_dir,
+        norm_kwargs={
+            "test_img_for_map.fits": dict(stretch="log", max_percent=99.9),
+        },
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_img_for_map")
+    actual_dir = os.path.join(out_dir, "test_img_for_map")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
 def test_simplify_mixed_ws():
     """Test convert._simplify_mixed_ws"""
     helpers.disbale_tqdm()
