@@ -268,7 +268,6 @@ def move_support_images(out_dir: str) -> List[str]:
 
 
 def build_conditional_css(out_dir: str) -> str:
-
     search_css = "https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css"
     css_string = "    <link rel='preload' href='{}'  as='style' onload='this.rel=\"stylesheet\"'/>"
 
@@ -297,7 +296,6 @@ def build_conditional_css(out_dir: str) -> str:
 
 
 def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
-
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_js_dir = os.path.join(out_dir, "js")
 
@@ -409,7 +407,6 @@ def extract_cd_matrix_as_string(wcs: WCS) -> str:
 
 
 def build_urlCoords_js(img_wcs: WCS) -> str:
-
     wcs_js_file = os.path.join(os.path.dirname(__file__), "support", "urlCoords.js.tmp")
 
     with open(wcs_js_file, "r") as f:
@@ -435,7 +432,6 @@ def build_index_js(
     rows_per_column: int,
     max_xy: Tuple[int, int],
 ) -> str:
-
     js = "\n".join(
         [
             "// Image layers ================================================================",

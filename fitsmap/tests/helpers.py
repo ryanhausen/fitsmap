@@ -167,7 +167,6 @@ def get_slice_idx_generator_solution(zoom: int):
 
 
 def compare_file_directories(dir1, dir2) -> bool:
-
     is_file = lambda x: x.is_file()
     is_dir = lambda x: x.is_dir()
     get_name = lambda x: x.name
@@ -202,7 +201,6 @@ def compare_file_directories(dir1, dir2) -> bool:
         else:
             mode = "r" + "b" * int(f_ext in [".cbor", ".pbf"])
             with open(file1, mode) as f1, open(file2, mode) as f2:
-
                 try:
                     return f1.readlines() == f2.readlines()
                 except:
