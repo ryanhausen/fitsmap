@@ -1,6 +1,6 @@
 """
 MIT License
-Copyright 2020 Ryan Hausen
+Copyright 2023 Ryan Hausen and contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the "Software"), to deal in
@@ -72,6 +72,8 @@ setup(
         "Intended Audience :: Science/Research",
         "Development Status :: 4 - Beta",
         "Operating System :: POSIX :: Linux",
+        "Operating System :: MacOS :: MacOS X"
+        "Operating System :: Microsoft :: Windows",
         "Topic :: Scientific/Engineering",
     ],
 )

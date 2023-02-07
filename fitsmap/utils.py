@@ -1,5 +1,5 @@
 # MIT License
-# Copyright 2021 Ryan Hausen and contributers
+# Copyright 2023 Ryan Hausen and contributers
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of
 # this software and associated documentation files (the "Software"), to deal in
