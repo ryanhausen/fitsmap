@@ -72,7 +72,7 @@ setup(
         "Intended Audience :: Science/Research",
         "Development Status :: 4 - Beta",
         "Operating System :: POSIX :: Linux",
-        "Operating System :: MacOS :: MacOS X"
+        "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
         "Topic :: Scientific/Engineering",
     ],
