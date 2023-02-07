@@ -20,6 +20,7 @@ from typing import Callable, List
 
 import numpy as np
 
+
 # based on:
 # https://github.com/mourner/kdbush/blob/master/src/index.js
 class KDBush:
@@ -100,7 +101,6 @@ def _select(
     right: int,
     axis: int,
 ) -> None:
-
     while right > left:
         if right - left > 600:
             n = right - left + 1
@@ -170,6 +170,7 @@ def _swap(
 
 # range ========================================================================
 
+
 # based on:
 # https://github.com/mourner/kdbush/blob/ea3a81d272e1a87df3efe8c404021435dfa6cbfd/src/range.js#L2
 def _range(
@@ -226,6 +227,7 @@ def _range(
 
 
 # within =======================================================================
+
 
 # based on:
 # https://github.com/mourner/kdbush/blob/ea3a81d272e1a87df3efe8c404021435dfa6cbfd/src/within.js#L2

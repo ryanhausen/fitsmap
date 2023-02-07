@@ -100,7 +100,6 @@ def build_path(z, y, x, out_dir) -> str:
 def slice_idx_generator(
     shape: Tuple[int, int], zoom: int, tile_size: int
 ) -> Iterable[Tuple[int, int, int, slice, slice]]:
-
     dim0_tile_fraction = shape[0] / tile_size
     dim1_tile_fraction = shape[1] / tile_size
 

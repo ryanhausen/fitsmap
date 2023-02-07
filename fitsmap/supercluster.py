@@ -75,7 +75,6 @@ class Supercluster:
 
     # https://github.com/mapbox/supercluster/blob/60d13df9c7d96e9ad16b43c8aca897b5aea38ac9/index.js#L31
     def load(self, points) -> "Supercluster":
-
         self.points = points
 
         clusters = []
@@ -100,7 +99,6 @@ class Supercluster:
         # cluster points on max zoom, then cluster the results on previous zoom, etc.;
         # results in a cluster hierarchy across zoom levels
         for z in range(self.max_zoom, self.min_zoom - 1, -1):
-
             clusters = self._cluster(clusters, z)
             self.trees[z] = KDBush(
                 points=clusters,
@@ -117,7 +115,6 @@ class Supercluster:
 
     # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L77
     def get_clusters(self, bbox, zoom):
-
         if self.alternate_CRS:
             min_lng, min_lat, max_lng, max_lat = bbox
         else:
@@ -287,7 +284,6 @@ class Supercluster:
 
     # https://github.com/ryanhausen/supercluster/blob/97dbc5687fe0c6c3e63bafc15ad3d942bbd316b6/index.js#L220
     def _add_tile_features(self, ids, points, x, y, z2, tile):
-
         for i in ids:
             c = points[i]
             is_cluster = "num_points" in c
