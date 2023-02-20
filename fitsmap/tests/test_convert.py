@@ -573,6 +573,34 @@ def test_tile_img_pil_serial():
 
 @pytest.mark.unit
 @pytest.mark.convert
+def test_tile_img_pil_serial_png_from_tiff():
+    """Test convert.tile_img using a converted TIFF->PNG image, has only 2 dims"""
+    helpers.disbale_tqdm()
+    helpers.setup(with_data=True)
+
+    out_dir = helpers.TEST_PATH
+    test_image = os.path.join(out_dir, "test_png_from_tiff.png")
+    pbar_ref = [0, queue.Queue()]
+
+    convert.tile_img(
+        test_image,
+        pbar_ref,
+        out_dir=out_dir,
+    )
+
+    expected_dir = os.path.join(out_dir, "expected_test_png_from_tiff")
+    actual_dir = os.path.join(out_dir, "test_png_from_tiff")
+
+    dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
+
+    helpers.tear_down()
+    helpers.enable_tqdm()
+
+    assert dirs_match
+
+
+@pytest.mark.unit
+@pytest.mark.convert
 def test_tile_img_mpl_fits_serial():
     """Test convmax_percentert.tile_img"""
     helpers.disbale_tqdm()
