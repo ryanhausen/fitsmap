@@ -303,7 +303,7 @@ def make_tile_pil(tile: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: an RGBA version of the input data
     """
-    
+
     if len(tile.shape) < 3:
         img_tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
     else:

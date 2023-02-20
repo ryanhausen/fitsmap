@@ -598,6 +598,7 @@ def test_tile_img_pil_serial_png_from_tiff():
 
     assert dirs_match
 
+
 @pytest.mark.unit
 @pytest.mark.convert
 def test_tile_img_mpl_fits_serial():
