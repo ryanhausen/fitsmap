@@ -481,7 +481,7 @@ def tile_img(
 
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
-    if mp_procs:
+    if mp_procs > 1:
         # We need to process batches to offset the cost of spinning up a process
         def batch_params(iter, batch_size):
             while True:
@@ -1163,7 +1163,7 @@ def files_to_map(
 
     tasks = chain(img_tasks, cat_tasks)
 
-    if task_procs:
+    if task_procs > 1:
         # start runnning task_procs number of tasks
         in_progress = list(
             starmap(
@@ -1171,7 +1171,6 @@ def files_to_map(
                 zip(range(task_procs), tasks),
             )
         )
-
         while in_progress:
             _, in_progress = ray.wait(in_progress, timeout=0.003)
             output_manager.check_for_updates()
