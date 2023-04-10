@@ -304,13 +304,17 @@ def make_tile_pil(tile: np.ndarray) -> np.ndarray:
         np.ndarray: an RGBA version of the input data
     """
 
-    if len(tile.shape) < 3:
+    if len(tile.shape) == 2:
         img_tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
-    else:
+    elif tile.shape[2] == 3:
         img_tile = np.concatenate(
             (tile, np.ones(list(tile.shape[:-1]) + [1], dtype=np.float32) * 255),
             axis=2,
         )
+    else:
+        img_tile = np.copy(tile)
+
+    # else the image is already RGBA
 
     ys, xs = np.where(np.isnan(np.atleast_3d(tile)[:, :, 0]))
     img_tile[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
@@ -1176,6 +1180,7 @@ def files_to_map(
                     # try to get a task with kwargs from the iterator
                     func, kwargs = next(tasks)
                     in_progress.append(func(**kwargs))
+                    print(in_progress)
                 except StopIteration:
                     # all of the tasks are in progress or completed
                     if not in_progress:
