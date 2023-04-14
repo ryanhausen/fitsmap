@@ -64,8 +64,8 @@ panToSky = function(rd, zoom, map){
 
 panFromUrl = function(map){
     // Pan map based on ra/dec/[zoom] variables in location bar
-    var ra = urlParam('ra');
-    var dec = urlParam('dec');
+    var ra = urlParam(is_ra_dec ? 'ra' : 'x');
+    var dec = urlParam(is_ra_dec ? 'dec' : 'y');
     var zoom = urlParam('zoom') || map.getMinZoom();
     if ((ra !== null) & (dec !== null)) {
         panToSky([ra,dec], zoom, map);
@@ -78,8 +78,8 @@ panFromUrl = function(map){
 updateLocationBar = function(){
     var rd = pixToSky(map.getCenter());
     //console.log(rd);
-    var params = 'ra=' + rd[0].toFixed(7);
-    params += '&dec=' + rd[1].toFixed(7);
+    var params = `${is_ra_dec ? "ra" : "x"}=` + rd[0].toFixed(7);
+    params += `${is_ra_dec ? "dec" : "y"}=` + rd[1].toFixed(7);
     params += '&zoom=' + map.getZoom();
     //console.log(params);
     var param_url = window.location.href.split('?')[0] + '?' + params;

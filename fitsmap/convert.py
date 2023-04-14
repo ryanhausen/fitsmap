@@ -984,7 +984,7 @@ def files_to_map(
     max_catalog_zoom: int = -1,
     tile_size: Tuple[int, int] = [256, 256],
     norm_kwargs: dict = {},
-    rows_per_column: int = np.inf,
+    n_columns: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
@@ -1020,12 +1020,9 @@ def files_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
-        rows_per_column (int): If converting a catalog, the number of items in
-                               have in each column of the marker popup.
-                               By default produces all values in a single
-                               column. Setting this value can make it easier to
-                               work with catalogs that have a lot of values for
-                               each object.
+        n_columns (int): If converting a catalog, the number of columns to use
+                         when displaying the values in the popup. The default
+                         displays everything in a single column.
         prefer_xy (bool): If True x/y coordinates should be preferred if both
                           ra/dec and x/y are present in a catalog
         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
@@ -1221,7 +1218,7 @@ def dir_to_map(
     max_catalog_zoom: int = -1,
     tile_size: Shape = [256, 256],
     norm_kwargs: Union[Dict[str, Any], Dict[str, Dict[str, Any]]] = {},
-    rows_per_column: int = np.inf,
+    n_columns: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
@@ -1266,12 +1263,9 @@ def dir_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
-        rows_per_column (int): If converting a catalog, the number of items in
-                               have in each column of the marker popup.
-                               By default produces all values in a single
-                               column. Setting this value can make it easier to
-                               work with catalogs that have a lot of values for
-                               each object.
+        n_columns (int): If converting a catalog, the number of columns to use
+                         when displaying the values in the popup. The default
+                         displays everything in a single column.
         prefer_xy (bool): If True x/y coordinates should be preferred if both
                           ra/dec and x/y are present in a catalog
         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
@@ -1320,7 +1314,7 @@ def dir_to_map(
         max_catalog_zoom=max_catalog_zoom,
         tile_size=tile_size,
         norm_kwargs=norm_kwargs,
-        rows_per_column=rows_per_column,
+        n_columns=n_columns,
         prefer_xy=prefer_xy,
         catalog_starts_at_one=catalog_starts_at_one,
         img_tile_batch_size=img_tile_batch_size,
