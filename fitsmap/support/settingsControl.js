@@ -43,7 +43,7 @@ L.Control.Settings = L.Control.extend({
         rangeText += `<div class="settings-range-badge" id="${text}-badge"></div>`
         rangeText += '</div>';
         return rangeText;
-        
+
     },
 
 
@@ -57,21 +57,77 @@ L.Control.Settings = L.Control.extend({
         document.getElementById("img-filters").innerHTML = css;
     },
 
-    update_catalog_line: function(e) {
-        console.log("changed catalog line");
+    update_catalog_line: function() {
+        console.log("update_catalog_line");
+        const colorpicker = document.getElementById("catalog-line-color");
+        if (colorpicker !== null) {
+            const color = colorpicker.color;
+
+            const cat = this.options.catalogs[document.getElementById("settings-catalog-picker").value];
+            console.log(colorpicker.color, colorpicker);
+            cat.options.strokeColor = `rgb(${color.r},${color.g},${color.b})`;
+            cat.options.strokeOpacity = color.a;
+            cat.redraw();
+        }
     },
 
     update_catalog_fill: function(e) {
-        console.log("changed catalog fill");
+        const colorpicker = document.getElementById("catalog-fill-color");
+        if (colorpicker !== null) {
+            const color = colorpicker.color;
+
+            const cat = this.options.catalogs[document.getElementById("settings-catalog-picker").value];
+            cat.options.fillColor = `rgb(${color.r},${color.g},${color.b})`;
+            cat.options.fillOpacity = color.a;
+            cat.redraw();
+        }
     },
 
     update_catalog_colorpickers(e) {
         if (e !== undefined) {
             const currentCatalog = document.getElementById("settings-catalog-picker").value;
             const catalog = this.options.catalogs[currentCatalog];
-            document.getElementById("catalog-line-color").color=catalog.options.color;
-            document.getElementById("catalog-fill-color").color=catalog.options.color;
-        }      
+
+            const currentStrokeColor = catalog.options.strokeColor;
+            let rgbArr = currentStrokeColor.substring(4, currentStrokeColor.length-1).replace(/ /g, '').split(',');
+            const  initStrokeColor = {
+                r: rgbArr[0],
+                g: rgbArr[1],
+                b: rgbArr[2]
+            };
+            const currentStrokeRGBA = `rgba(${initStrokeColor.r},${initStrokeColor.g},${initStrokeColor.b},${catalog.options.strokeOpacity})`;
+
+            const currentFillColor = catalog.options.fillColor;
+            rgbArr = currentFillColor.substring(4, currentFillColor.length-1).replace(/ /g, '').split(',');
+            const  initFillColor = {
+                r: rgbArr[0],
+                g: rgbArr[1],
+                b: rgbArr[2]
+            };
+            const currentFillRGBA = `rgba(${initFillColor.r},${initFillColor.g},${initFillColor.b},${catalog.options.fillOpacity})`;
+
+            document.getElementById("catalog-line-color").color=currentStrokeRGBA;
+            document.getElementById("catalog-fill-color").color=currentFillRGBA;
+        }
+    },
+
+    updateRadiusScaleSlider() {
+        const currentCatalog = document.getElementById("settings-catalog-picker").value;
+        const catalog = this.options.catalogs[currentCatalog];
+        document.getElementById("Scale-Radius").value = catalog.options.scaleRadius;
+    },
+
+    updateRadius() {
+        const cat = this.options.catalogs[document.getElementById("settings-catalog-picker").value];
+        const radius = document.getElementById("Scale-Radius").value;
+        cat.options.scaleRadius = radius;
+        cat.redraw();
+    },
+
+    updateCatalogNCols() {
+        const cat = this.options.catalogs[document.getElementById("settings-catalog-picker").value];
+        const nCols = document.getElementById("settings-catalog-col-n").value;
+        cat.options.nCols = nCols;
     },
 
     onAdd: function (map) {
@@ -80,30 +136,63 @@ L.Control.Settings = L.Control.extend({
         // This is the menu icon as an SVG
         let iconDiv = this.makeIcon();
 
-        let menuHTML = '<div id="settings-control-menu" class="settings-control menu-control collapsed">' 
+        let menuHTML = '<div id="settings-control-menu" class="settings-control menu-control collapsed">'
         menuHTML += '<b class="settings">Image Settings</b>';
         menuHTML += this.makeRange("Brightness", 0, 800, 100, 1);
-        menuHTML += this.makeRange("Contrast", 0, 800, 100, 1); 
+        menuHTML += this.makeRange("Contrast", 0, 800, 100, 1);
         menuHTML += this.makeRange("Invert", 0, 100, 0, 1);
-        menuHTML += this.makeRange("Hue", 0, 360, 0, 1); 
+        menuHTML += this.makeRange("Hue", 0, 360, 0, 1);
 
         if (this.options.catalogs != undefined) {
             let catalogHTML = '<div class="leaflet-control-layers-separator"></div>';;
             catalogHTML += '<b class="settings">Catalog Settings</b></br>';
             catalogHTML += '<div class="settings-catalog-big">';
-            catalogHTML += '<select id="settings-catalog-picker" name="catalog_picker" id="catalog-picker">';
+            catalogHTML += '<select id="settings-catalog-picker" name="catalog_picker" id="catalog-picker" oninput="settingsControl.update_catalog_colorpickers(1);settingsControl.updateRadiusScaleSlider()">';
             for (let catalog in this.options.catalogs){
                 catalogHTML += '<option value="' + catalog + '">' + catalog + '</option>';
             }
+            const initCatalog = this.options.catalogs[Object.keys(this.options.catalogs)[0]];
+
+            // const initStrokeColor = this.hex_to_RGB(initCatalog.options.strokeColor);
+            let rgbArr = initCatalog.options.strokeColor.substring(4, initCatalog.options.strokeColor.length-1).replace(/ /g, '').split(',');
+            const  initStrokeColor = {
+                r: rgbArr[0],
+                g: rgbArr[1],
+                b: rgbArr[2]
+            };
+            const initStrokeRGBA = `rgba(${initStrokeColor.r},${initStrokeColor.g},${initStrokeColor.b},${initCatalog.options.strokeOpacity})`;
+
+            // const initFillColor = this.hex_to_RGB(initCatalog.options.fillColor);
+            rgbArr = initCatalog.options.fillColor.substring(4, initCatalog.options.fillColor.length-1).replace(/ /g, '').split(',');
+            const  initFillColor = {
+                r: rgbArr[0],
+                g: rgbArr[1],
+                b: rgbArr[2]
+            }
+            const initFillRGBA = `rgba(${initFillColor.r},${initFillColor.g},${initFillColor.b},${initCatalog.options.fillOpacity})`;
+
             catalogHTML += "</select>";
             catalogHTML += '<div id="settings-catalog-menu">';
             catalogHTML += '<label>Line:</label>'
-            catalogHTML += '<toolcool-color-picker id="catalog-line-color" color="#e76ff1" onchange="settingsControl.update_catalog_line()"></toolcool-color-picker>';
+            catalogHTML += `<toolcool-color-picker id="catalog-line-color" color="${initStrokeRGBA}" onblur="settingsControl.update_catalog_line()"></toolcool-color-picker>`;
             catalogHTML += '<label>Fill:</label>'
-            catalogHTML += '<toolcool-color-picker id="catalog-fill-color" color="#ff6ff1" onchange="settingsControl.update_catalog_fill()"></toolcool-color-picker>';
+            catalogHTML += `<toolcool-color-picker id="catalog-fill-color" color="${initFillRGBA}" onblur="settingsControl.update_catalog_fill()"></toolcool-color-picker>`;
             catalogHTML += '<label># Cols:</label>'
-            catalogHTML += '<input id="settings-catalog-row-n" type="number" min="0" max="100" value="0" step="1" class="range" id="catalog_row_n" />';
+            catalogHTML += `<input id="settings-catalog-col-n" onchange="settingsControl.updateCatalogNCols()" type="number" min="1" max="100" value="${initCatalog.options.nCols}" step="1" class="range" id="catalog_row_n" />`;
             catalogHTML += '</div>';
+
+            // catalogHTML += '</br>';
+            catalogHTML += '<div>';
+            const text = "Scale-Radius";
+            const min = 0.1;
+            const max = 10.0;
+            const step = 0.1;
+            const defaultValue = 1.0;
+            catalogHTML += `<label class="settings-range" for="${text}">${text}:</label>`;
+            catalogHTML += `<input class="settings-range" oninput="settingsControl.moveBadge('${text}');" onchange="settingsControl.updateRadius();" onfocusout="settingsControl.hideBadge('${text}')" onmouseup="settingsControl.hideBadge('${text}')" type="range" min="${min}" max="${max}" value="${defaultValue}" step="${step}" class="range" id="${text}" />`;
+            catalogHTML += `<div class="settings-range-badge" id="${text}-badge"></div>`
+            catalogHTML += '</div>';
+
             catalogHTML += '</div>';
             menuHTML += catalogHTML;
         }
@@ -153,7 +242,7 @@ L.control.settings = function (opts) {
     // Add the CSS for the settings control for the img css filters
     const imgStyle = document.createElement("style");
     imgStyle.id = "img-filters";
-    document.getElementsByTagName("head")[0].appendChild(imgStyle);    
+    document.getElementsByTagName("head")[0].appendChild(imgStyle);
 
     return settingsControl
 }

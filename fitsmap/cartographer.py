@@ -29,7 +29,7 @@ import os
 import shutil
 from itertools import count, cycle, repeat, starmap
 from functools import partial, reduce
-from typing import Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 from astropy.wcs import WCS
@@ -45,8 +45,10 @@ def chart(
     img_layer_names: List[str],
     marker_layer_names: List[str],
     wcs: WCS,
-    rows_per_column: int,
+    n_cols: int,
     max_xy: Tuple[int, int],
+    pixel_scale: float,
+    units_are_pixels: bool,
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
@@ -96,7 +98,14 @@ def chart(
 
     with open(os.path.join(out_dir, "js", "index.js"), "w") as f:
         f.write(
-            build_index_js(img_layer_dicts, cat_layer_dicts, rows_per_column, max_xy)
+            build_index_js(
+                img_layer_dicts,
+                cat_layer_dicts,
+                n_cols,
+                max_xy,
+                pixel_scale,
+                units_are_pixels,
+            )
         )
     # generated javascript =====================================================
 
@@ -119,7 +128,7 @@ def layer_name_to_dict(
     max_native_zoom: int,
     name: str,
     color: str,
-) -> dict:
+) -> Dict[str, Union[str, int, List[str]]]:
     """Convert layer name to dict for conversion."""
 
     layer_dict = dict(
@@ -130,7 +139,10 @@ def layer_name_to_dict(
         max_native_zoom=max_native_zoom,
     )
     if color:
-        layer_dict["color"] = color
+        layer_dict["stroke_color"] = color
+        layer_dict["fill_color"] = color
+        layer_dict["stroke_opacity"] = 1.0
+        layer_dict["fill_opacity"] = 0.2
 
         cat_col_path = "/".join([out_dir, f"{name}.columns"])
         with open(cat_col_path, "r") as f:
@@ -157,20 +169,20 @@ def img_layer_dict_to_str(layer: dict) -> str:
     return "".join(layer_str)
 
 
-def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
+def cat_layer_dict_to_str(layer: dict, n_cols: int) -> str:
     """Convert layer dict to layer str for including in HTML file."""
 
-    rpc_str = "Infinity" if np.isinf(rows_per_column) else str(rows_per_column)
     layer_str = [
         "const " + layer["name"],
         " = L.gridLayer.tiledMarkers(",
         "{ ",
         'tileURL:"' + layer["directory"] + '", ',
         "radius: 10, ",
-        'color: "' + layer["color"] + '", ',
+        'strokeColor: "' + layer["stroke_color"] + '", ',
+        'fillColor: "' + layer["fill_color"] + '", ',
         "fillOpacity: 0.2, ",
         "strokeOpacity: 1.0, ",
-        f"rowsPerColumn: {rpc_str}, ",
+        f"nCols: {n_cols}, ",
         f'catalogColumns: [{",".join(layer["columns"])}], ',
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
@@ -184,16 +196,16 @@ def cat_layer_dict_to_str(layer: dict, rows_per_column: int) -> str:
 def get_colors() -> Iterable[str]:
     return cycle(
         [
-            "#4C72B0",
-            "#DD8452",
-            "#55A868",
-            "#C44E52",
-            "#8172B3",
-            "#937860",
-            "#DA8BC3",
-            "#8C8C8C",
-            "#CCB974",
-            "#64B5CD",
+            "rgb(76, 114, 176)",
+            "rgb(221, 132, 82)",
+            "rgb(85, 168, 104)",
+            "rgb(196, 78, 82)",
+            "rgb(129, 114, 179)",
+            "rgb(147, 120, 96)",
+            "rgb(218, 139, 195)",
+            "rgb(140, 140, 140)",
+            "rgb(204, 185, 116)",
+            "rgb(100, 181, 205)",
         ]
     )
 
@@ -233,6 +245,7 @@ def loading_screen_js(tile_layers: List[dict]):
             f'{tile_layers[0]["name"]}.on("load", () => {{',
             '    document.getElementById("loading-screen").style.visibility = "hidden";',
             '    document.getElementById("map").style.visibility = "visible";',
+            "    label.update(map);",
             "});",
         ]
     )
@@ -323,6 +336,10 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
         * include_markerjs,
         "js/customSearch.min.js" * include_markerjs,
         "js/tiledMarkers.min.js" * include_markerjs,
+        "https://cdn.jsdelivr.net/npm/toolcool-color-picker/dist/toolcool-color-picker.min.js"
+        * include_markerjs,
+        "js/labelControl.js",
+        "js/settingsControl.js",
         "js/urlCoords.js",
         "js/index.js",
     ]
@@ -358,9 +375,13 @@ def leaflet_layer_control_declaration(
     )
 
     control_js = [
+        "const catalogs = {",
+        f"    {{{cat_layer_label_pairs}}}",
+        "};",
+        "",
         "const layerControl = L.control.layers(",
         f"    {{{img_layer_label_pairs}}},",
-        f"    {{{cat_layer_label_pairs}}}",
+        "    catalogs",
         ").addTo(map);",
     ]
 
@@ -429,8 +450,10 @@ def build_urlCoords_js(img_wcs: WCS) -> str:
 def build_index_js(
     image_layer_dicts: List[Dict],
     marker_layer_dicts: List[str],
-    rows_per_column: int,
+    n_cols: int,
     max_xy: Tuple[int, int],
+    pixel_scale: float,
+    units_are_pixels: bool,
 ) -> str:
     js = "\n".join(
         [
@@ -441,7 +464,7 @@ def build_index_js(
             *list(
                 starmap(
                     cat_layer_dict_to_str,
-                    zip(marker_layer_dicts, repeat(rows_per_column)),
+                    zip(marker_layer_dicts, repeat(n_cols)),
                 )
             ),
             "",
@@ -450,6 +473,10 @@ def build_index_js(
             "",
             leaflet_map_js(image_layer_dicts),
             "",
+            leaflet_scale_bar_declaration(pixel_scale, units_are_pixels),
+            "",
+            leaflet_label_declaration(),
+            "",
             leaflet_layer_control_declaration(image_layer_dicts, marker_layer_dicts),
             "",
             "// Search ======================================================================",
@@ -457,11 +484,18 @@ def build_index_js(
             if len(marker_layer_dicts)
             else "",
             "",
+            leaflet_settings_declaration(),
+            "",
             "// Map event setup =============================================================",
             loading_screen_js(image_layer_dicts),
             "",
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
+            'map.on("move", () => {label.update(map);});',
+            "",
+            "map.whenReady(function () {",
+            "    scale.options.maxWidth = Math.round(map.getSize().x * 0.2);",
+            "    label.addTo(map);",
             "",
             'if (urlParam("zoom")==null) {',
             f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[0]}, {max_xy[1]}]]));",
@@ -508,3 +542,76 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
     ]
 
     return "\n".join(html)
+
+
+def leaflet_scale_bar_declaration(
+    pixel_scale: float,
+    units_are_pixels: bool,
+) -> str:
+    if units_are_pixels:
+        units_js = "        const units = 'px';"
+    else:
+        units_js = "\n".join(
+            [
+                "        let units;",
+                "        if (distance > 60) {",
+                "            distance /= 60;",
+                '            units = "\'";',
+                "        } else {",
+                "            units = '\"';",
+                "        }",
+            ]
+        )
+
+    js = "\n".join(
+        [
+            "// Scale Bar Control ===========================================================",
+            "// https://stackoverflow.com/a/62093918",
+            f"const pixelScale = {pixel_scale};",
+            "L.Control.MeterlessScale = L.Control.extend({",
+            "    _updateMetric: function (maxPixels) {",
+            "        const pixels = this._getRoundNum(maxPixels);",
+            "",
+            "        let distance = pixels * pixelScale;",
+            "",
+            units_js,
+            "",
+            "        const label = distance + units;",
+            "        this._updateScale(this._mScale, label, pixels / maxPixels);",
+            "    }",
+            "});",
+            "",
+            r"const scale = (new L.Control.MeterlessScale({imperial:false, updateWhenIdle:true})).addTo(map);",
+        ]
+    )
+
+    return js
+
+
+def leaflet_label_declaration() -> str:
+    js = "\n".join(
+        [
+            "// Label Control ===============================================================",
+            "const label = L.control.label({",
+            "    position: 'bottomleft',",
+            "    title: '',",
+            "    isRADec: Boolean(is_ra_dec) // from urlCoords.js",
+            "}).addTo(map);",
+        ]
+    )
+
+    return js
+
+
+def leaflet_settings_declaration() -> str:
+    js = "\n".join(
+        [
+            "// Settings Control ============================================================",
+            "const settingsControl = L.control.settings({",
+            "    position: 'topleft',",
+            "    catalogs:catalogs,",
+            "}).addTo(map);",
+        ]
+    )
+
+    return js

@@ -984,10 +984,12 @@ def files_to_map(
     max_catalog_zoom: int = -1,
     tile_size: Tuple[int, int] = [256, 256],
     norm_kwargs: dict = {},
-    n_columns: int = 1,
+    n_cols: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
+    pixel_scale: float = 1.0,
+    units_are_pixels: bool = True,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1020,15 +1022,19 @@ def files_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
-        n_columns (int): If converting a catalog, the number of columns to use
-                         when displaying the values in the popup. The default
-                         displays everything in a single column.
+        n_cols (int): If converting a catalog, the number of columns to use
+                      when displaying the values in the popup. The default
+                      displays everything in a single column.
         prefer_xy (bool): If True x/y coordinates should be preferred if both
                           ra/dec and x/y are present in a catalog
         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
                                       the catalog is 0 indexed
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
+        pixel_scale (float): The pixel scale of the image in either arcsec/pix
+                             or pixels, depending on the value of `units_are_pixels`
+        units_are_pixels (bool): If True, the pixel scale is in pixels, if False,
+                                 the pixel scale is in arcsec/pix
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1156,7 +1162,7 @@ def files_to_map(
 
     tasks = chain(img_tasks, cat_tasks)
 
-    if task_procs:
+    if task_procs > 1:
         # start runnning task_procs number of tasks
         in_progress = list(
             starmap(
@@ -1200,8 +1206,10 @@ def files_to_map(
         img_layer_names,
         cat_layer_names,
         cat_wcs,
-        rows_per_column,
+        n_cols,
         (max_x, max_y),
+        pixel_scale,
+        units_are_pixels,
     )
     print("Done.")
 
@@ -1222,9 +1230,10 @@ def dir_to_map(
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
+    pixel_scale: float = 1.0,
+    units_are_pixels: bool = True,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
-
 
     Args:
         directory (str): Path to directory containing the files to be converted
@@ -1272,6 +1281,11 @@ def dir_to_map(
                                       the catalog is 0 indexed
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
+        pixel_scale (float): The pixel scale of the image in either arcsec/pix
+                             or pixels, depending on the value of `units_are_pixels`
+        units_are_pixels (bool): If True, the pixel scale is in pixels, if False,
+                                 the pixel scale is in arcsec/pix
+
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1318,4 +1332,6 @@ def dir_to_map(
         prefer_xy=prefer_xy,
         catalog_starts_at_one=catalog_starts_at_one,
         img_tile_batch_size=img_tile_batch_size,
+        pixel_scale=pixel_scale,
+        units_are_pixels=units_are_pixels,
     )
