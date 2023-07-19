@@ -984,7 +984,7 @@ def files_to_map(
     max_catalog_zoom: int = -1,
     tile_size: Tuple[int, int] = [256, 256],
     norm_kwargs: dict = {},
-    n_cols: int = 1,
+    n_columns: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
@@ -1022,7 +1022,7 @@ def files_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
-        n_cols (int): If converting a catalog, the number of columns to use
+        n_columns (int): If converting a catalog, the number of columns to use
                       when displaying the values in the popup. The default
                       displays everything in a single column.
         prefer_xy (bool): If True x/y coordinates should be preferred if both
@@ -1206,7 +1206,7 @@ def files_to_map(
         img_layer_names,
         cat_layer_names,
         cat_wcs,
-        n_cols,
+        n_columns,
         (max_x, max_y),
         pixel_scale,
         units_are_pixels,

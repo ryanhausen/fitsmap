@@ -58,13 +58,11 @@ L.Control.Settings = L.Control.extend({
     },
 
     update_catalog_line: function() {
-        console.log("update_catalog_line");
         const colorpicker = document.getElementById("catalog-line-color");
         if (colorpicker !== null) {
             const color = colorpicker.color;
 
             const cat = this.options.catalogs[document.getElementById("settings-catalog-picker").value];
-            console.log(colorpicker.color, colorpicker);
             cat.options.strokeColor = `rgb(${color.r},${color.g},${color.b})`;
             cat.options.strokeOpacity = color.a;
             cat.redraw();
@@ -237,12 +235,12 @@ L.Control.Settings = L.Control.extend({
 });
 
 L.control.settings = function (opts) {
-    const settingsControl = new L.Control.Settings(opts);
+    const control = new L.Control.Settings(opts);
 
     // Add the CSS for the settings control for the img css filters
     const imgStyle = document.createElement("style");
     imgStyle.id = "img-filters";
     document.getElementsByTagName("head")[0].appendChild(imgStyle);
 
-    return settingsControl
+    return control
 }

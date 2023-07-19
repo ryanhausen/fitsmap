@@ -338,8 +338,8 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
         "js/tiledMarkers.min.js" * include_markerjs,
         "https://cdn.jsdelivr.net/npm/toolcool-color-picker/dist/toolcool-color-picker.min.js"
         * include_markerjs,
-        "js/labelControl.js",
-        "js/settingsControl.js",
+        "js/labelControl.min.js",
+        "js/settingsControl.min.js",
         "js/urlCoords.js",
         "js/index.js",
     ]
@@ -370,13 +370,13 @@ def leaflet_layer_control_declaration(
         list(map(lambda l: '"{0}":{0}'.format(l["name"]), img_layer_dicts))
     )
 
-    cat_layer_label_pairs = ",".join(
-        list(map(lambda l: '"{0}":{0}'.format(l["name"]), cat_layer_dicts))
+    cat_layer_label_pairs = ",\n".join(
+        list(map(lambda l: '    "{0}":{0}'.format(l["name"]), cat_layer_dicts))
     )
 
     control_js = [
         "const catalogs = {",
-        f"    {{{cat_layer_label_pairs}}}",
+        cat_layer_label_pairs,
         "};",
         "",
         "const layerControl = L.control.layers(",
@@ -496,6 +496,7 @@ def build_index_js(
             "map.whenReady(function () {",
             "    scale.options.maxWidth = Math.round(map.getSize().x * 0.2);",
             "    label.addTo(map);",
+            "});",
             "",
             'if (urlParam("zoom")==null) {',
             f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[0]}, {max_xy[1]}]]));",

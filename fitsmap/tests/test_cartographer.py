@@ -81,7 +81,10 @@ def test_layer_name_to_dict_catalog():
         min_zoom=min_zoom,
         max_zoom=max_native_zoom + 5,
         max_native_zoom=max_native_zoom,
-        color=color,
+        stroke_color=color,
+        fill_color=color,
+        stroke_opacity=1.0,
+        fill_opacity=0.2,
         columns=[f'"{c}"' for c in columns.split(",")],
     )
 
@@ -135,6 +138,7 @@ def test_cat_layer_dict_to_str():
     min_zoom = 0
     max_zoom = 2
     name = "test"
+    color = "red"
     columns = "a,b,c"
 
     layer_dict = dict(
@@ -143,11 +147,13 @@ def test_cat_layer_dict_to_str():
         min_zoom=min_zoom,
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
-        color="red",
+        stroke_color="red",
+        fill_color="red",
         columns=[f'"{c}"' for c in columns.split(",")],
     )
 
-    actual_str = c.cat_layer_dict_to_str(layer_dict, float("inf"))
+
+    actual_str = c.cat_layer_dict_to_str(layer_dict, "Infinity")
 
     expected_str = "".join(
         [
@@ -156,10 +162,11 @@ def test_cat_layer_dict_to_str():
             "{ ",
             'tileURL:"' + layer_dict["directory"] + '", ',
             "radius: 10, ",
-            'color: "' + layer_dict["color"] + '", ',
+            'strokeColor: "' + layer_dict["stroke_color"] + '", ',
+            'fillColor: "' + layer_dict["fill_color"] + '", ',
             "fillOpacity: 0.2, ",
             "strokeOpacity: 1.0, ",
-            f"rowsPerColumn: Infinity, ",
+            f"nCols: Infinity, ",
             f'catalogColumns: [{",".join(layer_dict["columns"])}], ',
             "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
@@ -200,14 +207,16 @@ def test_leaflet_layer_control_declaration():
 
     actual = c.leaflet_layer_control_declaration([img_layer_dict], [cat_layer_dict])
 
-    expected = "\n".join(
-        [
-            "const layerControl = L.control.layers(",
-            '    {"test":test},',
-            '    {"test":test}',
-            ").addTo(map);",
-        ]
-    )
+    expected = "\n".join([
+        "const catalogs = {",
+        '    "test":test',
+        "};",
+        "",
+        "const layerControl = L.control.layers(",
+        '    {"test":test},',
+        "    catalogs",
+        ").addTo(map);",
+    ])
 
     assert expected == actual
 
@@ -217,16 +226,16 @@ def test_leaflet_layer_control_declaration():
 def test_get_colors():
     """test cartographer.colors_js"""
     expected = [
-        "#4C72B0",
-        "#DD8452",
-        "#55A868",
-        "#C44E52",
-        "#8172B3",
-        "#937860",
-        "#DA8BC3",
-        "#8C8C8C",
-        "#CCB974",
-        "#64B5CD",
+        "rgb(76, 114, 176)",
+        "rgb(221, 132, 82)",
+        "rgb(85, 168, 104)",
+        "rgb(196, 78, 82)",
+        "rgb(129, 114, 179)",
+        "rgb(147, 120, 96)",
+        "rgb(218, 139, 195)",
+        "rgb(140, 140, 140)",
+        "rgb(204, 185, 116)",
+        "rgb(100, 181, 205)",
     ]
 
     color_iter = c.get_colors()

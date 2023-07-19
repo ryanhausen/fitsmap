@@ -11,7 +11,6 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         scaleRadius: 1.0,
         radius: 10,
         nCols: 1,
-        // rowsPerCol: Infinity,
         catalogColumns: [],
     },
 
