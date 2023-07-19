@@ -345,9 +345,11 @@ def test_build_conditional_css():
     expected_css = "\n".join(
         [
             "    <link rel='preload' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/LabelControl.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/MarkerCluster.Default.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/MarkerCluster.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/MarkerPopup.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/SettingsControl.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/TileNearestNeighbor.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
         ]
     )
@@ -371,6 +373,9 @@ def test_build_conditional_js():
             "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js'></script>",
             "    <script defer src='js/customSearch.min.js'></script>",
             "    <script defer src='js/tiledMarkers.min.js'></script>",
+            "    <script defer src='https://cdn.jsdelivr.net/npm/toolcool-color-picker/dist/toolcool-color-picker.min.js'></script>",
+            "    <script defer src='js/labelControl.min.js'></script>",
+            "    <script defer src='js/settingsControl.min.js'></script>",
             "    <script defer src='js/urlCoords.js'></script>",
             "    <script defer src='js/index.js'></script>",
             "    <script defer src='https://unpkg.com/cbor-web@8.1.0/dist/cbor.js'></script>",
