@@ -523,11 +523,13 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         '    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js" integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>',
         extra_js,
         "    <style>",
-        "        /* Map */",
-        r"        html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
-        "        /* Loading Page */",
-        r"        .overlay{background:#fff;height:100vh;width:100%;position:absolute}.brand{position:absolute;top:100px;left:50%;transform:translateX(-50%)}.brand img{width:100%;height:auto}.loadingtext{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:xx-large}.loading{position:absolute;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);-moz-transform:translate(-50%,-50%);-ms-transform:translate(-50%,-50%);-o-transform:translate(-50%,-50%);transform:translate(-50%,-50%);border-bottom:16px solid #0044aaff;border-top:16px solid #0044aaff;border-left:16px solid #80b3ffff;border-right:16px solid #80b3ffff;width:250px;height:250px;-webkit-border-radius:50%;-moz-border-radius:50%;border-radius:50%;-webkit-animation:rotate 1s ease-in-out infinite;-o-animation:rotate 1s ease-in-out infinite;animation:rotate 1s ease-in-out infinite}",
-        r"        @keyframes rotate{0%{-webkit-transform:translate(-50%,-50%) rotate(0deg);-moz-transform:translate(-50%,-50%) rotate(0deg);-ms-transform:translate(-50%,-50%) rotate(0deg);-o-transform:translate(-50%,-50%) rotate(0deg);transform:translate(-50%,-50%) rotate(0deg)}100%{-webkit-transform:translate(-50%,-50%) rotate(360deg);-moz-transform:translate(-50%,-50%) rotate(360deg);-ms-transform:translate(-50%,-50%) rotate(360deg);-o-transform:translate(-50%,-50%) rotate(360deg);transform:translate(-50%,-50%) rotate(360deg)}}",
+        "    /* Map */",
+       r"    html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
+        "    /* Loading Page */",
+        "    /*",
+       r"    Copyright (c) 2023 by kootoopas (https://codepen.io/kootoopas/pen/kGPoaB) Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+        "    */",
+       r'    @-webkit-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-webkit-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@keyframes bg-scrolling {0% {background-position: 50px 50px;}}#loading-screen {color: #999;font: 400 16px/1.5 exo, ubuntu, "segoe ui", helvetica, arial, sans-serif;text-align: center;background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAABnSURBVHja7M5RDYAwDEXRDgmvEocnlrQS2SwUFST9uEfBGWs9c97nbGtDcquqiKhOImLs/UpuzVzWEi1atGjRokWLFi1atGjRokWLFi1atGjRokWLFi1af7Ukz8xWp8z8AAAA//8DAJ4LoEAAlL1nAAAAAElFTkSuQmCC") repeat 0 0;-webkit-animation: bg-scrolling-reverse 0.92s infinite;-moz-animation: bg-scrolling-reverse 0.92s infinite;-o-animation: bg-scrolling-reverse 0.92s infinite;animation: bg-scrolling-reverse 0.92s infinite;-webkit-animation-timing-function: linear;-moz-animation-timing-function: linear;-o-animation-timing-function: linear;animation-timing-function: linear;width: 100%;height: 100%;}',
         "    </style>",
         "</head>",
         "<body>",
@@ -549,44 +551,16 @@ def leaflet_scale_bar_declaration(
     pixel_scale: float,
     units_are_pixels: bool,
 ) -> str:
-    if units_are_pixels:
-        units_js = "        const units = 'px';"
-    else:
-        units_js = "\n".join(
-            [
-                "        let units;",
-                "        if (distance > 60) {",
-                "            distance /= 60;",
-                '            units = "\'";',
-                "        } else {",
-                "            units = '\"';",
-                "        }",
-            ]
-        )
+    js_bool = "true" if units_are_pixels else "false"
 
-    js = "\n".join(
-        [
-            "// Scale Bar Control ===========================================================",
-            "// https://stackoverflow.com/a/62093918",
-            f"const pixelScale = {pixel_scale};",
-            "L.Control.MeterlessScale = L.Control.extend({",
-            "    _updateMetric: function (maxPixels) {",
-            "        const pixels = this._getRoundNum(maxPixels);",
-            "",
-            "        let distance = pixels * pixelScale;",
-            "",
-            units_js,
-            "",
-            "        const label = distance + units;",
-            "        this._updateScale(this._mScale, label, pixels / maxPixels);",
-            "    }",
-            "});",
-            "",
-            r"const scale = (new L.Control.MeterlessScale({imperial:false, updateWhenIdle:true})).addTo(map);",
-        ]
-    )
-
-    return js
+    return "\n".join([
+        "// Scale Bar Control ===========================================================",
+        "// https://stackoverflow.com/a/62093918",
+        "const scale = L.control.fitsmapScale({",
+        f"    pixelScale: {pixel_scale},",
+        f"    unitsArePixels: {js_bool},",
+        "}).addTo(map);",
+    ])
 
 
 def leaflet_label_declaration() -> str:

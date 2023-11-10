@@ -1,4 +1,5 @@
-L.Control.MeterlessScale = L.Control.Scale.extend({
+// https://stackoverflow.com/a/62093918
+L.Control.FitsMapScale = L.Control.Scale.extend({
     options: {
         isPixels: true,
         pixelScale: 1.0,
@@ -26,3 +27,9 @@ L.Control.MeterlessScale = L.Control.Scale.extend({
         this._updateScale(this._mScale, label, pixels / maxPixels);
     }
 });
+
+L.control.fitsmapScale = function (options) {
+    const scaleOpts = {imperial:false, updateWhenIdle:true};
+    return new L.Control.FitsMapScale(L.extend(scaleOpts, options));
+}
+

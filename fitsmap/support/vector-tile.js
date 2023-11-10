@@ -62,12 +62,6 @@ VectorTileLayer.prototype.feature = function(i) {
     return new VectorTileFeature(this._pbf, end, this.extent, this._keys, this._values);
 };
 
-//'use strict';
-
-//var Point = require('@mapbox/point-geometry');
-
-// module.exports = VectorTileFeature;
-
 function VectorTileFeature(pbf, end, extent, keys, values) {
     // Public
     this.properties = {};

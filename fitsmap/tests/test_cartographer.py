@@ -412,14 +412,16 @@ def test_build_index_js():
             min_zoom=0,
             max_zoom=8,
             max_native_zoom=2,
-            color="blue",
+            stroke_color="rgb(76, 114, 176)",
+            fill_color="rgb(76, 114, 176)",
             columns=['"a"', '"b"', '"c"'],
         )
     ]
 
-    rows_per_column = np.inf
-
+    n_cols = 1
     max_xy = (2048, 2048)
+    pixel_scale = 0.06
+    units_are_pixels = True
 
     expected_js = "\n".join(
         [
@@ -430,7 +432,7 @@ def test_build_index_js():
             + "minZoom: 0, maxZoom: 8, maxNativeZoom: 3 });",
             "",
             "// Marker layers ===============================================================",
-            'const cat = L.gridLayer.tiledMarkers({ tileURL:"cat/{z}/{y}/{x}.pbf", radius: 10, color: "blue", fillOpacity: 0.2, strokeOpacity: 1.0, rowsPerColumn: Infinity, catalogColumns: ["a","b","c"], minZoom: 0, maxZoom: 8, maxNativeZoom: 2 });',
+            'const cat = L.gridLayer.tiledMarkers({ tileURL:"cat/{z}/{y}/{x}.pbf", radius: 10, strokeColor: "rgb(76, 114, 176)", fillColor: "rgb(76, 114, 176)", fillOpacity: 0.2, strokeOpacity: 1.0, nCols: 1, catalogColumns: ["a","b","c"], minZoom: 0, maxZoom: 8, maxNativeZoom: 2 });',
             "",
             "// Basic map setup =============================================================",
             "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
@@ -444,9 +446,27 @@ def test_build_index_js():
             "    layers: [img]",
             "});",
             "",
+            "// Scale Bar Control ===========================================================",
+            "// https://stackoverflow.com/a/62093918",
+            "const scale = L.control.fitsmapScale({",
+            f"    pixelScale: {pixel_scale},",
+            f"    unitsArePixels: true,",
+            "}).addTo(map);",
+            "",
+            "// Label Control ===============================================================",
+            "const label = L.control.label({",
+            "    position: \'bottomleft\',",
+            "    title: \'\',",
+            "    isRADec: Boolean(is_ra_dec) // from urlCoords.js",
+            "}).addTo(map);",
+            "",
+            "const catalogs = {",
+            '    "cat":cat',
+            "};",
+            "",
             "const layerControl = L.control.layers(",
             '    {"img":img},',
-            '    {"cat":cat}',
+            "    catalogs",
             ").addTo(map);",
             "",
             "// Search ======================================================================",
@@ -457,14 +477,27 @@ def test_build_index_js():
             "const searchControl = buildCustomSearch(catalogPaths, 2);",
             "map.addControl(searchControl);",
             "",
+            "// Settings Control ============================================================",
+            "const settingsControl = L.control.settings({",
+            "    position: \'topleft\',",
+            "    catalogs:catalogs,",
+            "}).addTo(map);",
+            "",
             "// Map event setup =============================================================",
             'img.on("load", () => {',
             '    document.getElementById("loading-screen").style.visibility = "hidden";',
             '    document.getElementById("map").style.visibility = "visible";',
+            '    label.update(map);',
             "});",
             "",
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
+            'map.on("move", () => {label.update(map);});',
+            "",
+            "map.whenReady(function () {",
+            "    scale.options.maxWidth = Math.round(map.getSize().x * 0.2);",
+            "    label.addTo(map);",
+            "});",
             "",
             'if (urlParam("zoom")==null) {',
             f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[0]}, {max_xy[1]}]]));",
@@ -477,9 +510,17 @@ def test_build_index_js():
     actual_js = c.build_index_js(
         img_layer_dict,
         cat_layer_dict,
-        rows_per_column,
+        n_cols,
         max_xy,
+        pixel_scale,
+        units_are_pixels
     )
+
+    with open("expected_index.js", "w") as f:
+        f.write(expected_js)
+
+    with open("actual_index.js", "w") as f:
+        f.write(actual_js)
 
     assert expected_js == actual_js
 
@@ -561,6 +602,8 @@ def test_chart_no_wcs():
     marker_file_names = "test_marker"
     wcs = None
     columns = "a,b,c"
+    pixel_scale = 0.5
+    units_are_pixels = True
 
     with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
         f.write(columns)
@@ -591,6 +634,8 @@ def test_chart_no_wcs():
         wcs,
         float("inf"),
         [100, 100],
+        pixel_scale,
+        units_are_pixels,
     )
 
     # inject current version in to test_index.html
@@ -625,6 +670,8 @@ def test_chart_with_wcs():
     marker_file_names = "test_marker"
     wcs = WCS(os.path.join(out_dir, "test_image.fits"))
     columns = "a,b,c"
+    pixel_scale = 0.5
+    units_are_pixels = True
 
     with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
         f.write(columns)
@@ -656,6 +703,8 @@ def test_chart_with_wcs():
         wcs,
         float("inf"),
         [100, 100],
+        pixel_scale,
+        units_are_pixels,
     )
 
     # inject current version in to test_index.html
