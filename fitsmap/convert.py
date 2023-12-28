@@ -802,6 +802,7 @@ def tile_markers(
     catalog_delim: str,
     mp_procs: int,
     prefer_xy: bool,
+    cluster_min_points: int,
     min_zoom: int,
     max_zoom: int,
     tile_size: int,
@@ -917,6 +918,7 @@ def tile_markers(
     clusterer = Supercluster(
         min_zoom=min_zoom,
         max_zoom=max_zoom - 1,
+        min_points=cluster_min_points,
         extent=tile_size,
         radius=max(max(max_x, max_y) / tile_size, 40),
         node_size=np.log2(len(catalog_values)) * 2,
@@ -992,6 +994,7 @@ def files_to_map(
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
+    cluster_min_points: int = 2,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1036,6 +1039,7 @@ def files_to_map(
                                       the catalog is 0 indexed
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
+        cluster_min_points (int): The minimum points to form a catalog cluster
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1126,6 +1130,7 @@ def files_to_map(
             max_x=max_dim,
             max_y=max_dim,
             catalog_starts_at_one=catalog_starts_at_one,
+            cluster_min_points=cluster_min_points,
         )
     else:
         cat_task_f = None
