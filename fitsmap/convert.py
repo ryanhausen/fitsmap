@@ -803,6 +803,8 @@ def tile_markers(
     mp_procs: int,
     prefer_xy: bool,
     cluster_min_points: int,
+    cluster_radius: float,
+    cluster_node_size: int,
     min_zoom: int,
     max_zoom: int,
     tile_size: int,
@@ -913,6 +915,11 @@ def tile_markers(
         pbar_ref, unit="zoom levels", total=max_zoom + 1 - min_zoom
     )
 
+    if cluster_radius is None:
+        cluster_radius = max(max(max_x, max_y) / tile_size, 40)
+    if node_size is None:
+        cluster_node_size = np.log2(len(catalog_values)) * 2
+
     # cluster the parsed sources
     # need to get super cluster stuff in here
     clusterer = Supercluster(
@@ -920,8 +927,8 @@ def tile_markers(
         max_zoom=max_zoom - 1,
         min_points=cluster_min_points,
         extent=tile_size,
-        radius=max(max(max_x, max_y) / tile_size, 40),
-        node_size=np.log2(len(catalog_values)) * 2,
+        radius=cluster_radius,
+        node_size=cluster_node_size,
         alternate_CRS=(max_x, max_y),
         update_f=lambda: OutputManager.update(pbar_ref, 1),
         log=True,
@@ -995,6 +1002,8 @@ def files_to_map(
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
     cluster_min_points: int = 2,
+    cluster_radius: float = None,
+    cluster_node_size: int = None,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1040,6 +1049,8 @@ def files_to_map(
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
         cluster_min_points (int): The minimum points to form a catalog cluster
+        cluster_radius (float): The radius of each cluster in pixels.
+        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1131,6 +1142,8 @@ def files_to_map(
             max_y=max_dim,
             catalog_starts_at_one=catalog_starts_at_one,
             cluster_min_points=cluster_min_points,
+            cluster_radius=cluster_radius,
+            cluster_node_size=cluster_node_size,
         )
     else:
         cat_task_f = None
