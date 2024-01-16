@@ -1247,6 +1247,9 @@ def dir_to_map(
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
+    cluster_min_points: int = 2,
+    cluster_radius: float = None,
+    cluster_node_size: int = None,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1300,6 +1303,9 @@ def dir_to_map(
                                       the catalog is 0 indexed
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
+        cluster_min_points (int): The minimum points to form a catalog cluster
+        cluster_radius (float): The radius of each cluster in pixels.
+        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
