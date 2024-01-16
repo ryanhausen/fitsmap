@@ -917,7 +917,7 @@ def tile_markers(
 
     if cluster_radius is None:
         cluster_radius = max(max(max_x, max_y) / tile_size, 40)
-    if node_size is None:
+    if cluster_node_size is None:
         cluster_node_size = np.log2(len(catalog_values)) * 2
 
     # cluster the parsed sources
