@@ -1352,4 +1352,7 @@ def dir_to_map(
         prefer_xy=prefer_xy,
         catalog_starts_at_one=catalog_starts_at_one,
         img_tile_batch_size=img_tile_batch_size,
+        cluster_min_points=cluster_min_points,
+        cluster_radius=cluster_radius,
+        cluster_node_size=cluster_node_size,
     )
