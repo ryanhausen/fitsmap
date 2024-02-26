@@ -243,9 +243,9 @@ def loading_screen_js(tile_layers: List[dict]):
     js = "\n".join(
         [
             f'{tile_layers[0]["name"]}.on("load", () => {{',
-            '    document.getElementById("loading-screen").style.visibility = "hidden";',
+            '    document.getElementById("loading-screen").style.display = "none";',
             '    document.getElementById("map").style.visibility = "visible";',
-            "    label.update(map);",
+            "    label.update(map.getCenter());",
             "});",
         ]
     )
@@ -338,6 +338,7 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
         "js/tiledMarkers.min.js" * include_markerjs,
         "https://cdn.jsdelivr.net/npm/toolcool-color-picker/dist/toolcool-color-picker.min.js"
         * include_markerjs,
+        "js/fitsmapScale.min.js",
         "js/labelControl.min.js",
         "js/settingsControl.min.js",
         "js/urlCoords.js",
@@ -491,7 +492,8 @@ def build_index_js(
             "",
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
-            'map.on("move", () => {label.update(map);});',
+            'map.on("mousemove", (event) => {label.update(event.latlng);});',
+            'map.on("baselayerchange", (event) => {label.options.title = event.name;});',
             "",
             "map.whenReady(function () {",
             "    scale.options.maxWidth = Math.round(map.getSize().x * 0.2);",
@@ -534,7 +536,7 @@ def build_html(title: str, extra_js: str, extra_css: str) -> str:
         "</head>",
         "<body>",
         '    <div id="loading-screen" class="overlay">',
-        '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
+        '        <div class="brand"><img src="imgs/loading-logo.svg" style="width: 100%" alt="FitsMap logo"/></div>',
         '        <div class="loading"></div>',
         '        <div class="loadingtext">Loading...</div>',
         "    </div>",

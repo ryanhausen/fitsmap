@@ -36,16 +36,21 @@ L.Control.Settings = L.Control.extend({
         badge.style.visibility = "hidden";
     },
 
+    resetRange: function(text, defaultValue){
+        const range = document.getElementById(text);
+        range.value = defaultValue;
+        range.dispatchEvent(new Event("input"));
+    },
+
     makeRange: function (text, min, max, defaultValue, step) {
         let rangeText = '<div>';
-        rangeText += `<label class="settings-range" for="${text}">${text}:</label>`;
+        rangeText += `<label class="settings-range" for="${text}" onclick="settingsControl.resetRange('${text}', '${defaultValue}')">${text}:</label>`;
         rangeText += `<input class="settings-range" oninput="settingsControl.updateCSS();settingsControl.moveBadge('${text}')" onfocusout="settingsControl.hideBadge('${text}')" onmouseup="settingsControl.hideBadge('${text}')" type="range" min="${min}" max="${max}" value="${defaultValue}" step="${step}" class="range" id="${text}" />`;
         rangeText += `<div class="settings-range-badge" id="${text}-badge"></div>`
         rangeText += '</div>';
         return rangeText;
 
     },
-
 
     updateCSS: function(e) {
         let css = ".leaflet-tile { filter: ";

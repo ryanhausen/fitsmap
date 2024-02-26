@@ -79,7 +79,7 @@ updateLocationBar = function(){
     var rd = pixToSky(map.getCenter());
     //console.log(rd);
     var params = `${is_ra_dec ? "ra" : "x"}=` + rd[0].toFixed(7);
-    params += `${is_ra_dec ? "dec" : "y"}=` + rd[1].toFixed(7);
+    params += `&${is_ra_dec ? "dec" : "y"}=` + rd[1].toFixed(7);
     params += '&zoom=' + map.getZoom();
     //console.log(params);
     var param_url = window.location.href.split('?')[0] + '?' + params;
