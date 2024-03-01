@@ -3,7 +3,7 @@
 .. |files_to_map| replace:: `fitsmap.convert.files_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.files_to_map>`__
 .. |dir_to_map| replace:: `fitsmap.convert.dir_to_map <https://fitsmap.readthedocs.io/en/latest/source/fitsmap.html#fitsmap.convert.dir_to_map>`__
 
-.. image:: docs/logo.svg.png
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/logo.svg.png
     :alt: FitsMap
     :align: center
 
@@ -65,7 +65,7 @@ you'd like.
 Here is an example using FitsMap to render a 32,727² image and ~33 million
 sources from the `DReAM Galaxy Catalog <https://arxiv.org/abs/2110.10703>`_:
 
-.. image:: docs/dream_map.gif
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/dream_map.gif
     :alt: FitsMap
     :align: center
 
@@ -329,7 +329,7 @@ radius in **pixels**, ``b`` is the minor axis radius in **pixels**, and theta
 is the rotation of the ellipse in units of degrees starting from the negative
 x-axis and moving counter-clockwise.
 
-.. image:: docs/ellipse_fig.png
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/ellipse_fig.png
     :alt: EllipseOrientaton
     :align: center
 
