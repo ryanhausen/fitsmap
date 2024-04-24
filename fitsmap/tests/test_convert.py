@@ -970,7 +970,7 @@ def test_dir_to_map():
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
-    # helpers.tear_down(include_ray=True)
+    helpers.tear_down(include_ray=True)
     helpers.enable_tqdm()
 
     assert dirs_match
