@@ -146,7 +146,7 @@ L.Control.Settings = L.Control.extend({
         menuHTML += this.makeRange("Invert", 0, 100, 0, 1);
         menuHTML += this.makeRange("Hue", 0, 360, 0, 1);
 
-        if (this.options.catalogs != undefined) {
+        if (this.options.catalogs != undefined && Object.keys(this.options.catalogs).length > 0) {
             let catalogHTML = '<div class="leaflet-control-layers-separator"></div>';;
             catalogHTML += '<b class="settings">Catalog Settings</b></br>';
             catalogHTML += '<div class="settings-catalog-big">';
@@ -222,7 +222,9 @@ L.Control.Settings = L.Control.extend({
 	// @method expand(): this
 	// Expand the control container if collapsed.
 	expand() {
-        this.update_catalog_colorpickers(this.options.catalogs);
+        if (this.options.catalogs != undefined && this.options.catalogs.length > 0) {
+            this.update_catalog_colorpickers(this.options.catalogs);
+        }
         document.getElementById("settings-control-menu").classList.remove("collapsed");
         document.getElementById("settings-control-icon").classList.add("collapsed");
 	},
