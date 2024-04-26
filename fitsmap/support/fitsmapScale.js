@@ -1,17 +1,18 @@
 // https://stackoverflow.com/a/62093918
 L.Control.FitsMapScale = L.Control.Scale.extend({
     options: {
-        isPixels: true,
+        unitsArePixels: true,
         pixelScale: 1.0,
     },
 
     _updateMetric: function (maxPixels) {
         const pixels = this._getRoundNum(maxPixels);
 
-        let distance = this.options.isPixels ? pixels : pixels * pixelScale;
+        let distance = this.options.unitsArePixels ? pixels : pixels * this.options.pixelScale;
+        distance = parseFloat(distance.toFixed(2));
 
         let units;
-        if (this.options.isPixels){
+        if (this.options.unitsArePixels){
             units = 'px';
         } else{
             if (distance > 60) {
