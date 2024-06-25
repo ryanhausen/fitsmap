@@ -406,7 +406,7 @@ def build_mpl_objects(
                                                          needed to create a tile
     """
     mpl_norm = simple_norm(array, **norm_kwargs)
-    mpl_cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
+    mpl_cmap = copy.copy(mpl.colormaps[MPL_CMAP])
     mpl_cmap.set_bad(color=(0, 0, 0, 0))
     return mpl_norm, mpl_cmap
 
