@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         os: [ macos-latest ] #, windows-latest, macos-latest]
-        python-version: ["3.7"] # TODO: decide how many versions to support
+        python-version: ["3.8"] # TODO: decide how many versions to support
 
     runs-on: ${{ matrix.os }}
 
