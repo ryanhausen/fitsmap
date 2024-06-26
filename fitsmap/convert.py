@@ -1098,9 +1098,9 @@ def files_to_map(
     ray.init(
         include_dashboard=debug,  # during dev == True
         configure_logging=~debug,  # during dev == False
-        logging_level=logging.INFO
-        if debug
-        else logging.CRITICAL,  # during dev == logging.INFO, test == logging.CRITICAL
+        logging_level=(
+            logging.INFO if debug else logging.CRITICAL
+        ),  # during dev == logging.INFO, test == logging.CRITICAL
         log_to_driver=debug,  # during dev = True
     )
 
