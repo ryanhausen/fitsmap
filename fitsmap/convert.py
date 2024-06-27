@@ -406,7 +406,7 @@ def build_mpl_objects(
                                                          needed to create a tile
     """
     mpl_norm = simple_norm(array, **norm_kwargs)
-    mpl_cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
+    mpl_cmap = copy.copy(mpl.colormaps[MPL_CMAP])
     mpl_cmap.set_bad(color=(0, 0, 0, 0))
     return mpl_norm, mpl_cmap
 
@@ -1098,9 +1098,9 @@ def files_to_map(
     ray.init(
         include_dashboard=debug,  # during dev == True
         configure_logging=~debug,  # during dev == False
-        logging_level=logging.INFO
-        if debug
-        else logging.CRITICAL,  # during dev == logging.INFO, test == logging.CRITICAL
+        logging_level=(
+            logging.INFO if debug else logging.CRITICAL
+        ),  # during dev == logging.INFO, test == logging.CRITICAL
         log_to_driver=debug,  # during dev = True
     )
 
