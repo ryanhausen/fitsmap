@@ -188,8 +188,7 @@ def filter_on_extension(
 
     return list(
         filter(
-            lambda s: any((s.endswith(e) for e in extensions))
-            and not neg_predicate(s),
+            lambda s: any((s.endswith(e) for e in extensions)) and not neg_predicate(s),
             files,
         )
     )
@@ -453,7 +452,11 @@ def tile_img(
 
     # if we're using matplotlib we need to instantiate the matplotlib objects
     # before we pass them to ray
-    image_engine = IMG_ENGINE_MPL if (file_location.endswith(".fits") or file_location.endswith(".fits.gz")) else IMG_ENGINE_PIL
+    image_engine = (
+        IMG_ENGINE_MPL 
+        if (file_location.endswith(".fits") or file_location.endswith(".fits.gz")) 
+        else IMG_ENGINE_PIL
+    )
     if image_engine == IMG_ENGINE_MPL:
         image_norm = norm_kwargs.get(os.path.basename(file_location), norm_kwargs)
         mpl_norm, mpl_cmap = build_mpl_objects(array.array, image_norm)
