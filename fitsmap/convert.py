@@ -453,8 +453,8 @@ def tile_img(
     # if we're using matplotlib we need to instantiate the matplotlib objects
     # before we pass them to ray
     image_engine = (
-        IMG_ENGINE_MPL 
-        if (file_location.endswith(".fits") or file_location.endswith(".fits.gz")) 
+        IMG_ENGINE_MPL
+        if (file_location.endswith(".fits") or file_location.endswith(".fits.gz"))
         else IMG_ENGINE_PIL
     )
     if image_engine == IMG_ENGINE_MPL:
