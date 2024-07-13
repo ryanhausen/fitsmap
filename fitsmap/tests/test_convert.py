@@ -245,6 +245,7 @@ def test_get_array_fits():
 
     np.testing.assert_equal(expected_array, actual_array[:])
 
+
 @pytest.mark.unit
 @pytest.mark.convert
 def test_get_array_fits_gz():
@@ -266,6 +267,7 @@ def test_get_array_fits_gz():
     helpers.tear_down()
 
     np.testing.assert_equal(expected_array, actual_array[:])
+
 
 @pytest.mark.unit
 @pytest.mark.convert
