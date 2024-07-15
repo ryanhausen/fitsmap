@@ -483,7 +483,7 @@ def tile_img(
 
     total_tiles = get_total_tiles(min_zoom, max_zoom)
 
-    if mp_procs:
+    if mp_procs > 1:
         # We need to process batches to offset the cost of spinning up a process
         def batch_params(iter, batch_size):
             while True:
@@ -804,6 +804,9 @@ def tile_markers(
     catalog_delim: str,
     mp_procs: int,
     prefer_xy: bool,
+    cluster_min_points: int,
+    cluster_radius: float,
+    cluster_node_size: int,
     min_zoom: int,
     max_zoom: int,
     tile_size: int,
@@ -914,14 +917,20 @@ def tile_markers(
         pbar_ref, unit="zoom levels", total=max_zoom + 1 - min_zoom
     )
 
+    if cluster_radius is None:
+        cluster_radius = max(max(max_x, max_y) / tile_size, 40)
+    if cluster_node_size is None:
+        cluster_node_size = np.log2(len(catalog_values)) * 2
+
     # cluster the parsed sources
     # need to get super cluster stuff in here
     clusterer = Supercluster(
         min_zoom=min_zoom,
         max_zoom=max_zoom - 1,
+        min_points=cluster_min_points,
         extent=tile_size,
-        radius=max(max(max_x, max_y) / tile_size, 40),
-        node_size=np.log2(len(catalog_values)) * 2,
+        radius=cluster_radius,
+        node_size=cluster_node_size,
         alternate_CRS=(max_x, max_y),
         update_f=lambda: OutputManager.update(pbar_ref, 1),
         log=True,
@@ -996,6 +1005,9 @@ def files_to_map(
     img_tile_batch_size: int = 1000,
     pixel_scale: float = 1.0,
     units_are_pixels: bool = True,
+    cluster_min_points: int = 2,
+    cluster_radius: float = None,
+    cluster_node_size: int = None,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1041,6 +1053,9 @@ def files_to_map(
                              or pixels, depending on the value of `units_are_pixels`
         units_are_pixels (bool): If True, the pixel scale is in pixels, if False,
                                  the pixel scale is in arcsec/pix
+        cluster_min_points (int): The minimum points to form a catalog cluster
+        cluster_radius (float): The radius of each cluster in pixels.
+        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1131,6 +1146,9 @@ def files_to_map(
             max_x=max_dim,
             max_y=max_dim,
             catalog_starts_at_one=catalog_starts_at_one,
+            cluster_min_points=cluster_min_points,
+            cluster_radius=cluster_radius,
+            cluster_node_size=cluster_node_size,
         )
     else:
         cat_task_f = None
@@ -1176,7 +1194,6 @@ def files_to_map(
                 zip(range(task_procs), tasks),
             )
         )
-
         while in_progress:
             _, in_progress = ray.wait(in_progress, timeout=0.003)
             output_manager.check_for_updates()
@@ -1185,6 +1202,7 @@ def files_to_map(
                     # try to get a task with kwargs from the iterator
                     func, kwargs = next(tasks)
                     in_progress.append(func(**kwargs))
+                    print(in_progress)
                 except StopIteration:
                     # all of the tasks are in progress or completed
                     if not in_progress:
@@ -1221,7 +1239,7 @@ def files_to_map(
 
 
 def dir_to_map(
-    directory: str,
+    directory: str,c merge failed; fix conflicts and then commit the result.
     out_dir: str = ".",
     exclude_predicate: Callable = lambda f: False,
     title: str = "FitsMap",
@@ -1238,6 +1256,9 @@ def dir_to_map(
     img_tile_batch_size: int = 1000,
     pixel_scale: float = 1.0,
     units_are_pixels: bool = True,
+    cluster_min_points: int = 2,
+    cluster_radius: float = None,
+    cluster_node_size: int = None,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1292,6 +1313,9 @@ def dir_to_map(
         units_are_pixels (bool): If True, the pixel scale is in pixels, if False,
                                  the pixel scale is in arcsec/pix
 
+        cluster_min_points (int): The minimum points to form a catalog cluster
+        cluster_radius (float): The radius of each cluster in pixels.
+        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1340,4 +1364,7 @@ def dir_to_map(
         img_tile_batch_size=img_tile_batch_size,
         pixel_scale=pixel_scale,
         units_are_pixels=units_are_pixels,
+        cluster_min_points=cluster_min_points,
+        cluster_radius=cluster_radius,
+        cluster_node_size=cluster_node_size,
     )
