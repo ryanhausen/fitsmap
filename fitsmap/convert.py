@@ -1239,7 +1239,7 @@ def files_to_map(
 
 
 def dir_to_map(
-    directory: str,c merge failed; fix conflicts and then commit the result.
+    directory: str,
     out_dir: str = ".",
     exclude_predicate: Callable = lambda f: False,
     title: str = "FitsMap",
