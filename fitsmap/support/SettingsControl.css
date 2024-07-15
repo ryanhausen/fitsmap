@@ -24,6 +24,7 @@ div.settings-control.menu-control {
 input.settings-range {
     float: right;
     width: 160px;
+    height: 15px;
 }
 
 div.settings-range-badge {
