@@ -152,7 +152,6 @@ def test_cat_layer_dict_to_str():
         columns=[f'"{c}"' for c in columns.split(",")],
     )
 
-
     actual_str = c.cat_layer_dict_to_str(layer_dict, "Infinity")
 
     expected_str = "".join(
@@ -207,16 +206,18 @@ def test_leaflet_layer_control_declaration():
 
     actual = c.leaflet_layer_control_declaration([img_layer_dict], [cat_layer_dict])
 
-    expected = "\n".join([
-        "const catalogs = {",
-        '    "test":test',
-        "};",
-        "",
-        "const layerControl = L.control.layers(",
-        '    {"test":test},',
-        "    catalogs",
-        ").addTo(map);",
-    ])
+    expected = "\n".join(
+        [
+            "const catalogs = {",
+            '    "test":test',
+            "};",
+            "",
+            "const layerControl = L.control.layers(",
+            '    {"test":test},',
+            "    catalogs",
+            ").addTo(map);",
+        ]
+    )
 
     assert expected == actual
 
@@ -456,8 +457,8 @@ def test_build_index_js():
             "",
             "// Label Control ===============================================================",
             "const label = L.control.label({",
-            "    position: \'bottomleft\',",
-            "    title: \'\',",
+            "    position: 'bottomleft',",
+            "    title: '',",
             "    isRADec: Boolean(is_ra_dec) // from urlCoords.js",
             "}).addTo(map);",
             "",
@@ -480,7 +481,7 @@ def test_build_index_js():
             "",
             "// Settings Control ============================================================",
             "const settingsControl = L.control.settings({",
-            "    position: \'topleft\',",
+            "    position: 'topleft',",
             "    catalogs:catalogs,",
             "}).addTo(map);",
             "",
@@ -488,7 +489,7 @@ def test_build_index_js():
             'img.on("load", () => {',
             '    document.getElementById("loading-screen").style.display = "none";',
             '    document.getElementById("map").style.visibility = "visible";',
-            '    label.update(map.getCenter());',
+            "    label.update(map.getCenter());",
             "});",
             "",
             'map.on("moveend", updateLocationBar);',
@@ -510,12 +511,7 @@ def test_build_index_js():
     )
 
     actual_js = c.build_index_js(
-        img_layer_dict,
-        cat_layer_dict,
-        n_cols,
-        max_xy,
-        pixel_scale,
-        units_are_pixels
+        img_layer_dict, cat_layer_dict, n_cols, max_xy, pixel_scale, units_are_pixels
     )
 
     assert expected_js == actual_js
@@ -563,7 +559,7 @@ def test_build_html():
             extra_js,
             "    <style>",
             "    /* Map */",
-           r"    html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
+            r"    html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
             "    /* Loading Page */",
             "    /*",
             '    Copyright (c) 2023 by kootoopas (https://codepen.io/kootoopas/pen/kGPoaB) Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',

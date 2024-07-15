@@ -307,13 +307,13 @@ def make_tile_pil(tile: np.ndarray) -> np.ndarray:
     if len(tile.shape) < 3:
         img_tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
     # RGB images need an alpha channel added
-    elif tile.shape[2]==3:
+    elif tile.shape[2] == 3:
         img_tile = np.concatenate(
             (tile, np.ones(list(tile.shape[:-1]) + [1], dtype=np.float32) * 255),
             axis=2,
         )
     # RGBA images are already in the correct format
-    elif tile.shape[2]==4:
+    elif tile.shape[2] == 4:
         img_tile = np.array(tile)
     else:
         raise ValueError("Image must be 2D or 3D with 1, 3, or 4 channels")
