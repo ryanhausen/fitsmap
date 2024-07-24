@@ -138,7 +138,7 @@ To convert this directory into a FitsMap using |dir_to_map|:
 
     from fitsmap import convert
 
-    convert.dir_to_map.(
+    convert.dir_to_map(
         "path/to/data",
         out_dir="path/to/data/map",
         cat_wcs_fits_file="path/to/data/F125W.fits",
@@ -210,7 +210,7 @@ function |files_to_map|:
         ...,
     ]
 
-    convert.files_to_map.(
+    convert.files_to_map(
         paths_to_files,
         out_dir="path/to/data/map",
         cat_wcs_fits_file="path/to/header_file.fits",
@@ -237,7 +237,7 @@ are the ``simple_norm`` kwargs for that file. For example:
         "fits_images/F160W.fits",
     ]
 
-    convert.files_to_map.(
+    convert.files_to_map(
         paths_to_files,
         out_dir="path/to/data/map",
         cat_wcs_fits_file="path/to/header_file.fits",
