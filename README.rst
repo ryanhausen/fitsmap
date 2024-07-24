@@ -310,9 +310,9 @@ ways:
 
 The settings for parallelization are set using the following keyword arguments:
 
-- ``procs_per_task``: Sets how many layers/catalogs to convert in parallel at a
+- ``procs_per_task``: How many processes can work on a single task.
+- ``task_procs``: Sets how many layers/catalogs to convert in parallel at a
   time.
-- ``task_procs``: How many processes can work on a single task.
 
 You can use both keyword arguments at the same time, but keep in mind the number
 of CPUs available. For example, if ``procs_per_task=2`` and ``task_procs=2``
