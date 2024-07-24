@@ -64,7 +64,7 @@ Image.MAX_IMAGE_PIXELS = sys.maxsize
 
 Shape = Tuple[int, int]
 
-IMG_FORMATS = ["fits", "jpg", "png"]
+IMG_FORMATS = [".fits", ".fits.gz", ".jpg", ".png"]
 CAT_FORMAT = ["cat"]
 IMG_ENGINE_PIL = "PIL"
 IMG_ENGINE_MPL = "MPL"
@@ -156,9 +156,7 @@ def get_array(file_location: str) -> pa.PaddedArray:
         A numpy array representing the image.
     """
 
-    _, ext = os.path.splitext(file_location)
-
-    if ext == ".fits":
+    if file_location.endswith(".fits") or file_location.endswith(".fits.gz"):
         array = fits.getdata(file_location).astype(np.float32)
         shape = array.shape
         if len(shape) != 2:
@@ -190,8 +188,7 @@ def filter_on_extension(
 
     return list(
         filter(
-            lambda s: (os.path.splitext(s)[1][1:] in extensions)
-            and not neg_predicate(s),
+            lambda s: any((s.endswith(e) for e in extensions)) and not neg_predicate(s),
             files,
         )
     )
@@ -408,7 +405,7 @@ def build_mpl_objects(
                                                          needed to create a tile
     """
     mpl_norm = simple_norm(array, **norm_kwargs)
-    mpl_cmap = copy.copy(mpl.cm.get_cmap(MPL_CMAP))
+    mpl_cmap = copy.copy(mpl.colormaps[MPL_CMAP])
     mpl_cmap.set_bad(color=(0, 0, 0, 0))
     return mpl_norm, mpl_cmap
 
@@ -457,7 +454,11 @@ def tile_img(
 
     # if we're using matplotlib we need to instantiate the matplotlib objects
     # before we pass them to ray
-    image_engine = IMG_ENGINE_MPL if file_location.endswith(".fits") else IMG_ENGINE_PIL
+    image_engine = (
+        IMG_ENGINE_MPL
+        if (file_location.endswith(".fits") or file_location.endswith(".fits.gz"))
+        else IMG_ENGINE_PIL
+    )
     if image_engine == IMG_ENGINE_MPL:
         image_norm = norm_kwargs.get(os.path.basename(file_location), norm_kwargs)
         mpl_norm, mpl_cmap = build_mpl_objects(array.array, image_norm)
@@ -1110,9 +1111,9 @@ def files_to_map(
     ray.init(
         include_dashboard=debug,  # during dev == True
         configure_logging=~debug,  # during dev == False
-        logging_level=logging.INFO
-        if debug
-        else logging.CRITICAL,  # during dev == logging.INFO, test == logging.CRITICAL
+        logging_level=(
+            logging.INFO if debug else logging.CRITICAL
+        ),  # during dev == logging.INFO, test == logging.CRITICAL
         log_to_driver=debug,  # during dev = True
     )
 
