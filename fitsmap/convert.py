@@ -36,7 +36,7 @@ from itertools import (
     repeat,
     starmap,
 )
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import cbor2
 import mapbox_vector_tile as mvt
@@ -300,18 +300,20 @@ def make_tile_pil(tile: np.ndarray) -> np.ndarray:
     Returns:
         np.ndarray: an RGBA version of the input data
     """
-
-    if len(tile.shape) == 2:
+    # black and white pngs have a single channel
+    if len(tile.shape) < 3:
         img_tile = np.dstack([tile, tile, tile, np.ones_like(tile) * 255])
+    # RGB images need an alpha channel added
     elif tile.shape[2] == 3:
         img_tile = np.concatenate(
             (tile, np.ones(list(tile.shape[:-1]) + [1], dtype=np.float32) * 255),
             axis=2,
         )
+    # RGBA images are already in the correct format
+    elif tile.shape[2] == 4:
+        img_tile = np.array(tile)
     else:
-        img_tile = np.copy(tile)
-
-    # else the image is already RGBA
+        raise ValueError("Image must be 2D or 3D with 1, 3, or 4 channels")
 
     ys, xs = np.where(np.isnan(np.atleast_3d(tile)[:, :, 0]))
     img_tile[ys, xs, :] = np.array([0, 0, 0, 0], dtype=np.float32)
@@ -994,17 +996,20 @@ def files_to_map(
     task_procs: int = 0,
     procs_per_task: int = 0,
     catalog_delim: str = ",",
-    cat_wcs_fits_file: str = None,
+    cat_wcs_fits_file: Optional[str] = None,
     max_catalog_zoom: int = -1,
     tile_size: Tuple[int, int] = [256, 256],
     norm_kwargs: dict = {},
-    rows_per_column: int = np.inf,
+    rows_per_column: Optional[int] = None,
+    n_columns: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
+    pixel_scale: float = 1.0,
+    units_are_pixels: bool = True,
     cluster_min_points: int = 2,
-    cluster_radius: float = None,
-    cluster_node_size: int = None,
+    cluster_radius: Optional[float] = None,
+    cluster_node_size: Optional[int] = None,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1037,21 +1042,23 @@ def files_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
-        rows_per_column (int): If converting a catalog, the number of items in
-                               have in each column of the marker popup.
-                               By default produces all values in a single
-                               column. Setting this value can make it easier to
-                               work with catalogs that have a lot of values for
-                               each object.
+        rows_per_column (Optional[int]): (deprecated) please use `n_columns` instead
+        n_columns (int): If converting a catalog, the number of columns to use
+                      when displaying the values in the popup. The default
+                      displays everything in a single column.
         prefer_xy (bool): If True x/y coordinates should be preferred if both
                           ra/dec and x/y are present in a catalog
         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
                                       the catalog is 0 indexed
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
+        pixel_scale (float): The pixel scale of the image in either arcsec/pix
+                             or pixels, depending on the value of `units_are_pixels`
+        units_are_pixels (bool): If True, the pixel scale is in pixels, if False,
+                                 the pixel scale is in arcsec/pix
         cluster_min_points (int): The minimum points to form a catalog cluster
-        cluster_radius (float): The radius of each cluster in pixels.
-        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
+        cluster_radius (Optional[float]): The radius of each cluster in pixels.
+        cluster_node_size (Optional[int]): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1066,6 +1073,11 @@ def files_to_map(
     Returns:
         None
     """
+
+    if rows_per_column is not None:
+        raise DeprecationWarning(
+            "rows_per_column is deprecated, use `n_columns` instead"
+        )
 
     assert len(files) > 0, "No files provided `files` is an empty list"
 
@@ -1226,8 +1238,10 @@ def files_to_map(
         img_layer_names,
         cat_layer_names,
         cat_wcs,
-        rows_per_column,
+        n_columns,
         (max_x, max_y),
+        pixel_scale,
+        units_are_pixels,
     )
     print("Done.")
 
@@ -1244,16 +1258,18 @@ def dir_to_map(
     max_catalog_zoom: int = -1,
     tile_size: Shape = [256, 256],
     norm_kwargs: Union[Dict[str, Any], Dict[str, Dict[str, Any]]] = {},
-    rows_per_column: int = np.inf,
+    rows_per_column: int = None,
+    n_columns: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
     img_tile_batch_size: int = 1000,
+    pixel_scale: float = 1.0,
+    units_are_pixels: bool = True,
     cluster_min_points: int = 2,
     cluster_radius: float = None,
     cluster_node_size: int = None,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
-
 
     Args:
         directory (str): Path to directory containing the files to be converted
@@ -1292,21 +1308,24 @@ def dir_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
-        rows_per_column (int): If converting a catalog, the number of items in
-                               have in each column of the marker popup.
-                               By default produces all values in a single
-                               column. Setting this value can make it easier to
-                               work with catalogs that have a lot of values for
-                               each object.
+        rows_per_column (Optional[int]): (deprecated) please use `n_columns` instead
+        n_columns (int): If converting a catalog, the number of columns to use
+                         when displaying the values in the popup. The default
+                         displays everything in a single column.
         prefer_xy (bool): If True x/y coordinates should be preferred if both
                           ra/dec and x/y are present in a catalog
         catalog_starts_at_one (bool): True if the catalog is 1 indexed, False if
                                       the catalog is 0 indexed
         img_tile_batch_size (int): The number of image tiles to process in
                                    parallel when task_procs > 1
+        pixel_scale (float): The pixel scale of the image in either arcsec/pix
+                             or pixels, depending on the value of `units_are_pixels`
+        units_are_pixels (bool): If True, the pixel scale is in pixels, if False,
+                                 the pixel scale is in arcsec/pix
+
         cluster_min_points (int): The minimum points to form a catalog cluster
-        cluster_radius (float): The radius of each cluster in pixels.
-        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
+        cluster_radius (Optional[float]): The radius of each cluster in pixels.
+        cluster_node_size (Optional[int]): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1350,9 +1369,12 @@ def dir_to_map(
         tile_size=tile_size,
         norm_kwargs=norm_kwargs,
         rows_per_column=rows_per_column,
+        n_columns=n_columns,
         prefer_xy=prefer_xy,
         catalog_starts_at_one=catalog_starts_at_one,
         img_tile_batch_size=img_tile_batch_size,
+        pixel_scale=pixel_scale,
+        units_are_pixels=units_are_pixels,
         cluster_min_points=cluster_min_points,
         cluster_radius=cluster_radius,
         cluster_node_size=cluster_node_size,

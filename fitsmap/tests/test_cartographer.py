@@ -81,7 +81,10 @@ def test_layer_name_to_dict_catalog():
         min_zoom=min_zoom,
         max_zoom=max_native_zoom + 5,
         max_native_zoom=max_native_zoom,
-        color=color,
+        stroke_color=color,
+        fill_color=color,
+        stroke_opacity=1.0,
+        fill_opacity=0.2,
         columns=[f'"{c}"' for c in columns.split(",")],
     )
 
@@ -135,6 +138,7 @@ def test_cat_layer_dict_to_str():
     min_zoom = 0
     max_zoom = 2
     name = "test"
+    color = "red"
     columns = "a,b,c"
 
     layer_dict = dict(
@@ -143,11 +147,12 @@ def test_cat_layer_dict_to_str():
         min_zoom=min_zoom,
         max_zoom=max_zoom + 5,
         max_native_zoom=max_zoom,
-        color="red",
+        stroke_color="red",
+        fill_color="red",
         columns=[f'"{c}"' for c in columns.split(",")],
     )
 
-    actual_str = c.cat_layer_dict_to_str(layer_dict, float("inf"))
+    actual_str = c.cat_layer_dict_to_str(layer_dict, "Infinity")
 
     expected_str = "".join(
         [
@@ -156,10 +161,11 @@ def test_cat_layer_dict_to_str():
             "{ ",
             'tileURL:"' + layer_dict["directory"] + '", ',
             "radius: 10, ",
-            'color: "' + layer_dict["color"] + '", ',
+            'strokeColor: "' + layer_dict["stroke_color"] + '", ',
+            'fillColor: "' + layer_dict["fill_color"] + '", ',
             "fillOpacity: 0.2, ",
             "strokeOpacity: 1.0, ",
-            f"rowsPerColumn: Infinity, ",
+            f"nCols: Infinity, ",
             f'catalogColumns: [{",".join(layer_dict["columns"])}], ',
             "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
@@ -202,9 +208,13 @@ def test_leaflet_layer_control_declaration():
 
     expected = "\n".join(
         [
+            "const catalogs = {",
+            '    "test":test',
+            "};",
+            "",
             "const layerControl = L.control.layers(",
             '    {"test":test},',
-            '    {"test":test}',
+            "    catalogs",
             ").addTo(map);",
         ]
     )
@@ -217,16 +227,16 @@ def test_leaflet_layer_control_declaration():
 def test_get_colors():
     """test cartographer.colors_js"""
     expected = [
-        "#4C72B0",
-        "#DD8452",
-        "#55A868",
-        "#C44E52",
-        "#8172B3",
-        "#937860",
-        "#DA8BC3",
-        "#8C8C8C",
-        "#CCB974",
-        "#64B5CD",
+        "rgb(76, 114, 176)",
+        "rgb(221, 132, 82)",
+        "rgb(85, 168, 104)",
+        "rgb(196, 78, 82)",
+        "rgb(129, 114, 179)",
+        "rgb(147, 120, 96)",
+        "rgb(218, 139, 195)",
+        "rgb(140, 140, 140)",
+        "rgb(204, 185, 116)",
+        "rgb(100, 181, 205)",
     ]
 
     color_iter = c.get_colors()
@@ -336,9 +346,11 @@ def test_build_conditional_css():
     expected_css = "\n".join(
         [
             "    <link rel='preload' href='https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/LabelControl.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/MarkerCluster.Default.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/MarkerCluster.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/MarkerPopup.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
+            "    <link rel='preload' href='css/SettingsControl.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
             "    <link rel='preload' href='css/TileNearestNeighbor.min.css'  as='style' onload='this.rel=\"stylesheet\"'/>",
         ]
     )
@@ -362,6 +374,10 @@ def test_build_conditional_js():
             "    <script defer src='https://cdnjs.cloudflare.com/ajax/libs/leaflet-search/3.0.2/leaflet-search.src.min.js'></script>",
             "    <script defer src='js/customSearch.min.js'></script>",
             "    <script defer src='js/tiledMarkers.min.js'></script>",
+            "    <script defer src='https://cdn.jsdelivr.net/npm/toolcool-color-picker/dist/toolcool-color-picker.min.js'></script>",
+            "    <script defer src='js/fitsmapScale.min.js'></script>",
+            "    <script defer src='js/labelControl.min.js'></script>",
+            "    <script defer src='js/settingsControl.min.js'></script>",
             "    <script defer src='js/urlCoords.js'></script>",
             "    <script defer src='js/index.js'></script>",
             "    <script defer src='https://unpkg.com/cbor-web@8.1.0/dist/cbor.js'></script>",
@@ -398,14 +414,16 @@ def test_build_index_js():
             min_zoom=0,
             max_zoom=8,
             max_native_zoom=2,
-            color="blue",
+            stroke_color="rgb(76, 114, 176)",
+            fill_color="rgb(76, 114, 176)",
             columns=['"a"', '"b"', '"c"'],
         )
     ]
 
-    rows_per_column = np.inf
-
+    n_cols = 1
     max_xy = (2048, 2048)
+    pixel_scale = 0.06
+    units_are_pixels = True
 
     expected_js = "\n".join(
         [
@@ -416,7 +434,7 @@ def test_build_index_js():
             + "minZoom: 0, maxZoom: 8, maxNativeZoom: 3 });",
             "",
             "// Marker layers ===============================================================",
-            'const cat = L.gridLayer.tiledMarkers({ tileURL:"cat/{z}/{y}/{x}.pbf", radius: 10, color: "blue", fillOpacity: 0.2, strokeOpacity: 1.0, rowsPerColumn: Infinity, catalogColumns: ["a","b","c"], minZoom: 0, maxZoom: 8, maxNativeZoom: 2 });',
+            'const cat = L.gridLayer.tiledMarkers({ tileURL:"cat/{z}/{y}/{x}.pbf", radius: 10, strokeColor: "rgb(76, 114, 176)", fillColor: "rgb(76, 114, 176)", fillOpacity: 0.2, strokeOpacity: 1.0, nCols: 1, catalogColumns: ["a","b","c"], minZoom: 0, maxZoom: 8, maxNativeZoom: 2 });',
             "",
             "// Basic map setup =============================================================",
             "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
@@ -430,9 +448,27 @@ def test_build_index_js():
             "    layers: [img]",
             "});",
             "",
+            "// Scale Bar Control ===========================================================",
+            "// https://stackoverflow.com/a/62093918",
+            "const scale = L.control.fitsmapScale({",
+            f"    pixelScale: {pixel_scale},",
+            f"    unitsArePixels: true,",
+            "}).addTo(map);",
+            "",
+            "// Label Control ===============================================================",
+            "const label = L.control.label({",
+            "    position: 'bottomleft',",
+            "    title: '',",
+            "    isRADec: Boolean(is_ra_dec) // from urlCoords.js",
+            "}).addTo(map);",
+            "",
+            "const catalogs = {",
+            '    "cat":cat',
+            "};",
+            "",
             "const layerControl = L.control.layers(",
             '    {"img":img},',
-            '    {"cat":cat}',
+            "    catalogs",
             ").addTo(map);",
             "",
             "// Search ======================================================================",
@@ -443,14 +479,28 @@ def test_build_index_js():
             "const searchControl = buildCustomSearch(catalogPaths, 2);",
             "map.addControl(searchControl);",
             "",
+            "// Settings Control ============================================================",
+            "const settingsControl = L.control.settings({",
+            "    position: 'topleft',",
+            "    catalogs:catalogs,",
+            "}).addTo(map);",
+            "",
             "// Map event setup =============================================================",
             'img.on("load", () => {',
-            '    document.getElementById("loading-screen").style.visibility = "hidden";',
+            '    document.getElementById("loading-screen").style.display = "none";',
             '    document.getElementById("map").style.visibility = "visible";',
+            "    label.update(map.getCenter());",
             "});",
             "",
             'map.on("moveend", updateLocationBar);',
             'map.on("zoomend", updateLocationBar);',
+            'map.on("mousemove", (event) => {label.update(event.latlng);});',
+            'map.on("baselayerchange", (event) => {label.options.title = event.name;});',
+            "",
+            "map.whenReady(function () {",
+            "    scale.options.maxWidth = Math.round(map.getSize().x * 0.2);",
+            "    label.addTo(map);",
+            "});",
             "",
             'if (urlParam("zoom")==null) {',
             f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[0]}, {max_xy[1]}]]));",
@@ -461,10 +511,7 @@ def test_build_index_js():
     )
 
     actual_js = c.build_index_js(
-        img_layer_dict,
-        cat_layer_dict,
-        rows_per_column,
-        max_xy,
+        img_layer_dict, cat_layer_dict, n_cols, max_xy, pixel_scale, units_are_pixels
     )
 
     assert expected_js == actual_js
@@ -511,16 +558,18 @@ def test_build_html():
             '    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js" integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>',
             extra_js,
             "    <style>",
-            "        /* Map */",
-            r"        html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
-            "        /* Loading Page */",
-            r"        .overlay{background:#fff;height:100vh;width:100%;position:absolute}.brand{position:absolute;top:100px;left:50%;transform:translateX(-50%)}.brand img{width:100%;height:auto}.loadingtext{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-weight:700;font-size:xx-large}.loading{position:absolute;top:50%;left:50%;-webkit-transform:translate(-50%,-50%);-moz-transform:translate(-50%,-50%);-ms-transform:translate(-50%,-50%);-o-transform:translate(-50%,-50%);transform:translate(-50%,-50%);border-bottom:16px solid #0044aaff;border-top:16px solid #0044aaff;border-left:16px solid #80b3ffff;border-right:16px solid #80b3ffff;width:250px;height:250px;-webkit-border-radius:50%;-moz-border-radius:50%;border-radius:50%;-webkit-animation:rotate 1s ease-in-out infinite;-o-animation:rotate 1s ease-in-out infinite;animation:rotate 1s ease-in-out infinite}",
-            r"        @keyframes rotate{0%{-webkit-transform:translate(-50%,-50%) rotate(0deg);-moz-transform:translate(-50%,-50%) rotate(0deg);-ms-transform:translate(-50%,-50%) rotate(0deg);-o-transform:translate(-50%,-50%) rotate(0deg);transform:translate(-50%,-50%) rotate(0deg)}100%{-webkit-transform:translate(-50%,-50%) rotate(360deg);-moz-transform:translate(-50%,-50%) rotate(360deg);-ms-transform:translate(-50%,-50%) rotate(360deg);-o-transform:translate(-50%,-50%) rotate(360deg);transform:translate(-50%,-50%) rotate(360deg)}}",
+            "    /* Map */",
+            r"    html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
+            "    /* Loading Page */",
+            "    /*",
+            '    Copyright (c) 2023 by kootoopas (https://codepen.io/kootoopas/pen/kGPoaB) Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',
+            "    */",
+            '    @-webkit-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-webkit-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@keyframes bg-scrolling {0% {background-position: 50px 50px;}}#loading-screen {color: #999;font: 400 16px/1.5 exo, ubuntu, "segoe ui", helvetica, arial, sans-serif;text-align: center;background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAABnSURBVHja7M5RDYAwDEXRDgmvEocnlrQS2SwUFST9uEfBGWs9c97nbGtDcquqiKhOImLs/UpuzVzWEi1atGjRokWLFi1atGjRokWLFi1atGjRokWLFi1af7Ukz8xWp8z8AAAA//8DAJ4LoEAAlL1nAAAAAElFTkSuQmCC") repeat 0 0;-webkit-animation: bg-scrolling-reverse 0.92s infinite;-moz-animation: bg-scrolling-reverse 0.92s infinite;-o-animation: bg-scrolling-reverse 0.92s infinite;animation: bg-scrolling-reverse 0.92s infinite;-webkit-animation-timing-function: linear;-moz-animation-timing-function: linear;-o-animation-timing-function: linear;animation-timing-function: linear;width: 100%;height: 100%;}',
             "    </style>",
             "</head>",
             "<body>",
             '    <div id="loading-screen" class="overlay">',
-            '        <div class="brand"><img src="imgs/loading-logo.svg" /></div>',
+            '        <div class="brand"><img src="imgs/loading-logo.svg" style="width: 100%" alt="FitsMap logo"/></div>',
             '        <div class="loading"></div>',
             '        <div class="loadingtext">Loading...</div>',
             "    </div>",
@@ -547,6 +596,8 @@ def test_chart_no_wcs():
     marker_file_names = "test_marker"
     wcs = None
     columns = "a,b,c"
+    pixel_scale = 0.5
+    units_are_pixels = True
 
     with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
         f.write(columns)
@@ -577,6 +628,8 @@ def test_chart_no_wcs():
         wcs,
         float("inf"),
         [100, 100],
+        pixel_scale,
+        units_are_pixels,
     )
 
     # inject current version in to test_index.html
@@ -611,6 +664,8 @@ def test_chart_with_wcs():
     marker_file_names = "test_marker"
     wcs = WCS(os.path.join(out_dir, "test_image.fits"))
     columns = "a,b,c"
+    pixel_scale = 0.5
+    units_are_pixels = True
 
     with open(os.path.join(out_dir, f"{marker_file_names}.columns"), "w") as f:
         f.write(columns)
@@ -642,6 +697,8 @@ def test_chart_with_wcs():
         wcs,
         float("inf"),
         [100, 100],
+        pixel_scale,
+        units_are_pixels,
     )
 
     # inject current version in to test_index.html

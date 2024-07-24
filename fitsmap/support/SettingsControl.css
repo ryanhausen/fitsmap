@@ -1,0 +1,77 @@
+div.settings-control {
+    background-clip: padding-box;
+}
+
+div.settings-control.menu-button {
+    background-color: rgba(255, 255, 255, 1.0);
+    border-radius: 4px;
+    padding: 2px;
+    display: flex;
+    align-items: center;
+    border: 2px solid rgba(0,0,0,0.2);
+    width: 26px;
+    height: 26px;
+}
+
+div.settings-control.menu-control {
+    background-color: rgba(255, 255, 255, 1.0);
+    border-radius: 4px;
+    min-width: 200px;
+    border: 2px solid rgba(0,0,0,0.2);
+    padding: 6px;
+}
+
+input.settings-range {
+    float: right;
+    width: 160px;
+    height: 15px;
+}
+
+div.settings-range-badge {
+    position: absolute;
+    left: 0%;
+    background: #717171;
+    color: #fff;
+    border: 2px solid rgba(0,0,0,0.2);
+    width: 20px;
+    text-align: center;
+    visibility: hidden;
+}
+
+#settings-catalog-menu {
+    display: flex;
+    margin-top: 3px;
+    align-items: center;
+}
+
+#settings-catalog-picker{
+    width: 100%;
+}
+
+#catalog-line-color, #catalog-fill-color {
+    margin-left: 2px;
+    margin-right: 2px;
+}
+
+#settings-catalog-row-n {
+    margin-left: 2px;
+    width: 30px;
+}
+
+label.settings-range {
+    vertical-align: super;
+}
+
+p.settings {
+    margin-bottom: 0px;
+    margin-top: 2px;
+}
+
+b.settings {
+    margin-bottom: 0px;
+    margin-top: 2px;
+}
+
+div.collapsed {
+    display: none !important;
+}

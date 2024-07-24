@@ -4,11 +4,13 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
 
     options: {
         tileURL: "",
-        color: "#4C72B0",
+        strokeColor: "#4C72B0",
+        fillColor: "#4C72B0",
         fillOpacity: 0.2,
         strokeOpacity: 1.0,
+        scaleRadius: 1.0,
         radius: 10,
-        rowsPerCol: Infinity,
+        nCols: 1,
         catalogColumns: [],
     },
 
@@ -25,10 +27,11 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
         const rowsPerCol = this.options.rowsPerColumn;
         const values = json["v"];
 
-        let nCols = Math.floor(nItems / (Number.isFinite(rowsPerCol) ? rowsPerCol : nItems));
-        if (Number.isFinite(rowsPerCol) && nItems % rowsPerCol > 0) {
-            nCols += 1;
-        }
+        // let nCols = Math.floor(nItems / (Number.isFinite(rowsPerCol) ? rowsPerCol : nItems));
+        let nCols = this.options.nCols <= 0 ? 1 : this.options.nCols;
+        // if (Number.isFinite(rowsPerCol) && nItems % rowsPerCol > 0) {
+        //     nCols += 1;
+        // }
 
         let html = "<span>Catalog Information</span>" +
                     "<table class='catalog-table'>";
@@ -93,18 +96,21 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
                      .setLatLng(latlng)
                      .setContent((layer) => this.renderPopupContents(this, layer));
 
-            console.log(src);
             if (src.a==-1){
                 return L.circleMarker(latlng, {
-                    color: this.options.color,
+                    color: this.options.strokeColor,
+                    fillColor: this.options.fillColor,
                     assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`,
                     opacity: this.options.strokeOpacity,
                     fillOpacity: this.options.fillOpacity,
-                    radius: this.options.radius,
+                    radius: this.options.radius * this.options.scaleRadius,
                 }).bindPopup(p);
             } else {
-                return L.ellipse(latlng, [src.a, src.b], src.theta, {
-                    color: this.options.color,
+                return L.ellipse(latlng, [src.a * this.options.scaleRadius, src.b * this.options.scaleRadius], src.theta, {
+                    color: this.options.strokeColor,
+                    fillColor: this.options.fillColor,
+                    opacity: this.options.strokeOpacity,
+                    fillOpacity: this.options.fillOpacity,
                     assetPath: `catalog_assets/${src.cat_path}/${src.catalog_id}.cbor`
                 }).bindPopup(p);
             }
@@ -145,7 +151,7 @@ L.GridLayer.TiledMarkers = L.GridLayer.extend({
     },
 
 
-    createTile: function (coords, done) {
+    createTile: function (coords) {
         const offset_y = 2**coords.z - coords.y - 1
         const offset_x = 2**coords.z - coords.x - 1
         const resourceURL = this.options.tileURL

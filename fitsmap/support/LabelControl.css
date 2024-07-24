@@ -1,0 +1,17 @@
+/* Label Control */
+
+.label-control p {
+    margin-bottom: 0px;
+    margin-top: 0px;
+}
+
+.label-control div {
+    padding: 2px;
+}
+
+.label-control.leaflet-control {
+    background-color: rgba(255, 255, 255, 0.5);
+    border-radius: 4px;
+    margin-left: 5px;
+    margin-bottom: 5px;
+}
