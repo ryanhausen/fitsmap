@@ -36,7 +36,7 @@ from itertools import (
     repeat,
     starmap,
 )
-from typing import Any, Callable, Dict, Iterable, List, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
 
 import cbor2
 import mapbox_vector_tile as mvt
@@ -995,10 +995,11 @@ def files_to_map(
     task_procs: int = 0,
     procs_per_task: int = 0,
     catalog_delim: str = ",",
-    cat_wcs_fits_file: str = None,
+    cat_wcs_fits_file: Optional[str] = None,
     max_catalog_zoom: int = -1,
     tile_size: Tuple[int, int] = [256, 256],
     norm_kwargs: dict = {},
+    rows_per_column: Optional[int] = None,
     n_columns: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
@@ -1006,8 +1007,8 @@ def files_to_map(
     pixel_scale: float = 1.0,
     units_are_pixels: bool = True,
     cluster_min_points: int = 2,
-    cluster_radius: float = None,
-    cluster_node_size: int = None,
+    cluster_radius: Optional[float] = None,
+    cluster_node_size: Optional[int] = None,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1040,6 +1041,7 @@ def files_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+        rows_per_column (Optional[int]): (deprecated) please use `n_columns` instead
         n_columns (int): If converting a catalog, the number of columns to use
                       when displaying the values in the popup. The default
                       displays everything in a single column.
@@ -1054,8 +1056,8 @@ def files_to_map(
         units_are_pixels (bool): If True, the pixel scale is in pixels, if False,
                                  the pixel scale is in arcsec/pix
         cluster_min_points (int): The minimum points to form a catalog cluster
-        cluster_radius (float): The radius of each cluster in pixels.
-        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
+        cluster_radius (Optional[float]): The radius of each cluster in pixels.
+        cluster_node_size (Optional[int]): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1070,6 +1072,11 @@ def files_to_map(
     Returns:
         None
     """
+
+    if rows_per_column is not None:
+        raise DeprecationWarning(
+            "rows_per_column is deprecated, use `n_columns` instead"
+        )
 
     assert len(files) > 0, "No files provided `files` is an empty list"
 
@@ -1250,6 +1257,7 @@ def dir_to_map(
     max_catalog_zoom: int = -1,
     tile_size: Shape = [256, 256],
     norm_kwargs: Union[Dict[str, Any], Dict[str, Dict[str, Any]]] = {},
+    rows_per_column: int = None,
     n_columns: int = 1,
     prefer_xy: bool = False,
     catalog_starts_at_one: bool = True,
@@ -1299,6 +1307,7 @@ def dir_to_map(
                             The default is linear scaling using min/max values.
                             See documentation for more information:
                             https://docs.astropy.org/en/stable/api/astropy.visualization.mpl_normalize.simple_norm.html
+        rows_per_column (Optional[int]): (deprecated) please use `n_columns` instead
         n_columns (int): If converting a catalog, the number of columns to use
                          when displaying the values in the popup. The default
                          displays everything in a single column.
@@ -1314,8 +1323,8 @@ def dir_to_map(
                                  the pixel scale is in arcsec/pix
 
         cluster_min_points (int): The minimum points to form a catalog cluster
-        cluster_radius (float): The radius of each cluster in pixels.
-        cluster_node_size (int): The size for the kd-tree leaf mode, afftects performance.
+        cluster_radius (Optional[float]): The radius of each cluster in pixels.
+        cluster_node_size (Optional[int]): The size for the kd-tree leaf mode, afftects performance.
 
     Example of image specific norm_kwargs vs single norm_kwargs:
 
@@ -1358,6 +1367,7 @@ def dir_to_map(
         max_catalog_zoom=max_catalog_zoom,
         tile_size=tile_size,
         norm_kwargs=norm_kwargs,
+        rows_per_column=rows_per_column,
         n_columns=n_columns,
         prefer_xy=prefer_xy,
         catalog_starts_at_one=catalog_starts_at_one,
