@@ -252,10 +252,46 @@ share the view with others by sharing the url.
 
 
 Search
-**************
+******
 
 You can search the catalogs by the ``id`` column from the catalog and FitsMap
 will locate and pan to the source in the map.
+
+
+Image/Catalog settings
+**********************
+
+You can adjust the appearance of the image and catalog markers by using the
+settings tool visible in the top left corner. Note that the changes made using
+the settings tool **are not saved** when the webpage is refreshed.
+
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/settings-collapsed.png
+    :alt: FitsMap
+    :align: center
+    :width: 100px
+
+When the button is hovered over, the settings menu will expand to show the following
+options (Note if there is not a catalog in the FitsMap, then the catalog settings
+will not be visible):
+
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/settings-expanded.png
+    :alt: FitsMap
+    :align: center
+
+- **Image Settings**:
+
+You can edit the brightness, contrast, inversion, and hue of the image by moving
+the sliders. To reset the setting to its default value, click the label
+associated with the slider (e.g. "Brightness").
+
+- **Catalog Settings**:
+
+Use the dropdown menus to select which catalog you would like to adjust the
+settings for. You can change the outline of the markers using the "Line" menu.
+You can change the fill color of the markers using the "Fill" menu. You can
+change the number of columns that are used to display values in the pop-up
+when a markers is clicked usein the "# Cols" menu. You can change the size of
+the markers using the "Scale-Radius" slider.
 
 
 Parallelization
