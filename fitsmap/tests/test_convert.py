@@ -248,6 +248,29 @@ def test_get_array_fits():
 
 @pytest.mark.unit
 @pytest.mark.convert
+def test_get_array_fits_gz():
+    """Test convert.get_array"""
+
+    helpers.setup()
+
+    # make test array
+    tmp = np.zeros((3, 3), dtype=np.float32)
+    out_path = os.path.join(helpers.TEST_PATH, "test.fits.gz")
+    fits.PrimaryHDU(data=tmp).writeto(out_path)
+
+    pads = [[0, 1], [0, 1]]
+    expected_array = np.pad(tmp, pads, mode="constant", constant_values=np.nan)
+
+    # get test array
+    actual_array = convert.get_array(out_path)
+
+    helpers.tear_down()
+
+    np.testing.assert_equal(expected_array, actual_array[:])
+
+
+@pytest.mark.unit
+@pytest.mark.convert
 def test_get_array_fits_fails():
     """Test convert.get_array"""
 
