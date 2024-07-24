@@ -112,6 +112,10 @@ There are two FITS files (``F125W.fits``, ``F160W.fits``), a PNG file
 image files. To render these files using FitsMap you can use
 |dir_to_map| or |files_to_map|.
 
+Note: Currently FITS image data only pulled from the 0th extension
+and all other extensions are ignored. For non-FITS images, currently JPEG and
+PNG area supported. Further all catalog files must end in the extension .cat.
+
 After the FitsMap has been generated you can view it in your web browser by
 navigating to the directory containing the map (``index.html``) and running the
 following command in the terminal:
