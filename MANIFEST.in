@@ -9,3 +9,5 @@ include fitsmap/support/tiledMarkers.min.js
 include fitsmap/support/MarkerPopup.min.css
 include fitsmap/support/urlCoords.js.tmp
 include fitsmap/support/vector-tile.min.js
+include fitsmap/support/settingsControl.min.js
+include fitsmap/support/labelControl.min.js
