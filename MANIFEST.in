@@ -11,3 +11,4 @@ include fitsmap/support/urlCoords.js.tmp
 include fitsmap/support/vector-tile.min.js
 include fitsmap/support/settingsControl.min.js
 include fitsmap/support/labelControl.min.js
+include fitsmap/support/fitsmapScale.min.js
