@@ -342,6 +342,7 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
         "js/labelControl.min.js",
         "js/settingsControl.min.js",
         "js/urlCoords.js",
+        "js/integerTranslate.js",
         "js/index.js",
     ]
 
@@ -493,7 +494,9 @@ def build_index_js(
             loading_screen_js(image_layer_dicts),
             "",
             'map.on("moveend", updateLocationBar);',
+            'map.on("moveend", integerTranslateMapPane);',
             'map.on("zoomend", updateLocationBar);',
+            'map.on("zoomend", integerTranslateMapPane);',
             'map.on("mousemove", (event) => {label.update(event.latlng);});',
             'map.on("baselayerchange", (event) => {label.options.title = event.name;});',
             "",
