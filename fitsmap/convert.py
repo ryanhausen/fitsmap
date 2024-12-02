@@ -1109,6 +1109,7 @@ def files_to_map(
     # to the console. These should be changed during development
     debug = os.getenv("FITSMAP_DEBUG", "False").lower() == "true"
     ray.init(
+        ignore_reinit_error=True,
         include_dashboard=debug,  # during dev == True
         configure_logging=~debug,  # during dev == False
         logging_level=(
