@@ -54,7 +54,7 @@ def cli():
 @click.option("--procs_per_task", default=0, help=HELP_PROCS_PER_TASK)
 @click.option("--catalog_delim", default=None, help=HELP_CATALOG_DELIM)
 @click.option("--cat_wcs_fits_file", default=None, help=HELP_CAT_WCS_FITS_FILE)
-@click.option("--image_engine", default="PIL", help=HELP_IMAGE_ENGINE)
+@click.option("--use_rust", is_flag=True, help="Use Rust for tiling images.")
 def dir(
     directory,
     out_dir,
@@ -64,7 +64,7 @@ def dir(
     procs_per_task,
     catalog_delim,
     cat_wcs_fits_file,
-    image_engine,
+    use_rust,
 ):
     """Convert a directory to a map.
 
@@ -80,8 +80,9 @@ def dir(
         procs_per_task=procs_per_task,
         catalog_delim=catalog_delim,
         cat_wcs_fits_file=cat_wcs_fits_file,
-        image_engine=image_engine,
+        use_rust=use_rust,
     )
+
 
 
 @cli.command()
@@ -93,7 +94,7 @@ def dir(
 @click.option("--procs_per_task", default=0, help=HELP_PROCS_PER_TASK)
 @click.option("--catalog_delim", default=None, help=HELP_CATALOG_DELIM)
 @click.option("--cat_wcs_fits_file", default=None, help=HELP_CAT_WCS_FITS_FILE)
-@click.option("--image_engine", default="PIL", help=HELP_IMAGE_ENGINE)
+@click.option("--use_rust", is_flag=True, help="Use Rust for tiling images.")
 def files(
     files,
     out_dir,
@@ -103,7 +104,7 @@ def files(
     procs_per_task,
     catalog_delim,
     cat_wcs_fits_file,
-    image_engine,
+    use_rust,
 ):
     """Convert a files to a map.
 
@@ -119,7 +120,7 @@ def files(
         procs_per_task=procs_per_task,
         catalog_delim=catalog_delim,
         cat_wcs_fits_file=cat_wcs_fits_file,
-        image_engine=image_engine,
+        use_rust=use_rust,
     )
 
 

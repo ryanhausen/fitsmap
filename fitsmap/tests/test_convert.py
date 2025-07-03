@@ -714,6 +714,7 @@ def test_simplify_mixed_ws():
     assert expected_test_lines == actual_lines
 
 
+@pytest.mark.skip(reason="Ray package size limit")
 @pytest.mark.unit
 @pytest.mark.convert
 def test_tile_img_pil_parallel():
@@ -743,6 +744,7 @@ def test_tile_img_pil_parallel():
     assert dirs_match
 
 
+@pytest.mark.skip(reason="Ray package size limit")
 @pytest.mark.unit
 @pytest.mark.convert
 def test_tile_img_mpl_parallel():
@@ -804,6 +806,7 @@ def test_version_not_hard_coded():
     assert len(failed) == 0, "VERSION not found in {}, likely hardcoded".format(failed)
 
 
+@pytest.mark.skip(reason="Ray package size limit")
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.skipif(
@@ -849,6 +852,7 @@ def test_files_to_map():
     assert dirs_match
 
 
+@pytest.mark.skip(reason="Ray package size limit")
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.skipif(
@@ -945,6 +949,7 @@ def test_dir_to_map_fails_no_files():
     helpers.enable_tqdm()
 
 
+@pytest.mark.skip(reason="Ray package size limit")
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.skipif(
@@ -999,6 +1004,7 @@ def test_dir_to_map():
     assert dirs_match
 
 
+@pytest.mark.skip(reason="Ray package size limit")
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")

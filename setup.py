@@ -24,6 +24,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 import os
 from setuptools import setup, find_packages
+from setuptools_rust import RustExtension
 
 
 def read(fname):
@@ -61,6 +62,8 @@ setup(
     packages=find_packages(exclude="fitsmap.tests"),
     include_package_data=True,
     install_requires=REQUIRES,
+    setup_requires=["setuptools-rust"],
+    rust_extensions=[RustExtension("fitsmap.fitsmap_rust", "fitsmap/rust/Cargo.toml")],
     entry_points={"console_scripts": ["fitsmap=fitsmap.__main__:cli"]},
     long_description=read("README.rst"),
     classifiers=[
@@ -76,4 +79,5 @@ setup(
         "Operating System :: Microsoft :: Windows",
         "Topic :: Scientific/Engineering",
     ],
+    zip_safe=False,
 )

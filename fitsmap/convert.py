@@ -419,6 +419,7 @@ def tile_img(
     mp_procs: int = 0,
     norm_kwargs: dict = {},
     batch_size: int = 1000,
+    use_rust: bool = False,
 ) -> None:
     """Extracts tiles from the array at ``file_location``.
 
@@ -483,6 +484,12 @@ def tile_img(
     )
 
     total_tiles = get_total_tiles(min_zoom, max_zoom)
+
+    if use_rust:
+        from . import fitsmap_rust
+        fitsmap_rust.tile_img_rust(file_location, tile_dir, min_zoom, max_zoom, tile_size[0])
+        OutputManager.update_done(pbar_ref)
+        return
 
     if mp_procs > 1:
         # We need to process batches to offset the cost of spinning up a process
@@ -1010,6 +1017,7 @@ def files_to_map(
     cluster_min_points: int = 2,
     cluster_radius: Optional[float] = None,
     cluster_node_size: Optional[int] = None,
+    use_rust: bool = False,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1103,6 +1111,7 @@ def files_to_map(
         mp_procs=procs_per_task,
         norm_kwargs=norm_kwargs,
         batch_size=img_tile_batch_size,
+        use_rust=use_rust,
     )
 
     # we want to init ray in such a way that it doesn't print any output
@@ -1115,6 +1124,36 @@ def files_to_map(
             logging.INFO if debug else logging.CRITICAL
         ),  # during dev == logging.INFO, test == logging.CRITICAL
         log_to_driver=debug,  # during dev = True
+        runtime_env={
+            "excludes": [
+                "fitsmap/rust/target",
+                ".git",
+                "__pycache__",
+                "docs",
+                "env.yaml",
+                "fitsmap/support",
+                "fitsmap/tests",
+                "pytest.ini",
+                "README.rst",
+                "requirements.txt",
+                ".readthedocs.yaml",
+                ".rtd.requirements.txt",
+                "CITE.bib",
+                "LICENSE",
+                "MANIFEST.in",
+                "setup.py",
+                "fitsmap/fitsmap_rust.cpython-312-x86_64-linux-gnu.so",
+                "fitsmap/rust/target/debug/deps/libsyn-a89f4bd3ce3b43f1.rlib",
+                "fitsmap/rust/target/debug/deps/libravif-c8a7e9cb91ae6307.rlib",
+                "fitsmap/rust/target/debug/deps/libexr-0e37fb07e528e035.rlib",
+                "fitsmap/rust/target/debug/deps/libfitsmap_rust.so",
+                "fitsmap/rust/target/debug/deps/librav1e-695f19645371c61c.rlib",
+                "fitsmap/rust/target/debug/deps/libpyo3-621ac8b4847f6ccd.rlib",
+                "fitsmap/rust/target/debug/deps/libimage-71095b91417794f7.rlib",
+                "fitsmap/rust/target/debug/libfitsmap_rust.so",
+                ".git/objects/pack/pack-c49fb40d4d5a00d40aa400b18e779dc855ae2912.pack",
+            ]
+        }
     )
 
     if task_procs > 1:
@@ -1268,6 +1307,7 @@ def dir_to_map(
     cluster_min_points: int = 2,
     cluster_radius: float = None,
     cluster_node_size: int = None,
+    use_rust: bool = False,
 ) -> None:
     """Converts a list of files into a LeafletJS map.
 
@@ -1378,4 +1418,5 @@ def dir_to_map(
         cluster_min_points=cluster_min_points,
         cluster_radius=cluster_radius,
         cluster_node_size=cluster_node_size,
+        use_rust=use_rust,
     )

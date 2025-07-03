@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=62.0", "setuptools-rust"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fitsmap"
+version = "0.11.1" # This should ideally be read dynamically or kept in sync
+description = "Turn fits files/catalogs into a leafletjs map"
+authors = [
+    { name = "Ryan Hausen", email = "rhausen@ucsc.edu" },
+]
+
+keywords = ["tools", "fits", "leaflet"]
+readme = "README.rst"
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Intended Audience :: Science/Research",
+    "Development Status :: 4 - Beta",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering",
+]
+
+dependencies = [
+    "astropy",
+    "cbor2",
+    "numpy",
+    "matplotlib",
+    "pillow",
+    "ray",
+    "scikit-image",
+    "tqdm",
+    "click",
+    "protobuf<4.21",
+    "mapbox_vector_tile",
+    "pytest",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/ryanhausen/fitsmap"
+
+[project.scripts]
+fitsmap = "fitsmap.__main__:cli"

@@ -1,0 +1,18 @@
+
+[package]
+name = "fitsmap_rust"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "fitsmap_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.21.2", features = ["extension-module"] }
+numpy = "0.21.0"
+image = "0.25.1"
+fitsio = "0.21.7"
+rayon = "1.10.0"
+ndarray = "0.15.6"
+anyhow = "1.0.86"
