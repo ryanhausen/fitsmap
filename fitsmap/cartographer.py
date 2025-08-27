@@ -506,7 +506,7 @@ def build_index_js(
             "});",
             "",
             'if (urlParam("zoom")==null) {',
-            f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[0]}, {max_xy[1]}]]));",
+            f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[1]}, {max_xy[0]}]]));",
             "} else {",
             "    panFromUrl(map);",
             "}",
