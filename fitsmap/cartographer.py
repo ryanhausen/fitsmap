@@ -342,7 +342,7 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
         "js/labelControl.min.js",
         "js/settingsControl.min.js",
         "js/urlCoords.js",
-        "js/integerTranslate.js",
+        "js/integerTranslate.min.js",
         "js/index.js",
     ]
 

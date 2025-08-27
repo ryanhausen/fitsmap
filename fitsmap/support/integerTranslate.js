@@ -13,9 +13,9 @@
 
 // Function to round the x and y components of the `translate3d` CSS transformation to integer values.
 // This function is executed after the map ends a movement or zoom operation.
-const integerTranslateMapPane = function () {
+const integerTranslateMapPane = function (event) {
     // Obtain the map pane element, which contains the current translation transformation information.
-    var mapPane = map.getPane('mapPane');
+    var mapPane = event.target.getPane('mapPane');
     var transformStyle = mapPane.style.transform;
 
     // Use a regular expression to extract the x, y, and z values from the `translate3d` transformation.
@@ -24,9 +24,9 @@ const integerTranslateMapPane = function () {
     // If the `transform` style includes valid `translate3d` values, proceed with rounding the x and y.
     if (xyzMatches) {
         // Convert the matched x, y, and z values to floating point numbers, then round them to the nearest integer.
-        var xTranslateInt = Math.round(parseFloat(matches[1])); // Round the x component to the nearest integer
-        var yTranslateInt = Math.round(parseFloat(matches[3])); // Round the y component to the nearest integer
-        var zTranslateInt = Math.round(parseFloat(matches[5])); // Round the z component to the nearest integer (typically 0)
+        var xTranslateInt = Math.round(parseFloat(xyzMatches[1])); // Round the x component to the nearest integer
+        var yTranslateInt = Math.round(parseFloat(xyzMatches[3])); // Round the y component to the nearest integer
+        var zTranslateInt = Math.round(parseFloat(xyzMatches[5])); // Round the z component to the nearest integer (typically 0)
 
         // Update the `transform` style of the map pane to use the rounded x, y, and z values.
         mapPane.style.transform = `translate3d(${xTranslateInt}px, ${yTranslateInt}px, ${zTranslateInt}px)`;
