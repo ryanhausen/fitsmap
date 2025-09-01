@@ -52,10 +52,8 @@ def chart(
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
-    ****************************************************************************
     * Designed for internal use. Any method/variable can be deprecated/changed *
     * without consideration.                                                   *
-    ****************************************************************************
     """
     # convert layer names into a single javascript string
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))

@@ -9,22 +9,23 @@
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-
 import os
 import sys
+from datetime import datetime
 
-sys.path.insert(0, os.path.abspath("."))
-sys.path.insert(0, os.path.abspath("../"))
-sys.path.insert(0, os.path.abspath("../fitsmap"))
+# sys.path.insert(0, os.path.abspath("."))
+# sys.path.insert(0, os.path.abspath("../"))
+sys.path.insert(0, os.path.abspath("../.."))
+
+# import fitsmap
 
 # -- Project information -----------------------------------------------------
 
 project = "FitsMap"
-copyright = "2022, Ryan Hausen and Contributors"
+copyright = f"{datetime.now().year}, Ryan Hausen and Contributors"
 author = "Ryan Hausen"
-
-# The full version, including alpha/beta/rc tags
-release = ""
+\
+# version = fitsmap.__version__
 
 
 # -- General configuration ---------------------------------------------------
@@ -65,6 +66,6 @@ html_theme = "alabaster"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = ["../_static"]
 
 master_doc = "index"

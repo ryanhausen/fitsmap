@@ -274,7 +274,8 @@ def imread_default(path: str, default: np.ndarray) -> np.ndarray:
 def make_tile_mpl(
     mpl_norm: mpl.colors.Normalize, mpl_cmap: mpl.colors.Colormap, tile: np.ndarray
 ) -> np.ndarray:
-    """Converts array data into an image using matplotlib
+    """Converts array data into an image using matplotlib.
+
     Args:
         mpl_f (mpl.figure.Figure): The matplotlib figure to use
         mpl_img (mpl.image.AxesImage): The matplotlib image to use
@@ -331,6 +332,7 @@ def mem_safe_make_tile(
     ],
 ) -> None:
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using PIL.
+
     Args:
         out_dir (str): The directory to save tile in
         tile_f (Callable[[np.ndarray], np.ndarray]): A function that converts a
