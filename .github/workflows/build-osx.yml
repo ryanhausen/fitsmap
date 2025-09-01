@@ -4,7 +4,7 @@ name: OSX
 
 on:
   push:
-    branches: [ "push-jwst-hotfixes", "master" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
@@ -15,8 +15,8 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ macos-latest ] #, windows-latest, macos-latest]
-        python-version: ["3.8"] # TODO: decide how many versions to support
+        os: [ macos-latest ]
+        python-version: ["3.9"]
 
     runs-on: ${{ matrix.os }}
 

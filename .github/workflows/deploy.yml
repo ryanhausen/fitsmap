@@ -1,13 +1,33 @@
-name: Deploy to PyPI
+name: Publish Python Package to PyPI
 
 on:
   push:
     tags:
-      - "*"
+      - 'v*'  # Only run on version tags like v1.0.0
+
 jobs:
-  deploy:
+  build-and-publish:
+    name: Build and Publish
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v3
-      - name: testing
-        run: echo "Will hopefully deploy soon!"
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'  # or your preferred version
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+
+    - name: Build package
+      run: python -m build
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@v1.8.10
+      with:
+        password: ${{ secrets.PYPI_TOKEN }}
