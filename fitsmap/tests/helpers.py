@@ -26,8 +26,8 @@ import tarfile
 from itertools import product, starmap
 
 import numpy as np
-from PIL import Image
 import ray
+from PIL import Image
 
 TEST_PATH = "./testing_tmp"
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")

@@ -23,9 +23,8 @@ import filecmp
 import os
 
 import numpy as np
-from astropy.wcs.wcs import WCS
-
 import pytest
+from astropy.wcs.wcs import WCS
 
 import fitsmap.cartographer as c
 import fitsmap.tests.helpers as helpers
@@ -166,7 +165,7 @@ def test_cat_layer_dict_to_str():
             "fillOpacity: 0.2, ",
             "strokeOpacity: 1.0, ",
             f"nCols: Infinity, ",
-            f'catalogColumns: [{",".join(layer_dict["columns"])}], ',
+            f"catalogColumns: [{','.join(layer_dict['columns'])}], ",
             "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
             "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",

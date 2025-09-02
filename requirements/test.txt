@@ -1,2 +1,4 @@
+bandit==1.8.6
+ruff==0.12.7
 pytest==8.4.1
 pytest-cov==6.2.1

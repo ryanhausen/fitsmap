@@ -26,8 +26,8 @@ from typing import Any, Callable, Iterable, List, Tuple
 import ray
 import ray.util.queue as queue
 from astropy.io import fits
-from tqdm import tqdm
 from PIL import Image
+from tqdm import tqdm
 
 import fitsmap
 from fitsmap.output_manager import OutputManager

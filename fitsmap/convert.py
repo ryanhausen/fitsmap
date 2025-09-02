@@ -49,13 +49,13 @@ import numpy as np
 import ray
 import ray.util.queue as queue
 from astropy.io import fits
-from astropy.wcs import WCS
 from astropy.visualization import simple_norm
+from astropy.wcs import WCS
 from PIL import Image
 
-import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
 import fitsmap.padded_array as pa
+import fitsmap.utils as utils
 from fitsmap.output_manager import OutputManager
 from fitsmap.supercluster import Supercluster
 
@@ -365,11 +365,19 @@ def mem_safe_make_tile(
 
             with_out_dir = partial(os.path.join, out_dir)
 
-            if os.path.exists(with_out_dir(f"{z+1}")):
-                top_left = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png"))
-                top_right = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png"))
-                bottom_left = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png"))
-                bottom_right = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png"))
+            if os.path.exists(with_out_dir(f"{z + 1}")):
+                top_left = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y + 1}", f"{2 * x}.png")
+                )
+                top_right = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y + 1}", f"{2 * x + 1}.png")
+                )
+                bottom_left = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y}", f"{2 * x}.png")
+                )
+                bottom_right = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y}", f"{2 * x + 1}.png")
+                )
 
                 tile = np.concatenate(
                     [
@@ -791,9 +799,9 @@ def make_marker_tile(
             tile_sources["name"] = "Points"
 
             for i in range(len(tile_sources["features"])):
-                tile_sources["features"][i][
-                    "geometry"
-                ] = "POINT(0 0)"  # we dont' use this
+                tile_sources["features"][i]["geometry"] = (
+                    "POINT(0 0)"  # we dont' use this
+                )
 
             encoded_tile = mvt.encode([tile_sources], extents=256)
 
@@ -1355,9 +1363,9 @@ def dir_to_map(
         )
     )
 
-    assert (
-        len(dir_files) > 0
-    ), "No files in `directory` or `exclude_predicate` excludes everything"
+    assert len(dir_files) > 0, (
+        "No files in `directory` or `exclude_predicate` excludes everything"
+    )
 
     files_to_map(
         sorted(dir_files),

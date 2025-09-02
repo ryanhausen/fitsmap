@@ -24,7 +24,6 @@ sys.path.insert(0, os.path.abspath("../.."))
 project = "FitsMap"
 copyright = f"{datetime.now().year}, Ryan Hausen and Contributors"
 author = "Ryan Hausen"
-\
 # version = fitsmap.__version__
 
 
