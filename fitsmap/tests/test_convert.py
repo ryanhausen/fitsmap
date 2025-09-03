@@ -23,13 +23,13 @@ import os
 import queue
 import shutil
 import sys
+from multiprocessing import JoinableQueue
 
 import numpy as np
 import pytest
 from astropy.io import fits
 from astropy.wcs import WCS
 from PIL import Image
-from multiprocessing import JoinableQueue
 from skimage.data import camera
 
 import fitsmap.convert as convert

@@ -1,13 +1,36 @@
-name: Deploy to PyPI
+name: Publish Python Package to PyPI
 
 on:
   push:
     tags:
-      - "*"
+      - 'v*'  # Only run on version tags like v1.0.0
+
 jobs:
-  deploy:
+  build-and-publish:
+    name: Build and Publish
     runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/fitsmap
+
     steps:
-      - uses: actions/checkout@v3
-      - name: testing
-        run: echo "Will hopefully deploy soon!"
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.9'
+
+    - name: Install build tools
+      run: |
+        python -m pip install --upgrade pip
+        pip install build
+
+    - name: Build package
+      run: python -m build
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@v1.12.4
+      with:
+        password: ${{ secrets.PYPI_TOKEN }}

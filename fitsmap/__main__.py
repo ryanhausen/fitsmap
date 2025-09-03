@@ -19,10 +19,10 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """FitsMap CLI interface"""
 
-from concurrent.futures import ThreadPoolExecutor
 import functools
 import http.server
 import webbrowser
+from concurrent.futures import ThreadPoolExecutor
 
 import click
 

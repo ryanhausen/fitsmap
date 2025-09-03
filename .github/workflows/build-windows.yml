@@ -4,7 +4,7 @@ name: Windows
 
 on:
   push:
-    branches: [ "push-jwst-hotfixes", "master" ]
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
@@ -15,26 +15,25 @@ jobs:
   build:
     strategy:
       matrix:
-        os: [ windows-latest ] #, windows-latest, macos-latest]
-        python-version: ["3.7"] # TODO: decide how many versions to support
+        os: [ windows-latest ]
+        python-version: ["3.9"]
 
     runs-on: ${{ matrix.os }}
 
     steps:
       # check out the repo
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v5
 
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
-          python -m pip install pytest pytest-cov codecov
-          python -m pip install .
+          python -m pip install -r requirements/prd.txt
+          python -m pip install -r requirements/test.txt
 
       - name: Run tests
-        run: pytest --cov=fitsmap -vv
+        run: python -m pytest --cov=fitsmap -vv --cov-report=xml:coverage.xml

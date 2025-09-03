@@ -23,7 +23,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 # https://pythonhosted.org/an_example_pypi_project/setuptools.html
 
 import os
-from setuptools import setup, find_packages
+
+from setuptools import find_packages, setup
 
 
 def read(fname):
@@ -44,7 +45,7 @@ REQUIRES = [
     "scikit-image",
     "tqdm",
     "click",
-    "protobuf<4.21",  # mapbox-vector-tile requires protobuf<4.21,>=3.0.0
+    "protobuf",
     "mapbox_vector_tile",
 ]
 

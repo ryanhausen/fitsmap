@@ -49,13 +49,13 @@ import numpy as np
 import ray
 import ray.util.queue as queue
 from astropy.io import fits
-from astropy.wcs import WCS
 from astropy.visualization import simple_norm
+from astropy.wcs import WCS
 from PIL import Image
 
-import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
 import fitsmap.padded_array as pa
+import fitsmap.utils as utils
 from fitsmap.output_manager import OutputManager
 from fitsmap.supercluster import Supercluster
 
@@ -274,7 +274,8 @@ def imread_default(path: str, default: np.ndarray) -> np.ndarray:
 def make_tile_mpl(
     mpl_norm: mpl.colors.Normalize, mpl_cmap: mpl.colors.Colormap, tile: np.ndarray
 ) -> np.ndarray:
-    """Converts array data into an image using matplotlib
+    """Converts array data into an image using matplotlib.
+
     Args:
         mpl_f (mpl.figure.Figure): The matplotlib figure to use
         mpl_img (mpl.image.AxesImage): The matplotlib image to use
@@ -331,6 +332,7 @@ def mem_safe_make_tile(
     ],
 ) -> None:
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using PIL.
+
     Args:
         out_dir (str): The directory to save tile in
         tile_f (Callable[[np.ndarray], np.ndarray]): A function that converts a
@@ -363,11 +365,19 @@ def mem_safe_make_tile(
 
             with_out_dir = partial(os.path.join, out_dir)
 
-            if os.path.exists(with_out_dir(f"{z+1}")):
-                top_left = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png"))
-                top_right = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png"))
-                bottom_left = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png"))
-                bottom_right = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png"))
+            if os.path.exists(with_out_dir(f"{z + 1}")):
+                top_left = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y + 1}", f"{2 * x}.png")
+                )
+                top_right = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y + 1}", f"{2 * x + 1}.png")
+                )
+                bottom_left = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y}", f"{2 * x}.png")
+                )
+                bottom_right = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y}", f"{2 * x + 1}.png")
+                )
 
                 tile = np.concatenate(
                     [
@@ -789,9 +799,9 @@ def make_marker_tile(
             tile_sources["name"] = "Points"
 
             for i in range(len(tile_sources["features"])):
-                tile_sources["features"][i][
-                    "geometry"
-                ] = "POINT(0 0)"  # we dont' use this
+                tile_sources["features"][i]["geometry"] = (
+                    "POINT(0 0)"  # we dont' use this
+                )
 
             encoded_tile = mvt.encode([tile_sources], extents=256)
 
@@ -1353,9 +1363,9 @@ def dir_to_map(
         )
     )
 
-    assert (
-        len(dir_files) > 0
-    ), "No files in `directory` or `exclude_predicate` excludes everything"
+    assert len(dir_files) > 0, (
+        "No files in `directory` or `exclude_predicate` excludes everything"
+    )
 
     files_to_map(
         sorted(dir_files),

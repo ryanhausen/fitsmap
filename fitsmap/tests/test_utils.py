@@ -18,14 +18,16 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Tests utils.py"""
-from functools import partial
-import os
-from typing import Any, List
-import pytest
 
-import fitsmap.utils as u
-import fitsmap.tests.helpers as helpers
+import os
+from functools import partial
+from typing import Any, List
+
+import pytest
 from tqdm import tqdm
+
+import fitsmap.tests.helpers as helpers
+import fitsmap.utils as u
 
 
 @pytest.mark.unit

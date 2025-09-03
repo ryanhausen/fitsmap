@@ -18,9 +18,11 @@
 # PERFORMANCE OF THIS SOFTWARE.
 import math
 from typing import Callable, Tuple
+
 import numpy as np
-from fitsmap.kdbush import KDBush
 from tqdm import tqdm
+
+from fitsmap.kdbush import KDBush
 
 
 def default_map(i):
@@ -470,7 +472,7 @@ class Supercluster:
         elif count >= 10000:
             abbrev = f"{round(count / 1000)}k"
         elif count > 1000:
-            abbrev = f"{round(count / 100  / 10)}k"
+            abbrev = f"{round(count / 100 / 10)}k"
         else:
             abbrev = count
 

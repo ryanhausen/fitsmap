@@ -255,8 +255,8 @@ FitsMap stores the current view (location/zoom) in the url. You can then
 share the view with others by sharing the url.
 
 
-Search
-******
+Search Catalogs
+***************
 
 You can search the catalogs by the ``id`` column from the catalog and FitsMap
 will locate and pan to the source in the map.

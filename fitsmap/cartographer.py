@@ -27,8 +27,8 @@
 
 import os
 import shutil
-from itertools import count, cycle, repeat, starmap
 from functools import partial, reduce
+from itertools import count, cycle, repeat, starmap
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
@@ -52,10 +52,8 @@ def chart(
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
-    ****************************************************************************
     * Designed for internal use. Any method/variable can be deprecated/changed *
     * without consideration.                                                   *
-    ****************************************************************************
     """
     # convert layer names into a single javascript string
     layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
@@ -183,7 +181,7 @@ def cat_layer_dict_to_str(layer: dict, n_cols: int) -> str:
         "fillOpacity: 0.2, ",
         "strokeOpacity: 1.0, ",
         f"nCols: {n_cols}, ",
-        f'catalogColumns: [{",".join(layer["columns"])}], ',
+        f"catalogColumns: [{','.join(layer['columns'])}], ",
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
