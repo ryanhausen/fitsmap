@@ -7,5 +7,6 @@ numpy==1.26.4
 pillow==11.3.0
 protobuf==6.32.0
 ray==2.49.0
+shapely==2.0.7
 scikit-image==0.24.0
 tqdm==4.67.1
