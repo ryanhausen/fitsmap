@@ -21,13 +21,12 @@ import os
 import string
 from functools import partial, reduce
 from itertools import chain, filterfalse
-from typing import Any, Callable, Iterable, List, Tuple
+from typing import Any, Callable, List, Tuple
 
 import ray
 import ray.util.queue as queue
 from astropy.io import fits
 from PIL import Image
-from tqdm import tqdm
 
 import fitsmap
 from fitsmap.output_manager import OutputManager

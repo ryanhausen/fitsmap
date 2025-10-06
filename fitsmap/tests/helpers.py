@@ -45,6 +45,10 @@ DATA_DIR = str(find_repo_location() / "fitsmap" / "tests" / "data")
 TQDM_ENV_VAR = "DISBALE_TQDM"
 
 
+def with_test_path(fname: str) -> str:
+    return os.path.join(TEST_PATH, fname)
+
+
 class MockTQDM:
     unit = ""
 
@@ -89,10 +93,10 @@ def setup(with_data=False):
         os.mkdir(TEST_PATH)
 
     if with_data:
-        with_data_path = lambda f: os.path.join(DATA_DIR, f)
-        with_test_path = lambda f: os.path.join(TEST_PATH, f)
+        with_data_path = lambda f: os.path.join(DATA_DIR, f)  # noqa: E731 -- this is just for testing
+        with_test_path = lambda f: os.path.join(TEST_PATH, f)  # noqa: E731 -- this is just for testing
 
-        copy_file = lambda f: shutil.copy(with_data_path(f), with_test_path(f))
+        copy_file = lambda f: shutil.copy(with_data_path(f), with_test_path(f))  # noqa: E731 -- this is just for testing
         list(map(copy_file, os.listdir(DATA_DIR)))
 
         compressed_files = list(
@@ -128,7 +132,7 @@ def cat_to_json(fname):
     with open(fname, "r") as f:
         lines = f.readlines()
 
-    data = json.loads("[" + "".join([l.strip() for l in lines[1:-1]]) + "]")
+    data = json.loads("[" + "".join([line.strip() for line in lines[1:-1]]) + "]")
 
     return data, lines[0]
 
@@ -146,7 +150,7 @@ def __stable_idx_answer(shape, zoom, tile_size=256):
     tile_idxs_dim0 = [i * tile_size for i in range(num_tiles_dim0 + 1)]
     tile_idxs_dim1 = [i * tile_size for i in range(num_tiles_dim1 + 1)]
 
-    pair_runner = lambda coll: [slice(c0, c1) for c0, c1 in zip(coll[:-1], coll[1:])]
+    pair_runner = lambda coll: [slice(c0, c1) for c0, c1 in zip(coll[:-1], coll[1:])]  # noqa: E731 -- this is just for testing
 
     row_slices = pair_runner(tile_idxs_dim0)
     col_slices = pair_runner(tile_idxs_dim1)
@@ -178,10 +182,10 @@ def get_slice_idx_generator_solution(zoom: int):
 
 
 def compare_file_directories(dir1, dir2) -> bool:
-    is_file = lambda x: x.is_file()
-    is_dir = lambda x: x.is_dir()
-    get_name = lambda x: x.name
-    get_path = lambda x: x.path
+    is_file = lambda x: x.is_file()  # noqa: E731 -- this is just for testing
+    is_dir = lambda x: x.is_dir()  # noqa: E731 -- this is just for testing
+    get_name = lambda x: x.name  # noqa: E731 -- this is just for testing
+    get_path = lambda x: x.path  # noqa: E731 -- this is just for testing
 
     def get_file_extension(fname):
         return os.path.splitext(fname)[1]
@@ -214,7 +218,7 @@ def compare_file_directories(dir1, dir2) -> bool:
             with open(file1, mode) as f1, open(file2, mode) as f2:
                 try:
                     return f1.readlines() == f2.readlines()
-                except:
+                except:  # noqa: E722 -- this is just for testing
                     print(file1, file2, mode)
 
     def compare_subdirs(sub_dir1, sub_dir2) -> bool:

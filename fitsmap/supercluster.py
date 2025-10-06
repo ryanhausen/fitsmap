@@ -20,7 +20,6 @@ import math
 from typing import Callable, Tuple
 
 import numpy as np
-from tqdm import tqdm
 
 from fitsmap.kdbush import KDBush
 

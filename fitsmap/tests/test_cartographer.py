@@ -22,7 +22,6 @@
 import filecmp
 import os
 
-import numpy as np
 import pytest
 from astropy.wcs.wcs import WCS
 
@@ -137,7 +136,6 @@ def test_cat_layer_dict_to_str():
     min_zoom = 0
     max_zoom = 2
     name = "test"
-    color = "red"
     columns = "a,b,c"
 
     layer_dict = dict(
@@ -164,7 +162,7 @@ def test_cat_layer_dict_to_str():
             'fillColor: "' + layer_dict["fill_color"] + '", ',
             "fillOpacity: 0.2, ",
             "strokeOpacity: 1.0, ",
-            f"nCols: Infinity, ",
+            "nCols: Infinity, ",
             f"catalogColumns: [{','.join(layer_dict['columns'])}], ",
             "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
             "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
@@ -451,7 +449,7 @@ def test_build_index_js():
             "// https://stackoverflow.com/a/62093918",
             "const scale = L.control.fitsmapScale({",
             f"    pixelScale: {pixel_scale},",
-            f"    unitsArePixels: true,",
+            "    unitsArePixels: true,",
             "}).addTo(map);",
             "",
             "// Label Control ===============================================================",
@@ -635,7 +633,9 @@ def test_chart_no_wcs():
     version = helpers.get_version()
     raw_path = os.path.join(out_dir, "test_index.html")
     with open(raw_path, "r") as f:
-        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+        converted = list(
+            map(lambda line: line.replace("VERSION", version), f.readlines())
+        )
 
     with open(raw_path, "w") as f:
         f.writelines(converted)
@@ -704,7 +704,9 @@ def test_chart_with_wcs():
     version = helpers.get_version()
     raw_path = os.path.join(out_dir, "test_index_wcs.html")
     with open(raw_path, "r") as f:
-        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+        converted = list(
+            map(lambda line: line.replace("VERSION", version), f.readlines())
+        )
 
     with open(raw_path, "w") as f:
         f.writelines(converted)

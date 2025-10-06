@@ -23,7 +23,6 @@ import os
 import queue
 import shutil
 import sys
-from multiprocessing import JoinableQueue
 
 import numpy as np
 import pytest
@@ -184,7 +183,7 @@ def test_slice_idx_generator_raises():
     tile_size = 256
 
     with pytest.raises(StopIteration) as excinfo:
-        given = convert.slice_idx_generator(shape, zoom, tile_size)
+        convert.slice_idx_generator(shape, zoom, tile_size)
 
     assert excinfo
 
@@ -333,7 +332,7 @@ def test_filter_on_extension_with_predicate():
 
     extensions = ["fits"]
     expected_list = test_files[:1]
-    predicate = lambda f: f == test_files[1]
+    predicate = lambda f: f == test_files[1]  # noqa: E731 -- this is just for a test
 
     actual_list = convert.filter_on_extension(test_files, extensions, predicate)
 
@@ -800,7 +799,7 @@ def test_version_not_hard_coded():
 
     helpers.tear_down()
     helpers.enable_tqdm()
-    failed = [d for d, v in tests.items() if v == False]
+    failed = [d for d, v in tests.items() if not v]
     assert len(failed) == 0, "VERSION not found in {}, likely hardcoded".format(failed)
 
 
@@ -816,30 +815,34 @@ def test_files_to_map():
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
-    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
-    out_dir = with_path("test_web")
+    out_dir = helpers.with_test_path("test_web")
 
-    files = [with_path("test_tiling_image.jpg"), with_path("test_catalog_radec.cat")]
+    files = [
+        helpers.with_test_path("test_tiling_image.jpg"),
+        helpers.with_test_path("test_catalog_radec.cat"),
+    ]
 
     convert.files_to_map(
         files,
         out_dir=out_dir,
-        cat_wcs_fits_file=with_path("test_image.fits"),
+        cat_wcs_fits_file=helpers.with_test_path("test_image.fits"),
         catalog_delim=" ",
     )
 
-    expected_dir = with_path("expected_test_web")
+    expected_dir = helpers.with_test_path("expected_test_web")
 
     # inject current version in to test_index.html
     version = helpers.get_version()
     raw_path = os.path.join(expected_dir, "index.html")
     with open(raw_path, "r") as f:
-        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+        converted = list(
+            map(lambda line: line.replace("VERSION", version), f.readlines())
+        )
 
     with open(raw_path, "w") as f:
         f.writelines(converted)
 
-    actual_dir = with_path("test_web")
+    actual_dir = helpers.with_test_path("test_web")
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
@@ -861,12 +864,11 @@ def test_files_to_map_ellipse_markers():
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
-    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
-    out_dir = with_path("test_web")
+    out_dir = helpers.with_test_path("test_web")
 
     files = [
-        with_path("test_tiling_image.jpg"),
-        with_path("test_catalog_xy_ellipse.cat"),
+        helpers.with_test_path("test_tiling_image.jpg"),
+        helpers.with_test_path("test_catalog_xy_ellipse.cat"),
     ]
 
     convert.files_to_map(
@@ -875,18 +877,20 @@ def test_files_to_map_ellipse_markers():
         catalog_delim=" ",
     )
 
-    expected_dir = with_path("expected_test_web_ellipse")
+    expected_dir = helpers.with_test_path("expected_test_web_ellipse")
 
     # inject current version in to test_index.html
     version = helpers.get_version()
     raw_path = os.path.join(expected_dir, "index.html")
     with open(raw_path, "r") as f:
-        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+        converted = list(
+            map(lambda line: line.replace("VERSION", version), f.readlines())
+        )
 
     with open(raw_path, "w") as f:
         f.writelines(converted)
 
-    actual_dir = with_path("test_web")
+    actual_dir = helpers.with_test_path("test_web")
 
     dirs_match = helpers.compare_file_directories(expected_dir, actual_dir)
 
@@ -904,18 +908,19 @@ def test_files_to_map_fails_file_not_found():
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
-    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
-    out_dir = with_path("test_web")
+    out_dir = helpers.with_test_path("test_web")
 
     files = [
-        with_path("test_tiling_image.jpg"),
-        with_path("test_catalog_radec.cat"),
-        with_path("does_not_exist.txt"),
+        helpers.with_test_path("test_tiling_image.jpg"),
+        helpers.with_test_path("test_catalog_radec.cat"),
+        helpers.with_test_path("does_not_exist.txt"),
     ]
 
     with pytest.raises(AssertionError):
         convert.files_to_map(
-            files, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
+            files,
+            out_dir=out_dir,
+            cat_wcs_fits_file=helpers.with_test_path("test_image.fits"),
         )
 
     helpers.tear_down()
@@ -930,15 +935,16 @@ def test_dir_to_map_fails_no_files():
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
-    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
-    out_dir = with_path("test_web")
-    in_dir = with_path("test_web_in")
+    out_dir = helpers.with_test_path("test_web")
+    in_dir = helpers.with_test_path("test_web_in")
     if not os.path.exists(in_dir):
         os.mkdir(in_dir)
 
     with pytest.raises(AssertionError):
         convert.dir_to_map(
-            in_dir, out_dir=out_dir, cat_wcs_fits_file=with_path("test_image.fits")
+            in_dir,
+            out_dir=out_dir,
+            cat_wcs_fits_file=helpers.with_test_path("test_image.fits"),
         )
 
     helpers.tear_down()
@@ -957,9 +963,8 @@ def test_dir_to_map():
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
-    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
-    out_dir = with_path("test_web")
-    in_dir = with_path("test_web_in")
+    out_dir = helpers.with_test_path("test_web")
+    in_dir = helpers.with_test_path("test_web_in")
     if not os.path.exists(in_dir):
         os.mkdir(in_dir)
 
@@ -969,15 +974,17 @@ def test_dir_to_map():
     ]
 
     for f in files:
-        shutil.copy(with_path(f), os.path.join(in_dir, f))
+        shutil.copy(helpers.with_test_path(f), os.path.join(in_dir, f))
 
-    expected_dir = with_path("expected_test_web")
+    expected_dir = helpers.with_test_path("expected_test_web")
 
     # inject current version in to test_index.html
     version = helpers.get_version()
     raw_path = os.path.join(expected_dir, "index.html")
     with open(raw_path, "r") as f:
-        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+        converted = list(
+            map(lambda line: line.replace("VERSION", version), f.readlines())
+        )
 
     with open(raw_path, "w") as f:
         f.writelines(converted)
@@ -986,7 +993,7 @@ def test_dir_to_map():
         in_dir,
         out_dir=out_dir,
         catalog_delim=" ",
-        cat_wcs_fits_file=with_path("test_image.fits"),
+        cat_wcs_fits_file=helpers.with_test_path("test_image.fits"),
     )
 
     actual_dir = out_dir
@@ -1007,9 +1014,8 @@ def test_dir_to_map_no_markers():
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
 
-    with_path = lambda f: os.path.join(helpers.TEST_PATH, f)
-    out_dir = with_path("test_web")
-    in_dir = with_path("test_web_in")
+    out_dir = helpers.with_test_path("test_web")
+    in_dir = helpers.with_test_path("test_web_in")
     if not os.path.exists(in_dir):
         os.mkdir(in_dir)
 
@@ -1018,15 +1024,17 @@ def test_dir_to_map_no_markers():
     ]
 
     for f in files:
-        shutil.copy(with_path(f), os.path.join(in_dir, f))
+        shutil.copy(helpers.with_test_path(f), os.path.join(in_dir, f))
 
-    expected_dir = with_path("expected_test_web_no_marker")
+    expected_dir = helpers.with_test_path("expected_test_web_no_marker")
 
     # inject current version in to test_index.html
     version = helpers.get_version()
     raw_path = os.path.join(expected_dir, "index.html")
     with open(raw_path, "r") as f:
-        converted = list(map(lambda l: l.replace("VERSION", version), f.readlines()))
+        converted = list(
+            map(lambda line: line.replace("VERSION", version), f.readlines())
+        )
 
     with open(raw_path, "w") as f:
         f.writelines(converted)

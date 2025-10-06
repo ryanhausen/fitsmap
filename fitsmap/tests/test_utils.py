@@ -93,8 +93,8 @@ def test_make_fname_js_safe_no_change():
 
 
 @pytest.mark.unit
-def test_make_fname_js_safe_no_change():
-    """Test the cartographer.make_fname_js_safe functions."""
+def test_get_fits_image_size():
+    """Test the cartographer.get_fits_image_size functions."""
 
     expected_shape = (738, 480)
 
