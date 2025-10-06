@@ -43,6 +43,7 @@ write_to = "fitsmap/_version.py"
 dev = [
     "bandit==1.8.6",
     "build==1.2.2.post1",
+    "debugpy>=1.8.0",
     "nbsphinx==0.9.7",
     "pytest==8.4.1",
     "pytest-cov==6.2.1",

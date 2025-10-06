@@ -19,8 +19,10 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Helpers for testing"""
 
+import importlib
 import json
 import os
+from pathlib import Path
 import shutil
 import tarfile
 from itertools import product, starmap
@@ -29,8 +31,15 @@ import numpy as np
 import ray
 from PIL import Image
 
-TEST_PATH = "./testing_tmp"
-DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+def find_package_location() -> Path:
+    return Path(importlib.util.find_spec("fitsmap").submodule_search_locations[0])
+
+
+def find_repo_location() -> Path:
+    return Path(find_package_location() / os.pardir)
+
+TEST_PATH = str(find_repo_location() / "testing_tmp")
+DATA_DIR = str(find_repo_location() / "fitsmap" / "tests" / "data")
 TQDM_ENV_VAR = "DISBALE_TQDM"
 
 
