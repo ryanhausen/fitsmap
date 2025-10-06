@@ -1046,5 +1046,5 @@ def test_dir_to_map_no_markers():
     assert dirs_match
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     test_tile_img_mpl_parallel()

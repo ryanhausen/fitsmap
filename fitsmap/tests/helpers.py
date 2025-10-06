@@ -22,14 +22,15 @@
 import importlib
 import json
 import os
-from pathlib import Path
 import shutil
 import tarfile
 from itertools import product, starmap
+from pathlib import Path
 
 import numpy as np
 import ray
 from PIL import Image
+
 
 def find_package_location() -> Path:
     return Path(importlib.util.find_spec("fitsmap").submodule_search_locations[0])
@@ -37,6 +38,7 @@ def find_package_location() -> Path:
 
 def find_repo_location() -> Path:
     return Path(find_package_location() / os.pardir)
+
 
 TEST_PATH = str(find_repo_location() / "testing_tmp")
 DATA_DIR = str(find_repo_location() / "fitsmap" / "tests" / "data")
