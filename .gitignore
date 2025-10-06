@@ -24,3 +24,4 @@ testing_tmp/
 
 fitsmap/tests/data/test.columns
 
+fitsmap/_version.py
