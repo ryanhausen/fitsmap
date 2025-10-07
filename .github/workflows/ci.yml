@@ -57,7 +57,7 @@ jobs:
   # The listing of the OS/Python versions can be found here:
   # https://github.com/actions/runner-images
   test:
-    name: pytests on Python ${{ matrix.python-version }} and ${{ matrix.os }}
+    name: Run tests using Python ${{ matrix.python-version }} and ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -88,6 +88,8 @@ jobs:
       run: make test
       shell: bash
     - name: Archive coverage report
+      # we only need to upload once, no need to do it for all OS/Python combinations
+      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.9'
       uses: actions/upload-artifact@v4.4.3
       with:
         name: code-coverage-report-python${{ matrix.python-version }}-${{ matrix.os }}
@@ -95,6 +97,8 @@ jobs:
         retention-days: 14
         if-no-files-found: error
     - name: Upload coverage to Codecov
+      # we only need to upload once, no need to do it for all OS/Python combinations
+      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.9'
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
