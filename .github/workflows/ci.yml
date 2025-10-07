@@ -1,8 +1,5 @@
 name: CI
 
-default-python-version: &defaults
-  python-version: [3.9]
-
 on:
   push:
     branches:
@@ -24,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        <<: *defaults
+        python-version: [3.9]
     steps:
       - uses: actions/checkout@v4
 
@@ -43,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        <<: *defaults
+        python-version: [3.9]
     steps:
       - uses: actions/checkout@v4
 
@@ -111,7 +108,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        <<: *defaults
+        python-version: [3.9]
     steps:
       - uses: actions/checkout@v4
 
