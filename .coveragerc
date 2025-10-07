@@ -1,6 +1,5 @@
 [report]
 include =
-    fitsmap/__init__.py
     fitsmap/__main__.py
     fitsmap/cartographer.py
     fitsmap/convert.py
