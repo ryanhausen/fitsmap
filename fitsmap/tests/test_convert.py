@@ -963,10 +963,14 @@ def test_dir_to_map_fails_no_files():
 @pytest.mark.convert
 @pytest.mark.skipif(
     condition=not sys.platform.startswith("linux"),
-    reason="temp fix, need osx/windows artififacts for cbor/pbf files",
+    reason="temp fix, need osx/windows artifacts for cbor/pbf files",
 )
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
-def test_dir_to_map():
+@pytest.mark.parametrize(
+    ("task_procs", "procs_per_task"),
+    [(1, 1), (1, 2), (2, 1), (2, 2)],
+)
+def test_dir_to_map(task_procs: int, procs_per_task: int):
     """Integration test for making files into map"""
     helpers.disbale_tqdm()
     helpers.setup(with_data=True)
@@ -1002,6 +1006,8 @@ def test_dir_to_map():
         out_dir=out_dir,
         catalog_delim=" ",
         cat_wcs_fits_file=helpers.with_test_path("test_image.fits"),
+        task_procs=task_procs,
+        procs_per_task=procs_per_task,
     )
 
     actual_dir = out_dir
