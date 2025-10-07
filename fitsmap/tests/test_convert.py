@@ -715,6 +715,10 @@ def test_simplify_mixed_ws():
 
 @pytest.mark.unit
 @pytest.mark.convert
+@pytest.mark.skipif(
+    condition=sys.platform.startswith("win"),
+    reason="Windows support for ray is in beta",
+)
 def test_tile_img_pil_parallel():
     """Test convert.tile_img"""
     helpers.disbale_tqdm()
@@ -744,6 +748,10 @@ def test_tile_img_pil_parallel():
 
 @pytest.mark.unit
 @pytest.mark.convert
+@pytest.mark.skipif(
+    condition=sys.platform.startswith("win"),
+    reason="Windows support for ray is in beta",
+)
 def test_tile_img_mpl_parallel():
     """Test convert.tile_img"""
     helpers.disbale_tqdm()
