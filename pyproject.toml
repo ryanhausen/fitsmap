@@ -25,6 +25,9 @@ dependencies = [
     "tqdm>=4.67.1",
 ]
 
+[project.scripts]
+fitsmap = "fitsmap.__main__:cli"
+
 [build-system]
 requires = ["setuptools>=80.9.0", "setuptools_scm[toml]>=9.2.0"]
 build-backend = "setuptools.build_meta"
