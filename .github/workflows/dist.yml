@@ -1,4 +1,4 @@
-name: DIST
+name: Distribute
 on:
   release:
     types: [ released, prereleased ]
