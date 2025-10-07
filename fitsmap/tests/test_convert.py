@@ -1017,6 +1017,10 @@ def test_dir_to_map():
 @pytest.mark.integration
 @pytest.mark.convert
 @pytest.mark.filterwarnings("ignore:.*:astropy.io.fits.verify.VerifyWarning")
+@pytest.mark.skipif(
+    condition=sys.platform.startswith("win"),
+    reason="Windows support for ray is in beta",
+)
 def test_dir_to_map_no_markers():
     """Integration test for making files into map"""
     helpers.disbale_tqdm()
