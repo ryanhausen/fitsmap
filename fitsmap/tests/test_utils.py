@@ -18,14 +18,16 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Tests utils.py"""
-from functools import partial
-import os
-from typing import Any, List
-import pytest
 
-import fitsmap.utils as u
-import fitsmap.tests.helpers as helpers
+import os
+from functools import partial
+from typing import Any, List
+
+import pytest
 from tqdm import tqdm
+
+import fitsmap.tests.helpers as helpers
+import fitsmap.utils as u
 
 
 @pytest.mark.unit
@@ -91,8 +93,8 @@ def test_make_fname_js_safe_no_change():
 
 
 @pytest.mark.unit
-def test_make_fname_js_safe_no_change():
-    """Test the cartographer.make_fname_js_safe functions."""
+def test_get_fits_image_size():
+    """Test the cartographer.get_fits_image_size functions."""
 
     expected_shape = (738, 480)
 

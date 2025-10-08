@@ -22,7 +22,6 @@
 
 import copy
 import csv
-import io
 import logging
 import os
 import sys
@@ -43,19 +42,17 @@ import mapbox_vector_tile as mvt
 import matplotlib as mpl
 
 mpl.use("Agg")  # need to use this for processes safe matplotlib
-import astropy
-import matplotlib.pyplot as plt
 import numpy as np
 import ray
 import ray.util.queue as queue
 from astropy.io import fits
-from astropy.wcs import WCS
 from astropy.visualization import simple_norm
+from astropy.wcs import WCS
 from PIL import Image
 
-import fitsmap.utils as utils
 import fitsmap.cartographer as cartographer
 import fitsmap.padded_array as pa
+import fitsmap.utils as utils
 from fitsmap.output_manager import OutputManager
 from fitsmap.supercluster import Supercluster
 
@@ -112,7 +109,8 @@ def slice_idx_generator(
     tile_idxs_dim0 = [i * tile_size for i in range(num_tiles_dim0 + 1)]
     tile_idxs_dim1 = [i * tile_size for i in range(num_tiles_dim1 + 1)]
 
-    pair_runner = lambda coll: [slice(c0, c1) for c0, c1 in zip(coll[:-1], coll[1:])]
+    def pair_runner(coll: List[int]) -> List[slice]:
+        return [slice(c0, c1) for c0, c1 in zip(coll[:-1], coll[1:])]
 
     row_slices = pair_runner(tile_idxs_dim0)
     col_slices = pair_runner(tile_idxs_dim1)
@@ -205,8 +203,6 @@ def make_dirs(out_dir: str, min_zoom: int, max_zoom: int) -> None:
         None
     """
 
-    row_count = lambda z: int(np.sqrt(4**z))
-
     def build_z_ys(z, ys):
         list(
             map(
@@ -216,7 +212,7 @@ def make_dirs(out_dir: str, min_zoom: int, max_zoom: int) -> None:
         )
 
     def build_zs(z):
-        ys = range(row_count(z))
+        ys = range(int(np.sqrt(4**z)))
         build_z_ys(z, ys)
 
     zs = range(min_zoom, max_zoom + 1)
@@ -274,7 +270,8 @@ def imread_default(path: str, default: np.ndarray) -> np.ndarray:
 def make_tile_mpl(
     mpl_norm: mpl.colors.Normalize, mpl_cmap: mpl.colors.Colormap, tile: np.ndarray
 ) -> np.ndarray:
-    """Converts array data into an image using matplotlib
+    """Converts array data into an image using matplotlib.
+
     Args:
         mpl_f (mpl.figure.Figure): The matplotlib figure to use
         mpl_img (mpl.image.AxesImage): The matplotlib image to use
@@ -285,7 +282,7 @@ def make_tile_mpl(
     Returns:
         np.ndarray: The array data converted into an image using Matplotlib
     """
-    if type(mpl_norm) == ray._raylet.ObjectRef:
+    if isinstance(mpl_norm, ray._raylet.ObjectRef):
         mpl_norm = ray.get(mpl_norm)
         mpl_cmap = ray.get(mpl_cmap)
 
@@ -331,6 +328,7 @@ def mem_safe_make_tile(
     ],
 ) -> None:
     """Extracts a tile from ``array`` and saves it at the proper place in ``out_dir`` using PIL.
+
     Args:
         out_dir (str): The directory to save tile in
         tile_f (Callable[[np.ndarray], np.ndarray]): A function that converts a
@@ -363,11 +361,19 @@ def mem_safe_make_tile(
 
             with_out_dir = partial(os.path.join, out_dir)
 
-            if os.path.exists(with_out_dir(f"{z+1}")):
-                top_left = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x}.png"))
-                top_right = get_img(with_out_dir(f"{z+1}", f"{2*y+1}", f"{2*x+1}.png"))
-                bottom_left = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x}.png"))
-                bottom_right = get_img(with_out_dir(f"{z+1}", f"{2*y}", f"{2*x+1}.png"))
+            if os.path.exists(with_out_dir(f"{z + 1}")):
+                top_left = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y + 1}", f"{2 * x}.png")
+                )
+                top_right = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y + 1}", f"{2 * x + 1}.png")
+                )
+                bottom_left = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y}", f"{2 * x}.png")
+                )
+                bottom_right = get_img(
+                    with_out_dir(f"{z + 1}", f"{2 * y}", f"{2 * x + 1}.png")
+                )
 
                 tile = np.concatenate(
                     [
@@ -760,7 +766,7 @@ def process_catalog_file_chunk(
 
 def _simplify_mixed_ws(catalog_fname: str) -> None:
     with open(catalog_fname, "r") as f:
-        lines = [l.strip() for l in f.readlines()]
+        lines = [line.strip() for line in f.readlines()]
 
     with open(catalog_fname, "w") as f:
         for line in lines:
@@ -789,9 +795,9 @@ def make_marker_tile(
             tile_sources["name"] = "Points"
 
             for i in range(len(tile_sources["features"])):
-                tile_sources["features"][i][
-                    "geometry"
-                ] = "POINT(0 0)"  # we dont' use this
+                tile_sources["features"][i]["geometry"] = (
+                    "POINT(0 0)"  # we dont' use this
+                )
 
             encoded_tile = mvt.encode([tile_sources], extents=256)
 
@@ -1353,9 +1359,9 @@ def dir_to_map(
         )
     )
 
-    assert (
-        len(dir_files) > 0
-    ), "No files in `directory` or `exclude_predicate` excludes everything"
+    assert len(dir_files) > 0, (
+        "No files in `directory` or `exclude_predicate` excludes everything"
+    )
 
     files_to_map(
         sorted(dir_files),

@@ -18,18 +18,19 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-"""Helper functions for creating a leaflet JS HTML map."""
+"""Helper functions for creating a leaflet JS HTML map.
 
 # ******************************************************************************
 # Designed for internal use. Any method/variable can be deprecated/changed
 # without consideration.
 # ******************************************************************************
+"""
 
 import os
 import shutil
-from itertools import count, cycle, repeat, starmap
 from functools import partial, reduce
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
+from itertools import cycle, repeat, starmap
+from typing import Dict, Iterable, List, Tuple, Union
 
 import numpy as np
 from astropy.wcs import WCS
@@ -52,13 +53,15 @@ def chart(
 ) -> None:
     """Creates an HTML file containing a leaflet js map using the given params.
 
-    ****************************************************************************
     * Designed for internal use. Any method/variable can be deprecated/changed *
     * without consideration.                                                   *
-    ****************************************************************************
     """
+
     # convert layer names into a single javascript string
-    layer_zooms = lambda l: list(map(int, os.listdir(os.path.join(out_dir, l))))
+    def layer_zooms(line: str) -> List[int]:
+        """Return a list of zoom levels (as integers) for the given layer directory."""
+        return list(map(int, os.listdir(os.path.join(out_dir, line))))
+
     img_zooms = reduce(lambda x, y: x + y, list(map(layer_zooms, img_layer_names)), [0])
     cat_zooms = reduce(
         lambda x, y: x + y, list(map(layer_zooms, marker_layer_names)), [0]
@@ -183,7 +186,7 @@ def cat_layer_dict_to_str(layer: dict, n_cols: int) -> str:
         "fillOpacity: 0.2, ",
         "strokeOpacity: 1.0, ",
         f"nCols: {n_cols}, ",
-        f'catalogColumns: [{",".join(layer["columns"])}], ',
+        f"catalogColumns: [{','.join(layer['columns'])}], ",
         "minZoom: " + str(layer["min_zoom"]) + ", ",
         "maxZoom: " + str(layer["max_zoom"]) + ", ",
         "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
@@ -368,11 +371,11 @@ def leaflet_layer_control_declaration(
     cat_layer_dicts: List[Dict],
 ) -> str:
     img_layer_label_pairs = ",".join(
-        list(map(lambda l: '"{0}":{0}'.format(l["name"]), img_layer_dicts))
+        list(map(lambda line: '"{0}":{0}'.format(line["name"]), img_layer_dicts))
     )
 
     cat_layer_label_pairs = ",\n".join(
-        list(map(lambda l: '    "{0}":{0}'.format(l["name"]), cat_layer_dicts))
+        list(map(lambda line: '    "{0}":{0}'.format(line["name"]), cat_layer_dicts))
     )
 
     control_js = [
@@ -397,7 +400,7 @@ def leaflet_search_control_declaration(
         *list(
             map(
                 lambda s: f'    "{"/".join(["catalog_assets", s])}/",',
-                map(lambda l: l["name"], cat_layer_dicts),
+                map(lambda line: line["name"], cat_layer_dicts),
             )
         ),
         "];",

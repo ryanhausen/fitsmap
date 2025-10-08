@@ -1,0 +1,160 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+    tags:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # validating the uv lock file does not need to vary OS/Python versions
+  lint:
+    name: lint with ruff with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set the python version ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Lint
+        run: make check-style
+        shell: bash
+
+  # validating the uv lock file does not need to vary OS/Python versions
+  check-env:
+    name: Check that the uv.lock file is consistent with pyproject.toml Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set the python version ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Lint
+        run: make check-env
+        shell: bash
+
+  # For running tests we do want to vary the OS/Python versions
+  # The listing of the OS/Python versions can be found here:
+  # https://github.com/actions/runner-images
+  test:
+    name: Run tests using Python ${{ matrix.python-version }} and ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # Ubuntu 24 supports python >=3.9
+        # MacOS 15 supports python >=3.11
+        # Windows 2025 supports python >=3.9, ray doesn't have wheels for 3.13 yet
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        os: [ubuntu-24.04, macos-15, windows-2025]
+        exclude:
+          - python-version: "3.9"
+            os: macos-latest
+          - python-version: "3.10"
+            os: macos-latest
+          - python-version: "3.13"
+            os: windows-2025
+    env:
+      OS: ${{ matrix.os }}
+      PYTHON: ${{ matrix.python-version }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+          lfs: true
+    - name: Install uv and set the python version ${{ matrix.python-version }}
+      uses: astral-sh/setup-uv@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Test with pytest
+      run: make test
+      shell: bash
+    - name: Archive coverage report
+      # we only need to upload once, no need to do it for all OS/Python combinations
+      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.9'
+      uses: actions/upload-artifact@v4.4.3
+      with:
+        name: code-coverage-report-python${{ matrix.python-version }}-${{ matrix.os }}
+        path: coverage.xml
+        retention-days: 14
+        if-no-files-found: error
+    - name: Upload coverage to Codecov
+      # we only need to upload once, no need to do it for all OS/Python combinations
+      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.9'
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        env_vars: OS,PYTHON
+        fail_ci_if_error: true
+        files: ./coverage.xml
+        name: codecov-umbrella
+        verbose: true
+
+  docs:
+    name: Build docs with Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set the python version ${{ matrix.python-version }}
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Lint
+        run: make docs
+        shell: bash
+
+  build:
+    name: Build and Publish.
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

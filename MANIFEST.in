@@ -14,3 +14,11 @@ include fitsmap/support/settingsControl.min.js
 include fitsmap/support/LabelControl.min.css
 include fitsmap/support/labelControl.min.js
 include fitsmap/support/fitsmapScale.min.js
+
+# Exclude test files and directories from source distribution
+prune fitsmap/tests
+prune docs
+prune __pycache__
+global-exclude *.pyc
+global-exclude *.pyo
+global-exclude *~

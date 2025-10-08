@@ -1,8 +1,28 @@
-build:
-    image: latest
+# Required
+version: 2
 
 python:
-    version: 3.7
-    setup_py_install: true
+  install:
+    - requirements: requirements/docs.txt
+    - method: pip
+      path: .
 
-requirements_file: requirements.txt
+# Build documentation in the docs/ directory with Sphinx
+sphinx:
+  builder: html
+  configuration: docs/source/conf.py
+  fail_on_warning: true
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.9"
+  jobs:
+    pre_create_environment:
+        - asdf plugin add uv
+        - asdf install uv latest
+        - asdf global uv latest
+    create_environment:
+        - uv venv "${READTHEDOCS_VIRTUALENV_PATH}"
+    install:
+        - UV_PROJECT_ENVIRONMENT="${READTHEDOCS_VIRTUALENV_PATH}" uv sync --frozen --dev

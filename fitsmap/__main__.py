@@ -19,10 +19,11 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """FitsMap CLI interface"""
 
-from concurrent.futures import ThreadPoolExecutor
 import functools
 import http.server
 import webbrowser
+from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import click
 
@@ -48,23 +49,19 @@ def cli():
 @cli.command()
 @click.argument("directory", type=str)
 @click.option("--out_dir", default=".", help=HELP_OUT_DIR)
-@click.option("--min_zoom", default=0, help=HELP_MIN_ZOOM)
 @click.option("--title", default="FitsMap", help=HELP_TITLE)
 @click.option("--task_procs", default=0, help=HELP_TASK_PROCS)
 @click.option("--procs_per_task", default=0, help=HELP_PROCS_PER_TASK)
 @click.option("--catalog_delim", default=None, help=HELP_CATALOG_DELIM)
 @click.option("--cat_wcs_fits_file", default=None, help=HELP_CAT_WCS_FITS_FILE)
-@click.option("--image_engine", default="PIL", help=HELP_IMAGE_ENGINE)
 def dir(
     directory,
     out_dir,
-    min_zoom,
     title,
     task_procs,
     procs_per_task,
     catalog_delim,
     cat_wcs_fits_file,
-    image_engine,
 ):
     """Convert a directory to a map.
 
@@ -74,36 +71,30 @@ def dir(
     convert.dir_to_map(
         directory,
         out_dir=out_dir,
-        min_zoom=min_zoom,
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,
         catalog_delim=catalog_delim,
         cat_wcs_fits_file=cat_wcs_fits_file,
-        image_engine=image_engine,
     )
 
 
 @cli.command()
 @click.argument("files", type=str)
 @click.option("--out_dir", default=".", help=HELP_OUT_DIR)
-@click.option("--min_zoom", default=0, help=HELP_MIN_ZOOM)
 @click.option("--title", default="FitsMap", help=HELP_TITLE)
 @click.option("--task_procs", default=0, help=HELP_TASK_PROCS)
 @click.option("--procs_per_task", default=0, help=HELP_PROCS_PER_TASK)
 @click.option("--catalog_delim", default=None, help=HELP_CATALOG_DELIM)
 @click.option("--cat_wcs_fits_file", default=None, help=HELP_CAT_WCS_FITS_FILE)
-@click.option("--image_engine", default="PIL", help=HELP_IMAGE_ENGINE)
 def files(
     files,
     out_dir,
-    min_zoom,
     title,
     task_procs,
     procs_per_task,
     catalog_delim,
     cat_wcs_fits_file,
-    image_engine,
 ):
     """Convert a files to a map.
 
@@ -113,17 +104,15 @@ def files(
     convert.files_to_map(
         files.split(","),
         out_dir=out_dir,
-        min_zoom=min_zoom,
         title=title,
         task_procs=task_procs,
         procs_per_task=procs_per_task,
         catalog_delim=catalog_delim,
         cat_wcs_fits_file=cat_wcs_fits_file,
-        image_engine=image_engine,
     )
 
 
-def __server(out_dir: str, port: int) -> None:
+def __server(out_dir: str, port: int) -> Callable[[], None]:
     def f():
         # https://docs.python.org/3.8/library/http.server.html
         server = http.server.HTTPServer(
@@ -138,7 +127,7 @@ def __server(out_dir: str, port: int) -> None:
     return f
 
 
-def __opener(address: str) -> None:
+def __opener(address: str) -> Callable[[], None]:
     def f():
         print("Opening up FitsMap in browser")
         webbrowser.open(address)

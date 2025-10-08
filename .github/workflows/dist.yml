@@ -1,0 +1,66 @@
+name: Distribute
+on:
+  release:
+    types: [ released, prereleased ]
+
+jobs:
+  build:
+    name: Build distribution
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        python-version: "3.9"
+    - name: Build a binary wheel and a source tarball
+      run: make dist
+      shell: bash
+    - name: Store the distribution packages
+      uses: actions/upload-artifact@v4.4.3
+      with:
+        name: python-package-distributions
+        path: dist/
+
+  publish-to-testpypi:
+    name: Publish to TestPyPI
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+    - build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/fitsmap
+    permissions:
+      id-token: write
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4.1.7
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+
+  publish-to-pypi:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/')
+    needs:
+    - build
+    - publish-to-testpypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/fitsmap
+    permissions:
+      id-token: write
+    steps:
+    - name: Download dists from
+      uses: actions/download-artifact@v4.1.7
+      with:
+        name: python-package-distributions
+        path: dist/
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
