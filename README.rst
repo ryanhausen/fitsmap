@@ -10,26 +10,26 @@
 FitsMap
 =======
 
-.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-linux.yml/badge.svg
-    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-linux.yml
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/ci.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/ci.yml
 
-.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-osx.yml/badge.svg
-    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-osx.yml
-
-.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/build-windows.yml/badge.svg
-    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/build-windows.yml
+.. image:: https://github.com/ryanhausen/fitsmap/actions/workflows/security.yml/badge.svg
+    :target: https://github.com/ryanhausen/fitsmap/actions/workflows/security.yml
 
 .. image:: https://readthedocs.org/projects/fitsmap/badge/?version=latest
     :target: https://fitsmap.readthedocs.io
 
-.. image:: https://codecov.io/gh/ryanhausen/fitsmap/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/ryanhausen/fitsmap/
+.. image:: https://codecov.io/gh/ryanhausen/fitsmap/graph/badge.svg?token=8TOpKHfHSB
+    :target: https://codecov.io/gh/ryanhausen/fitsmap
 
-.. image:: https://img.shields.io/badge/python-3.7-blue.svg
-    :target: https://www.python.org/downloads/release/python-370/
+.. image:: https://img.shields.io/badge/Python-3.9%E2%80%9413-blue
+    :target: https://www.python.org/downloads/release/python-390/
 
-.. image:: https://img.shields.io/badge/code%20style-black-000000.svg
-    :target: https://github.com/ambv/black
+.. image:: https://img.shields.io/badge/Env-uv-D7FF64
+    :target: https://docs.astral.sh/uv/
+
+.. image:: https://img.shields.io/badge/Style-ruff-D7FF64
+    :target: https://docs.astral.sh/ruff/
 
 .. image:: https://badgen.net/badge/doi/10.1016%2Fj.ascom.2022.100586/yellow
     :target: https://doi.org/10.1016/j.ascom.2022.100586
