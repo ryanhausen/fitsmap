@@ -68,6 +68,10 @@ documentation that is hosted on
 functions, please add type hints and docstrings. They are used by sphinx to
 generate the API documentation automatically.
 
+- Security: `make check-security` -- Runs the tool
+[bandit](https://bandit.readthedocs.io/en/latest/) to look for security
+vulnerabilities in the code.
+
 - Formatting: `make format` -- Runs the `ruff` implementation of the `black`
 style guide and import sorting rules.
 
