@@ -9,36 +9,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v5
       with:
         python-version: "3.9"
-    - name: Install dependencies
-      run: |
-        python3 -m pip install --upgrade pip
-        pip3 install -r requirements/dev.txt
-      shell: bash
     - name: Build a binary wheel and a source tarball
-      run: tox -e build-dist
+      run: make dist
+      shell: bash
     - name: Store the distribution packages
       uses: actions/upload-artifact@v4.4.3
       with:
         name: python-package-distributions
         path: dist/
 
-  # To publish packages to PyPI, first obtain an account and then create a
-  # (pending) publisher using the form at
-  # https://pypi.org/manage/account/publishing/. Fill in the fields as follows:
-  #
-  # * PyPI Project Name: name of pypi package
-  # * Owner: org, e.g. ssec-jhu
-  # * Repository name: name of repo not-including org, e.g. base-template
-  # * Workflow name: dist.yml
-  #
-  # This should be done separately for both testpypi and pypi (these need
-  # separate accounts). Once complete, uncomment the "Publish distribution"
-  # sections below.
-  #
   publish-to-testpypi:
     name: Publish to TestPyPI
     if: startsWith(github.ref, 'refs/tags/')
@@ -47,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: testpypi
-      url: https://test.pypi.org/p/<pypi-package-name>
+      url: https://test.pypi.org/p/fitsmap
     permissions:
       id-token: write
     steps:
@@ -56,10 +39,10 @@ jobs:
       with:
         name: python-package-distributions
         path: dist/
-    # - name: Publish distribution TestPyPI
-    #   uses: pypa/gh-action-pypi-publish@release/v1
-    #   with:
-    #     repository-url: https://test.pypi.org/legacy/
+    - name: Publish distribution TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
 
   publish-to-pypi:
     name: Publish to PyPI
@@ -70,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/p/<pypi-package-name>
+      url: https://pypi.org/p/fitsmap
     permissions:
       id-token: write
     steps:
@@ -79,5 +62,5 @@ jobs:
       with:
         name: python-package-distributions
         path: dist/
-    # - name: Publish distribution to PyPI
-    #   uses: pypa/gh-action-pypi-publish@release/v1
+    - name: Publish distribution to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
