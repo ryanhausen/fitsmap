@@ -65,7 +65,7 @@ you'd like.
 Here is an example using FitsMap to render a 32,727² image and ~33 million
 sources from the `DReAM Galaxy Catalog <https://arxiv.org/abs/2110.10703>`_:
 
-.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/dream_map.gif
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/_static/dream_map.gif
     :alt: FitsMap
     :align: center
 
@@ -269,7 +269,7 @@ You can adjust the appearance of the image and catalog markers by using the
 settings tool visible in the top left corner. Note that the changes made using
 the settings tool **are not saved** when the webpage is refreshed.
 
-.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/settings-collapsed.png
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/_static/settings-collapsed.png
     :alt: FitsMap
     :align: center
     :width: 100px
@@ -278,7 +278,7 @@ When the button is hovered over, the settings menu will expand to show the follo
 options (Note if there is not a catalog in the FitsMap, then the catalog settings
 will not be visible):
 
-.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/settings-expanded.png
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/_static/settings-expanded.png
     :alt: FitsMap
     :align: center
 
@@ -369,7 +369,7 @@ radius in **pixels**, ``b`` is the minor axis radius in **pixels**, and theta
 is the rotation of the ellipse in units of degrees starting from the negative
 x-axis and moving counter-clockwise.
 
-.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/ellipse_fig.png
+.. image:: https://raw.githubusercontent.com/ryanhausen/fitsmap/master/docs/_static/ellipse_fig.png
     :alt: EllipseOrientaton
     :align: center
 
