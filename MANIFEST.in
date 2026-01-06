@@ -15,6 +15,8 @@ include fitsmap/support/LabelControl.min.css
 include fitsmap/support/labelControl.min.js
 include fitsmap/support/fitsmapScale.min.js
 
+include fitsmap/templates/index.html
+
 # Exclude test files and directories from source distribution
 prune fitsmap/tests
 prune docs

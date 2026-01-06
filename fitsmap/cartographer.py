@@ -34,6 +34,7 @@ from typing import Dict, Iterable, List, Tuple, Union
 
 import numpy as np
 from astropy.wcs import WCS
+from jinja2 import Environment, PackageLoader, select_autoescape
 
 import fitsmap.utils as utils
 
@@ -119,8 +120,23 @@ def chart(
 
     move_support_images(out_dir)
 
+    env = Environment(
+        loader=PackageLoader("fitsmap"),
+        autoescape=select_autoescape(),
+    )
+
+    template = env.get_template("index.html")
+
     with open(os.path.join(out_dir, "index.html"), "w") as f:
-        f.write(build_html(title, extra_js, extra_css))
+        f.write(
+            template.render(
+                title=title,
+                extra_js=extra_js,
+                extra_css=extra_css,
+                version=utils.get_version(),
+            )
+            + "\n"
+        )
     # HTML file contents =======================================================
 
 
@@ -514,44 +530,6 @@ def build_index_js(
     )
 
     return js
-
-
-def build_html(title: str, extra_js: str, extra_css: str) -> str:
-    html = [
-        "<!DOCTYPE html>",
-        '<html lang="en">',
-        "<head>",
-        "    <title>{}</title>".format(title),
-        '    <meta charset="utf-8" />',
-        '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-        '    <link rel="shortcut icon" type="image/x-icon" href="imgs/favicon.ico" />',
-        '    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.css" integrity="sha512-1xoFisiGdy9nvho8EgXuXvnpR5GAMSjFwp40gSRE3NwdUdIMIKuPa7bqoUhLD0O/5tPNhteAsE5XyyMi5reQVA==" crossorigin="anonymous" referrerpolicy="no-referrer" as="style" onload="this.rel=\'stylesheet\'"/>',
-        extra_css,
-        '    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js" integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>',
-        extra_js,
-        "    <style>",
-        "    /* Map */",
-        r"    html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
-        "    /* Loading Page */",
-        "    /*",
-        r'    Copyright (c) 2023 by kootoopas (https://codepen.io/kootoopas/pen/kGPoaB) Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',
-        "    */",
-        r'    @-webkit-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-webkit-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@keyframes bg-scrolling {0% {background-position: 50px 50px;}}#loading-screen {color: #999;font: 400 16px/1.5 exo, ubuntu, "segoe ui", helvetica, arial, sans-serif;text-align: center;background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAABnSURBVHja7M5RDYAwDEXRDgmvEocnlrQS2SwUFST9uEfBGWs9c97nbGtDcquqiKhOImLs/UpuzVzWEi1atGjRokWLFi1atGjRokWLFi1atGjRokWLFi1af7Ukz8xWp8z8AAAA//8DAJ4LoEAAlL1nAAAAAElFTkSuQmCC") repeat 0 0;-webkit-animation: bg-scrolling-reverse 0.92s infinite;-moz-animation: bg-scrolling-reverse 0.92s infinite;-o-animation: bg-scrolling-reverse 0.92s infinite;animation: bg-scrolling-reverse 0.92s infinite;-webkit-animation-timing-function: linear;-moz-animation-timing-function: linear;-o-animation-timing-function: linear;animation-timing-function: linear;width: 100%;height: 100%;}',
-        "    </style>",
-        "</head>",
-        "<body>",
-        '    <div id="loading-screen" class="overlay">',
-        '        <div class="brand"><img src="imgs/loading-logo.svg" style="width: 100%" alt="FitsMap logo"/></div>',
-        '        <div class="loading"></div>',
-        '        <div class="loadingtext">Loading...</div>',
-        "    </div>",
-        '    <div id="map"></div>',
-        "</body>",
-        f"<!--Made with fitsmap v{utils.get_version()}-->",
-        "</html>\n",
-    ]
-
-    return "\n".join(html)
 
 
 def leaflet_scale_bar_declaration(
