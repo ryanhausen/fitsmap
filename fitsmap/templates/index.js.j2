@@ -56,7 +56,10 @@ const catalogPaths = [
 
 const searchControl = buildCustomSearch(catalogPaths, {{ marker_layers[0].max_native_zoom }});
 map.addControl(searchControl);
-{% endif %}
+
+{% else -%}
+{{ "\n" }}
+{% endif -%}
 // Settings Control ============================================================
 const settingsControl = L.control.settings({
     position: 'topleft',
