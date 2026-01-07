@@ -331,7 +331,11 @@ def build_index_js(
     units_are_pixels: bool,
 ) -> str:
     template_dir = os.path.join(os.path.dirname(__file__), "templates")
-    env = Environment(loader=FileSystemLoader(template_dir))
+    # autoescape=False is safe here because we are generating Javascript code, not HTML.
+    # Standard HTML escaping would break Javascript syntax.
+    env = Environment(  # nosec B701
+        loader=FileSystemLoader(template_dir), autoescape=False
+    )
     template = env.get_template("index.js.j2")
 
     max_zoom = max(map(lambda t: t["max_native_zoom"], image_layer_dicts))
