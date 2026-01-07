@@ -68,3 +68,7 @@ html_theme = "alabaster"
 html_static_path = ["../_static"]
 
 master_doc = "index"
+
+
+# -- Options for EPUB output -------------------------------------------------
+epub_exclude_files = ["search.html", ".nojekyll", "_images/Python-3.9%E2%80%9413-blue"]
