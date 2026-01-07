@@ -34,7 +34,7 @@ from typing import Dict, Iterable, List, Tuple, Union
 
 import numpy as np
 from astropy.wcs import WCS
-from jinja2 import Environment, PackageLoader, select_autoescape
+from jinja2 import Environment, FileSystemLoader, PackageLoader, select_autoescape
 
 import fitsmap.utils as utils
 
@@ -171,47 +171,6 @@ def layer_name_to_dict(
     return layer_dict
 
 
-def img_layer_dict_to_str(layer: dict) -> str:
-    """Convert layer dict to layer str for including in HTML file."""
-
-    layer_str = [
-        "const " + layer["name"],
-        ' = L.tileLayer("' + layer["directory"] + '"',
-        ", { ",
-        'attribution:"' + LAYER_ATTRIBUTION + '", ',
-        "minZoom: " + str(layer["min_zoom"]) + ", ",
-        "maxZoom: " + str(layer["max_zoom"]) + ", ",
-        "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
-        "});",
-    ]
-
-    return "".join(layer_str)
-
-
-def cat_layer_dict_to_str(layer: dict, n_cols: int) -> str:
-    """Convert layer dict to layer str for including in HTML file."""
-
-    layer_str = [
-        "const " + layer["name"],
-        " = L.gridLayer.tiledMarkers(",
-        "{ ",
-        'tileURL:"' + layer["directory"] + '", ',
-        "radius: 10, ",
-        'strokeColor: "' + layer["stroke_color"] + '", ',
-        'fillColor: "' + layer["fill_color"] + '", ',
-        "fillOpacity: 0.2, ",
-        "strokeOpacity: 1.0, ",
-        f"nCols: {n_cols}, ",
-        f"catalogColumns: [{','.join(layer['columns'])}], ",
-        "minZoom: " + str(layer["min_zoom"]) + ", ",
-        "maxZoom: " + str(layer["max_zoom"]) + ", ",
-        "maxNativeZoom: " + str(layer["max_native_zoom"]) + " ",
-        "});",
-    ]
-
-    return "".join(layer_str)
-
-
 def get_colors() -> Iterable[str]:
     return cycle(
         [
@@ -227,49 +186,6 @@ def get_colors() -> Iterable[str]:
             "rgb(100, 181, 205)",
         ]
     )
-
-
-def leaflet_crs_js(tile_layers: List[dict]) -> str:
-    max_zoom = max(map(lambda t: t["max_native_zoom"], tile_layers))
-
-    scale_factor = int(2**max_zoom)
-
-    js = [
-        "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
-        f"    transformation: new L.Transformation(1/{scale_factor}, 0, -1/{scale_factor}, 256)",
-        "});",
-    ]
-
-    return "\n".join(js)
-
-
-def leaflet_map_js(tile_layers: List[dict]):
-    js = "\n".join(
-        [
-            'const map = L.map("map", {',
-            "    crs: L.CRS.FitsMap,",
-            "    minZoom: " + str(max(map(lambda t: t["min_zoom"], tile_layers))) + ",",
-            "    preferCanvas: true,",
-            f"    layers: [{tile_layers[0]['name']}]",
-            "});",
-        ]
-    )
-
-    return js
-
-
-def loading_screen_js(tile_layers: List[dict]):
-    js = "\n".join(
-        [
-            f'{tile_layers[0]["name"]}.on("load", () => {{',
-            '    document.getElementById("loading-screen").style.display = "none";',
-            '    document.getElementById("map").style.visibility = "visible";',
-            "    label.update(map.getCenter());",
-            "});",
-        ]
-    )
-
-    return js
 
 
 def move_support_images(out_dir: str) -> List[str]:
@@ -382,52 +298,6 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
     return "\n".join(js_tags)
 
 
-def leaflet_layer_control_declaration(
-    img_layer_dicts: List[Dict],
-    cat_layer_dicts: List[Dict],
-) -> str:
-    img_layer_label_pairs = ",".join(
-        list(map(lambda line: '"{0}":{0}'.format(line["name"]), img_layer_dicts))
-    )
-
-    cat_layer_label_pairs = ",\n".join(
-        list(map(lambda line: '    "{0}":{0}'.format(line["name"]), cat_layer_dicts))
-    )
-
-    control_js = [
-        "const catalogs = {",
-        cat_layer_label_pairs,
-        "};",
-        "",
-        "const layerControl = L.control.layers(",
-        f"    {{{img_layer_label_pairs}}},",
-        "    catalogs",
-        ").addTo(map);",
-    ]
-
-    return "\n".join(control_js)
-
-
-def leaflet_search_control_declaration(
-    cat_layer_dicts: List[Dict],
-) -> str:
-    search_js = [
-        "const catalogPaths = [",
-        *list(
-            map(
-                lambda s: f'    "{"/".join(["catalog_assets", s])}/",',
-                map(lambda line: line["name"], cat_layer_dicts),
-            )
-        ),
-        "];",
-        "",
-        f"const searchControl = buildCustomSearch(catalogPaths, {cat_layer_dicts[0]['max_native_zoom']});",
-        "map.addControl(searchControl);",
-    ]
-
-    return "\n".join(search_js) if cat_layer_dicts else ""
-
-
 def extract_cd_matrix_as_string(wcs: WCS) -> str:
     if hasattr(wcs.wcs, "cd"):
         return str(wcs.wcs.cd.tolist())
@@ -475,105 +345,26 @@ def build_index_js(
     pixel_scale: float,
     units_are_pixels: bool,
 ) -> str:
-    js = "\n".join(
-        [
-            "// Image layers ================================================================",
-            *list(map(img_layer_dict_to_str, image_layer_dicts)),
-            "",
-            "// Marker layers ===============================================================",
-            *list(
-                starmap(
-                    cat_layer_dict_to_str,
-                    zip(marker_layer_dicts, repeat(n_cols)),
-                )
-            ),
-            "",
-            "// Basic map setup =============================================================",
-            leaflet_crs_js(image_layer_dicts),
-            "",
-            leaflet_map_js(image_layer_dicts),
-            "",
-            leaflet_scale_bar_declaration(pixel_scale, units_are_pixels),
-            "",
-            leaflet_label_declaration(),
-            "",
-            leaflet_layer_control_declaration(image_layer_dicts, marker_layer_dicts),
-            "",
-            "// Search ======================================================================",
-            (
-                leaflet_search_control_declaration(marker_layer_dicts)
-                if len(marker_layer_dicts)
-                else ""
-            ),
-            "",
-            leaflet_settings_declaration(),
-            "",
-            "// Map event setup =============================================================",
-            loading_screen_js(image_layer_dicts),
-            "",
-            'map.on("moveend", updateLocationBar);',
-            'map.on("zoomend", updateLocationBar);',
-            'map.on("mousemove", (event) => {label.update(event.latlng);});',
-            'map.on("baselayerchange", (event) => {label.options.title = event.name;});',
-            "",
-            "map.whenReady(function () {",
-            "    scale.options.maxWidth = Math.round(map.getSize().x * 0.2);",
-            "    label.addTo(map);",
-            "});",
-            "",
-            'if (urlParam("zoom")==null) {',
-            f"    map.fitBounds(L.latLngBounds([[0, 0], [{max_xy[1]}, {max_xy[0]}]]));",
-            "} else {",
-            "    panFromUrl(map);",
-            "}",
-        ]
+    template_dir = os.path.join(os.path.dirname(__file__), "templates")
+    # autoescape=False is safe here because we are generating Javascript code, not HTML.
+    # Standard HTML escaping would break Javascript syntax.
+    env = Environment(  # nosec B701
+        loader=FileSystemLoader(template_dir), autoescape=False
     )
+    template = env.get_template("index.js.j2")
 
-    return js
+    max_zoom = max(map(lambda t: t["max_native_zoom"], image_layer_dicts))
+    crs_scale_factor = int(2**max_zoom)
+    min_zoom = max(map(lambda t: t["min_zoom"], image_layer_dicts))
 
-
-def leaflet_scale_bar_declaration(
-    pixel_scale: float,
-    units_are_pixels: bool,
-) -> str:
-    js_bool = "true" if units_are_pixels else "false"
-
-    return "\n".join(
-        [
-            "// Scale Bar Control ===========================================================",
-            "// https://stackoverflow.com/a/62093918",
-            "const scale = L.control.fitsmapScale({",
-            f"    pixelScale: {pixel_scale},",
-            f"    unitsArePixels: {js_bool},",
-            "}).addTo(map);",
-        ]
+    return template.render(
+        image_layers=image_layer_dicts,
+        marker_layers=marker_layer_dicts,
+        n_cols=n_cols,
+        pixel_scale=pixel_scale,
+        units_are_pixels=units_are_pixels,
+        max_xy=max_xy,
+        layer_attribution=LAYER_ATTRIBUTION,
+        crs_scale_factor=crs_scale_factor,
+        min_zoom=min_zoom,
     )
-
-
-def leaflet_label_declaration() -> str:
-    js = "\n".join(
-        [
-            "// Label Control ===============================================================",
-            "const label = L.control.label({",
-            "    position: 'bottomleft',",
-            "    title: '',",
-            "    isRADec: Boolean(is_ra_dec) // from urlCoords.js",
-            "}).addTo(map);",
-        ]
-    )
-
-    return js
-
-
-def leaflet_settings_declaration() -> str:
-    js = "\n".join(
-        [
-            "// Settings Control ============================================================",
-            "const settingsControl = L.control.settings({",
-            "    position: 'topleft',",
-            "    catalogs:catalogs,",
-            "}).addTo(map);",
-        ]
-    )
-
-    return js
