@@ -92,6 +92,134 @@ def test_layer_name_to_dict_catalog():
 
 @pytest.mark.unit
 @pytest.mark.cartographer
+def test_img_layer_dict_to_str():
+    """test cartographer.layer_dict_to_str"""
+
+    min_zoom = 0
+    max_zoom = 2
+    name = "test"
+
+    layer_dict = dict(
+        directory=name + "/{z}/{y}/{x}.png",
+        name=name,
+        min_zoom=min_zoom,
+        max_zoom=max_zoom + 5,
+        max_native_zoom=max_zoom,
+    )
+
+    actual_str = c.img_layer_dict_to_str(layer_dict)
+
+    expected_str = "".join(
+        [
+            "const " + layer_dict["name"],
+            ' = L.tileLayer("' + layer_dict["directory"] + '"',
+            ", { ",
+            'attribution:"'
+            + "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
+            + '", ',
+            "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
+            "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
+            "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
+            "});",
+        ]
+    )
+
+    assert expected_str == actual_str
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
+def test_cat_layer_dict_to_str():
+    """test cartographer.layer_dict_to_str"""
+
+    min_zoom = 0
+    max_zoom = 2
+    name = "test"
+    columns = "a,b,c"
+
+    layer_dict = dict(
+        directory=name + "/{z}/{y}/{x}.png",
+        name=name,
+        min_zoom=min_zoom,
+        max_zoom=max_zoom + 5,
+        max_native_zoom=max_zoom,
+        stroke_color="red",
+        fill_color="red",
+        columns=[f'"{c}"' for c in columns.split(",")],
+    )
+
+    actual_str = c.cat_layer_dict_to_str(layer_dict, "Infinity")
+
+    expected_str = "".join(
+        [
+            "const " + layer_dict["name"],
+            " = L.gridLayer.tiledMarkers(",
+            "{ ",
+            'tileURL:"' + layer_dict["directory"] + '", ',
+            "radius: 10, ",
+            'strokeColor: "' + layer_dict["stroke_color"] + '", ',
+            'fillColor: "' + layer_dict["fill_color"] + '", ',
+            "fillOpacity: 0.2, ",
+            "strokeOpacity: 1.0, ",
+            "nCols: Infinity, ",
+            f"catalogColumns: [{','.join(layer_dict['columns'])}], ",
+            "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
+            "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
+            "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
+            "});",
+        ]
+    )
+
+    helpers.tear_down()
+
+    assert expected_str == actual_str
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
+def test_leaflet_layer_control_declaration():
+    """test cartographer.add_layer_control"""
+    min_zoom = 0
+    max_zoom = 2
+    name = "test"
+
+    img_layer_dict = dict(
+        directory=name + "/{z}/{y}/{x}.png",
+        name=name,
+        min_zoom=min_zoom,
+        max_zoom=max_zoom + 5,
+        max_native_zoom=max_zoom,
+    )
+
+    cat_layer_dict = dict(
+        directory=name + "/{z}/{y}/{x}.pbf",
+        name=name,
+        min_zoom=min_zoom,
+        max_zoom=max_zoom + 5,
+        max_native_zoom=max_zoom,
+        color="red",
+    )
+
+    actual = c.leaflet_layer_control_declaration([img_layer_dict], [cat_layer_dict])
+
+    expected = "\n".join(
+        [
+            "const catalogs = {",
+            '    "test":test',
+            "};",
+            "",
+            "const layerControl = L.control.layers(",
+            '    {"test":test},',
+            "    catalogs",
+            ").addTo(map);",
+        ]
+    )
+
+    assert expected == actual
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
 def test_get_colors():
     """test cartographer.colors_js"""
     expected = [
@@ -110,6 +238,35 @@ def test_get_colors():
     color_iter = c.get_colors()
 
     assert expected == [next(color_iter) for _ in range(len(expected))]
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
+def test_leaflet_crs_js():
+    """test cartographer.leaflet_crs_js"""
+    min_zoom = 0
+    max_zoom = 2
+    name = "test"
+
+    layer_dict = dict(
+        directory=name + "/{z}/{y}/{x}.png",
+        name=name,
+        min_zoom=min_zoom,
+        max_zoom=max_zoom + 5,
+        max_native_zoom=max_zoom,
+    )
+
+    actual = c.leaflet_crs_js([layer_dict])
+
+    expected = "\n".join(
+        [
+            "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
+            f"    transformation: new L.Transformation(1/{int(2**max_zoom)}, 0, -1/{int(2**max_zoom)}, 256)",
+            "});",
+        ]
+    )
+
+    assert actual == expected
 
 
 @pytest.mark.unit
@@ -138,6 +295,39 @@ def test_extract_cd_matrix_as_string_without_cd():
     expected = "[[0.0, 0.0], [0.0, 0.0]]"
 
     assert actual == expected
+
+
+@pytest.mark.unit
+@pytest.mark.cartographer
+def test_leaflet_map_js():
+    """test cartographer.leaflet_map_js"""
+
+    min_zoom = 0
+    max_zoom = 2
+    name = "test"
+
+    layer_dict = dict(
+        directory=name + "/{z}/{y}/{x}.png",
+        name=name,
+        min_zoom=min_zoom,
+        max_zoom=max_zoom + 5,
+        max_native_zoom=max_zoom,
+    )
+
+    acutal_map_js = c.leaflet_map_js([layer_dict])
+
+    expected_map_js = "\n".join(
+        [
+            'const map = L.map("map", {',
+            "    crs: L.CRS.FitsMap,",
+            "    minZoom: " + str(min_zoom) + ",",
+            "    preferCanvas: true,",
+            f"    layers: [{layer_dict['name']}]",
+            "});",
+        ]
+    )
+
+    assert expected_map_js == acutal_map_js
 
 
 @pytest.mark.unit
