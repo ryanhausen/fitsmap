@@ -345,11 +345,10 @@ def build_index_js(
     pixel_scale: float,
     units_are_pixels: bool,
 ) -> str:
-    template_dir = os.path.join(os.path.dirname(__file__), "templates")
     # autoescape=False is safe here because we are generating Javascript code, not HTML.
     # Standard HTML escaping would break Javascript syntax.
     env = Environment(  # nosec B701
-        loader=FileSystemLoader(template_dir), autoescape=False
+        loader=PackageLoader("fitsmap", "templates"), autoescape=False
     )
     template = env.get_template("index.js.j2")
 
