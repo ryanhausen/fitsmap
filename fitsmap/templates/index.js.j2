@@ -1,0 +1,90 @@
+// Image layers ================================================================
+{% for layer in image_layers -%}
+const {{ layer.name }} = L.tileLayer("{{ layer.directory }}", { attribution:"{{ layer_attribution }}", minZoom: {{ layer.min_zoom }}, maxZoom: {{ layer.max_zoom }}, maxNativeZoom: {{ layer.max_native_zoom }} });
+{% endfor %}
+// Marker layers ===============================================================
+{% for layer in marker_layers -%}
+const {{ layer.name }} = L.gridLayer.tiledMarkers({ tileURL:"{{ layer.directory }}", radius: 10, strokeColor: "{{ layer.stroke_color }}", fillColor: "{{ layer.fill_color }}", fillOpacity: 0.2, strokeOpacity: 1.0, nCols: {{ n_cols }}, catalogColumns: [{{ layer.columns|join(',') }}], minZoom: {{ layer.min_zoom }}, maxZoom: {{ layer.max_zoom }}, maxNativeZoom: {{ layer.max_native_zoom }} });
+{% endfor %}
+// Basic map setup =============================================================
+L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {
+    transformation: new L.Transformation(1/{{ crs_scale_factor }}, 0, -1/{{ crs_scale_factor }}, 256)
+});
+
+const map = L.map("map", {
+    crs: L.CRS.FitsMap,
+    minZoom: {{ min_zoom }},
+    preferCanvas: true,
+    layers: [{{ image_layers[0].name }}]
+});
+
+// Scale Bar Control ===========================================================
+// https://stackoverflow.com/a/62093918
+const scale = L.control.fitsmapScale({
+    pixelScale: {{ pixel_scale }},
+    unitsArePixels: {{ 'true' if units_are_pixels else 'false' }},
+}).addTo(map);
+
+// Label Control ===============================================================
+const label = L.control.label({
+    position: 'bottomleft',
+    title: '',
+    isRADec: Boolean(is_ra_dec) // from urlCoords.js
+}).addTo(map);
+
+const catalogs = {
+{% if marker_layers -%}
+{% for layer in marker_layers -%}
+{{ "    " }}"{{ layer.name }}":{{ layer.name }}{% if not loop.last %},{% endif %}
+{% endfor -%}
+{% else -%}
+{{ "\n" }}{% endif -%}
+};
+
+const layerControl = L.control.layers(
+    {{ "{" }}{% for layer in image_layers %}"{{ layer.name }}":{{ layer.name }}{% if not loop.last %},{% endif %}{% endfor %}{{ "}" }},
+    catalogs
+).addTo(map);
+
+// Search ======================================================================
+{% if marker_layers -%}
+const catalogPaths = [
+{% for layer in marker_layers -%}
+{{ "    " }}"catalog_assets/{{ layer.name }}/",
+{% endfor -%}
+];
+
+const searchControl = buildCustomSearch(catalogPaths, {{ marker_layers[0].max_native_zoom }});
+map.addControl(searchControl);
+
+{% else -%}
+{{ "\n" }}
+{% endif -%}
+// Settings Control ============================================================
+const settingsControl = L.control.settings({
+    position: 'topleft',
+    catalogs:catalogs,
+}).addTo(map);
+
+// Map event setup =============================================================
+{{ image_layers[0].name }}.on("load", () => {
+    document.getElementById("loading-screen").style.display = "none";
+    document.getElementById("map").style.visibility = "visible";
+    label.update(map.getCenter());
+});
+
+map.on("moveend", updateLocationBar);
+map.on("zoomend", updateLocationBar);
+map.on("mousemove", (event) => {label.update(event.latlng);});
+map.on("baselayerchange", (event) => {label.options.title = event.name;});
+
+map.whenReady(function () {
+    scale.options.maxWidth = Math.round(map.getSize().x * 0.2);
+    label.addTo(map);
+});
+
+if (urlParam("zoom")==null) {
+    map.fitBounds(L.latLngBounds([[0, 0], [{{ max_xy[0] }}, {{ max_xy[1] }}]]));
+} else {
+    panFromUrl(map);
+}

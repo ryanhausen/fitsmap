@@ -19,7 +19,6 @@
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """Tests cartographer.py"""
 
-import filecmp
 import os
 
 import pytest
@@ -93,134 +92,6 @@ def test_layer_name_to_dict_catalog():
 
 @pytest.mark.unit
 @pytest.mark.cartographer
-def test_img_layer_dict_to_str():
-    """test cartographer.layer_dict_to_str"""
-
-    min_zoom = 0
-    max_zoom = 2
-    name = "test"
-
-    layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.png",
-        name=name,
-        min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
-    )
-
-    actual_str = c.img_layer_dict_to_str(layer_dict)
-
-    expected_str = "".join(
-        [
-            "const " + layer_dict["name"],
-            ' = L.tileLayer("' + layer_dict["directory"] + '"',
-            ", { ",
-            'attribution:"'
-            + "<a href='https://github.com/ryanhausen/fitsmap'>FitsMap</a>"
-            + '", ',
-            "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
-            "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
-            "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
-            "});",
-        ]
-    )
-
-    assert expected_str == actual_str
-
-
-@pytest.mark.unit
-@pytest.mark.cartographer
-def test_cat_layer_dict_to_str():
-    """test cartographer.layer_dict_to_str"""
-
-    min_zoom = 0
-    max_zoom = 2
-    name = "test"
-    columns = "a,b,c"
-
-    layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.png",
-        name=name,
-        min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
-        stroke_color="red",
-        fill_color="red",
-        columns=[f'"{c}"' for c in columns.split(",")],
-    )
-
-    actual_str = c.cat_layer_dict_to_str(layer_dict, "Infinity")
-
-    expected_str = "".join(
-        [
-            "const " + layer_dict["name"],
-            " = L.gridLayer.tiledMarkers(",
-            "{ ",
-            'tileURL:"' + layer_dict["directory"] + '", ',
-            "radius: 10, ",
-            'strokeColor: "' + layer_dict["stroke_color"] + '", ',
-            'fillColor: "' + layer_dict["fill_color"] + '", ',
-            "fillOpacity: 0.2, ",
-            "strokeOpacity: 1.0, ",
-            "nCols: Infinity, ",
-            f"catalogColumns: [{','.join(layer_dict['columns'])}], ",
-            "minZoom: " + str(layer_dict["min_zoom"]) + ", ",
-            "maxZoom: " + str(layer_dict["max_zoom"]) + ", ",
-            "maxNativeZoom: " + str(layer_dict["max_native_zoom"]) + " ",
-            "});",
-        ]
-    )
-
-    helpers.tear_down()
-
-    assert expected_str == actual_str
-
-
-@pytest.mark.unit
-@pytest.mark.cartographer
-def test_leaflet_layer_control_declaration():
-    """test cartographer.add_layer_control"""
-    min_zoom = 0
-    max_zoom = 2
-    name = "test"
-
-    img_layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.png",
-        name=name,
-        min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
-    )
-
-    cat_layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.pbf",
-        name=name,
-        min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
-        color="red",
-    )
-
-    actual = c.leaflet_layer_control_declaration([img_layer_dict], [cat_layer_dict])
-
-    expected = "\n".join(
-        [
-            "const catalogs = {",
-            '    "test":test',
-            "};",
-            "",
-            "const layerControl = L.control.layers(",
-            '    {"test":test},',
-            "    catalogs",
-            ").addTo(map);",
-        ]
-    )
-
-    assert expected == actual
-
-
-@pytest.mark.unit
-@pytest.mark.cartographer
 def test_get_colors():
     """test cartographer.colors_js"""
     expected = [
@@ -239,35 +110,6 @@ def test_get_colors():
     color_iter = c.get_colors()
 
     assert expected == [next(color_iter) for _ in range(len(expected))]
-
-
-@pytest.mark.unit
-@pytest.mark.cartographer
-def test_leaflet_crs_js():
-    """test cartographer.leaflet_crs_js"""
-    min_zoom = 0
-    max_zoom = 2
-    name = "test"
-
-    layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.png",
-        name=name,
-        min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
-    )
-
-    actual = c.leaflet_crs_js([layer_dict])
-
-    expected = "\n".join(
-        [
-            "L.CRS.FitsMap = L.extend({}, L.CRS.Simple, {",
-            f"    transformation: new L.Transformation(1/{int(2**max_zoom)}, 0, -1/{int(2**max_zoom)}, 256)",
-            "});",
-        ]
-    )
-
-    assert actual == expected
 
 
 @pytest.mark.unit
@@ -296,39 +138,6 @@ def test_extract_cd_matrix_as_string_without_cd():
     expected = "[[0.0, 0.0], [0.0, 0.0]]"
 
     assert actual == expected
-
-
-@pytest.mark.unit
-@pytest.mark.cartographer
-def test_leaflet_map_js():
-    """test cartographer.leaflet_map_js"""
-
-    min_zoom = 0
-    max_zoom = 2
-    name = "test"
-
-    layer_dict = dict(
-        directory=name + "/{z}/{y}/{x}.png",
-        name=name,
-        min_zoom=min_zoom,
-        max_zoom=max_zoom + 5,
-        max_native_zoom=max_zoom,
-    )
-
-    acutal_map_js = c.leaflet_map_js([layer_dict])
-
-    expected_map_js = "\n".join(
-        [
-            'const map = L.map("map", {',
-            "    crs: L.CRS.FitsMap,",
-            "    minZoom: " + str(min_zoom) + ",",
-            "    preferCanvas: true,",
-            f"    layers: [{layer_dict['name']}]",
-            "});",
-        ]
-    )
-
-    assert expected_map_js == acutal_map_js
 
 
 @pytest.mark.unit
@@ -530,56 +339,6 @@ def test_move_support_images():
     assert actual_moved_images == expected_moved_images
 
 
-@pytest.mark.unit
-@pytest.mark.cartographer
-def test_build_html():
-    """test cartographer.build_html"""
-
-    title = "test_title"
-    extra_js = "test_extra_js"
-    extra_css = "test_extra_css"
-
-    actual_html = c.build_html(title, extra_js, extra_css)
-
-    expected_html = "\n".join(
-        [
-            "<!DOCTYPE html>",
-            '<html lang="en">',
-            "<head>",
-            "    <title>{}</title>".format(title),
-            '    <meta charset="utf-8" />',
-            '    <meta name="viewport" content="width=device-width, initial-scale=1.0">',
-            '    <link rel="shortcut icon" type="image/x-icon" href="imgs/favicon.ico" />',
-            '    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.css" integrity="sha512-1xoFisiGdy9nvho8EgXuXvnpR5GAMSjFwp40gSRE3NwdUdIMIKuPa7bqoUhLD0O/5tPNhteAsE5XyyMi5reQVA==" crossorigin="anonymous" referrerpolicy="no-referrer" as="style" onload="this.rel=\'stylesheet\'"/>',
-            extra_css,
-            '    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.min.js" integrity="sha512-SeiQaaDh73yrb56sTW/RgVdi/mMqNeM2oBwubFHagc5BkixSpP1fvqF47mKzPGWYSSy4RwbBunrJBQ4Co8fRWA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>',
-            extra_js,
-            "    <style>",
-            "    /* Map */",
-            r"    html,body{height:100%;padding:0;margin:0;font-family:Helvetica,Arial,sans-serif}#map{width:100%;height:100%;visibility:hidden}",
-            "    /* Loading Page */",
-            "    /*",
-            '    Copyright (c) 2023 by kootoopas (https://codepen.io/kootoopas/pen/kGPoaB) Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.',
-            "    */",
-            '    @-webkit-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@keyframes bg-scrolling-reverse {100% {background-position: 50px 50px;}}@-webkit-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-moz-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@-o-keyframes bg-scrolling {0% {background-position: 50px 50px;}}@keyframes bg-scrolling {0% {background-position: 50px 50px;}}#loading-screen {color: #999;font: 400 16px/1.5 exo, ubuntu, "segoe ui", helvetica, arial, sans-serif;text-align: center;background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAIAAACRXR/mAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAIGNIUk0AAHolAACAgwAA+f8AAIDpAAB1MAAA6mAAADqYAAAXb5JfxUYAAABnSURBVHja7M5RDYAwDEXRDgmvEocnlrQS2SwUFST9uEfBGWs9c97nbGtDcquqiKhOImLs/UpuzVzWEi1atGjRokWLFi1atGjRokWLFi1atGjRokWLFi1af7Ukz8xWp8z8AAAA//8DAJ4LoEAAlL1nAAAAAElFTkSuQmCC") repeat 0 0;-webkit-animation: bg-scrolling-reverse 0.92s infinite;-moz-animation: bg-scrolling-reverse 0.92s infinite;-o-animation: bg-scrolling-reverse 0.92s infinite;animation: bg-scrolling-reverse 0.92s infinite;-webkit-animation-timing-function: linear;-moz-animation-timing-function: linear;-o-animation-timing-function: linear;animation-timing-function: linear;width: 100%;height: 100%;}',
-            "    </style>",
-            "</head>",
-            "<body>",
-            '    <div id="loading-screen" class="overlay">',
-            '        <div class="brand"><img src="imgs/loading-logo.svg" style="width: 100%" alt="FitsMap logo"/></div>',
-            '        <div class="loading"></div>',
-            '        <div class="loadingtext">Loading...</div>',
-            "    </div>",
-            '    <div id="map"></div>',
-            "</body>",
-            f"<!--Made with fitsmap v{helpers.get_version()}-->",
-            "</html>\n",
-        ]
-    )
-
-    assert expected_html == actual_html
-
-
 @pytest.mark.integration
 @pytest.mark.cartographer
 def test_chart_no_wcs():
@@ -601,7 +360,9 @@ def test_chart_no_wcs():
 
     list(
         map(
-            lambda r: os.makedirs(os.path.join(out_dir, map_layer_names, str(r))),
+            lambda r: os.makedirs(
+                os.path.join(out_dir, map_layer_names, str(r)), exist_ok=True
+            ),
             range(3),
         )
     )
@@ -609,13 +370,17 @@ def test_chart_no_wcs():
     # make mock marker zooms
     list(
         map(
-            lambda r: os.makedirs(os.path.join(out_dir, marker_file_names, str(r))),
+            lambda r: os.makedirs(
+                os.path.join(out_dir, marker_file_names, str(r)), exist_ok=True
+            ),
             range(2),
         )
     )
 
-    os.mkdir(os.path.join(out_dir, "js"))
-    os.mkdir(os.path.join(out_dir, "css"))
+    if not os.path.exists(os.path.join(out_dir, "js")):
+        os.mkdir(os.path.join(out_dir, "js"))
+    if not os.path.exists(os.path.join(out_dir, "css")):
+        os.mkdir(os.path.join(out_dir, "css"))
 
     c.chart(
         out_dir,
@@ -643,11 +408,14 @@ def test_chart_no_wcs():
     actual_html = os.path.join(out_dir, "index.html")
     expected_html = os.path.join(out_dir, "test_index.html")
 
-    files_match = filecmp.cmp(expected_html, actual_html)
+    # Read and compare files as strings to see differences
+    with open(actual_html) as f1, open(expected_html) as f2:
+        actual_lines = f1.readlines()
+        expected_lines = f2.readlines()
+
+    assert actual_lines == expected_lines
 
     helpers.tear_down()
-
-    assert files_match
 
 
 @pytest.mark.integration
@@ -672,7 +440,9 @@ def test_chart_with_wcs():
     # make mock image zooms
     list(
         map(
-            lambda r: os.makedirs(os.path.join(out_dir, map_layer_names, str(r))),
+            lambda r: os.makedirs(
+                os.path.join(out_dir, map_layer_names, str(r)), exist_ok=True
+            ),
             range(3),
         )
     )
@@ -680,13 +450,17 @@ def test_chart_with_wcs():
     # make mock marker zooms
     list(
         map(
-            lambda r: os.makedirs(os.path.join(out_dir, marker_file_names, str(r))),
+            lambda r: os.makedirs(
+                os.path.join(out_dir, marker_file_names, str(r)), exist_ok=True
+            ),
             range(2),
         )
     )
 
-    os.mkdir(os.path.join(out_dir, "js"))
-    os.mkdir(os.path.join(out_dir, "css"))
+    if not os.path.exists(os.path.join(out_dir, "js")):
+        os.mkdir(os.path.join(out_dir, "js"))
+    if not os.path.exists(os.path.join(out_dir, "css")):
+        os.mkdir(os.path.join(out_dir, "css"))
 
     c.chart(
         out_dir,
@@ -714,8 +488,11 @@ def test_chart_with_wcs():
     actual_html = os.path.join(out_dir, "index.html")
     expected_html = os.path.join(out_dir, "test_index_wcs.html")
 
-    files_match = filecmp.cmp(expected_html, actual_html)
+    # Read and compare files as strings to see differences
+    with open(actual_html) as f1, open(expected_html) as f2:
+        actual_lines = f1.readlines()
+        expected_lines = f2.readlines()
+
+    assert actual_lines == expected_lines
 
     helpers.tear_down()
-
-    assert files_match
