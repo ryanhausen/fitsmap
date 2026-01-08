@@ -84,7 +84,7 @@ map.whenReady(function () {
 });
 
 if (urlParam("zoom")==null) {
-    map.fitBounds(L.latLngBounds([[0, 0], [{{ max_xy[1] }}, {{ max_xy[0] }}]]));
+    map.fitBounds(L.latLngBounds([[0, 0], [{{ max_xy[0] }}, {{ max_xy[1] }}]]));
 } else {
     panFromUrl(map);
 }
