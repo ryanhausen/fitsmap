@@ -111,7 +111,7 @@ def peek_image_info(img_file_names: List[str]) -> Tuple[int, int]:
         map(
             get_fits_image_size,
             filter(
-                lambda f: (f.endswith("fits") or f.endswith("fits.gz")), img_file_names
+                lambda f: f.endswith("fits") or f.endswith("fits.gz"), img_file_names
             ),
         )
     )
@@ -120,7 +120,7 @@ def peek_image_info(img_file_names: List[str]) -> Tuple[int, int]:
         map(
             get_standard_image_size,
             filterfalse(
-                lambda f: (f.endswith("fits") or f.endswith("fits.gz")), img_file_names
+                lambda f: f.endswith("fits") or f.endswith("fits.gz"), img_file_names
             ),
         )
     )
