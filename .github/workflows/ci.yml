@@ -88,7 +88,7 @@ jobs:
       shell: bash
     - name: Archive coverage report
       # we only need to upload once, no need to do it for all OS/Python combinations
-      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.9'
+      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.10'
       uses: actions/upload-artifact@v4.4.3
       with:
         name: code-coverage-report-python${{ matrix.python-version }}-${{ matrix.os }}
@@ -97,7 +97,7 @@ jobs:
         if-no-files-found: error
     - name: Upload coverage to Codecov
       # we only need to upload once, no need to do it for all OS/Python combinations
-      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.9'
+      if: matrix.os == 'ubuntu-24.04' && matrix.python-version == '3.10'
       uses: codecov/codecov-action@v4
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
