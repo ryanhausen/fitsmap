@@ -77,7 +77,7 @@ dev = [
 ]
 prd = [
     "astropy==6.0.1",
-    "cbor2==5.7.0",
+    "cbor2==5.8.0",
     "click==8.1.8",
     "mapbox_vector_tile==2.2.0",
     "matplotlib==3.9.4",
