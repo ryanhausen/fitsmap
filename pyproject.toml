@@ -9,7 +9,7 @@ description = "A Simple, Lightweight Tool For Displaying Interactive Astronomica
 readme = "README.rst"
 license = "MIT"
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "astropy>=6.0.1",
     "cbor2>=5.7.0",
@@ -84,7 +84,7 @@ prd = [
     "numpy==1.26.4",
     "pillow==11.3.0",
     "protobuf==6.33.5",
-    "ray==2.49.0",
+    "ray==2.52.1",
     "shapely==2.0.7",
     "scikit-image==0.24.0",
     "tqdm==4.67.1",

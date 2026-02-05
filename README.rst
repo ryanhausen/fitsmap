@@ -22,8 +22,8 @@ FitsMap
 .. image:: https://codecov.io/gh/ryanhausen/fitsmap/graph/badge.svg?token=8TOpKHfHSB
     :target: https://codecov.io/gh/ryanhausen/fitsmap
 
-.. image:: https://img.shields.io/badge/Python-3.9%E2%80%9413-blue
-    :target: https://www.python.org/downloads/release/python-390/
+.. image:: https://img.shields.io/badge/Python-3.10%E2%80%9413-blue
+    :target: https://www.python.org/downloads/release/python-3100/
 
 .. image:: https://img.shields.io/badge/Env-uv-D7FF64
     :target: https://docs.astral.sh/uv/
