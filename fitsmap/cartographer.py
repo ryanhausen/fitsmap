@@ -188,11 +188,13 @@ def get_colors() -> Iterable[str]:
     )
 
 
+
 def move_support_images(out_dir: str) -> List[str]:
     img_extensions = [".png", ".jpg", ".ico", ".svg"]
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_img_dir = os.path.join(out_dir, "imgs")
+    out_js_dir = os.path.join(out_dir, "js")
 
     local_img_files = list(
         filter(
@@ -212,12 +214,24 @@ def move_support_images(out_dir: str) -> List[str]:
             local_img_files,
         )
     )
+
+    # Copy wcslib files
+    shutil.copy2(
+        os.path.join(support_dir, "wcslib.js"), os.path.join(out_js_dir, "wcslib.js")
+    )
+    shutil.copy2(
+        os.path.join(support_dir, "wcslib.wasm"),
+        os.path.join(out_js_dir, "wcslib.wasm"),
+    )
+
     return local_img_files
 
 
 def build_conditional_css(out_dir: str) -> str:
     search_css = "https://unpkg.com/leaflet-search@2.9.8/dist/leaflet-search.src.css"
-    css_string = "    <link rel='preload' href='{}'  as='style' onload='this.rel=\"stylesheet\"'/>"
+    css_string = (
+        "    <link rel='preload' href='{}'  as='style' onload='this.rel=\"stylesheet\"'/>"
+    )
 
     support_dir = os.path.join(os.path.dirname(__file__), "support")
     out_css_dir = os.path.join(out_dir, "css")
@@ -276,6 +290,7 @@ def build_conditional_js(out_dir: str, include_markerjs: bool) -> str:
         "js/fitsmapScale.min.js",
         "js/labelControl.min.js",
         "js/settingsControl.min.js",
+        "js/wcslib.js",
         "js/urlCoords.js",
         "js/index.js",
     ]
@@ -318,21 +333,17 @@ def extract_cd_matrix_as_string(wcs: WCS) -> str:
 
 
 def build_urlCoords_js(img_wcs: WCS) -> str:
-    wcs_js_file = os.path.join(os.path.dirname(__file__), "support", "urlCoords.js.tmp")
+    wcs_js_file = os.path.join(
+        os.path.dirname(__file__), "support", "urlCoords.js.wcslib"
+    )
 
     with open(wcs_js_file, "r") as f:
         wcs_js = "".join(f.readlines())
 
     if img_wcs:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "1")
-        wcs_js = wcs_js.replace("_CRPIX", str(img_wcs.wcs.crpix.tolist()))
-        wcs_js = wcs_js.replace("_CRVAL", str(img_wcs.wcs.crval.tolist()))
-        wcs_js = wcs_js.replace("_CD", extract_cd_matrix_as_string(img_wcs))
     else:
         wcs_js = wcs_js.replace("_IS_RA_DEC", "0")
-        wcs_js = wcs_js.replace("_CRPIX", "[1, 1]")
-        wcs_js = wcs_js.replace("_CRVAL", "[0, 0]")
-        wcs_js = wcs_js.replace("_CD", "[[1, 0], [0, 1]]")
 
     return wcs_js
 

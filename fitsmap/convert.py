@@ -74,6 +74,52 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 
 
+def get_wcs_header(files: List[str], cat_wcs_fits_file: Optional[str]) -> str:
+    """Extracts the header from the first fits file or the cat_wcs_fits_file.
+
+    Args:
+        files: List of files being processed
+        cat_wcs_fits_file: Explicit WCS file provided by user
+
+    Returns:
+        The header string
+    """
+    if cat_wcs_fits_file:
+        return fits.getheader(cat_wcs_fits_file).tostring()
+
+    fits_files = filter_on_extension(files, [".fits", ".fits.gz"])
+    if fits_files:
+        return fits.getheader(fits_files[0]).tostring()
+
+    # If no FITS files, return proper WCS header for simple image
+    # We can create a simple linear WCS
+    # This might need to be more robust, but for now we can rely on
+    # what wcslib needs.
+    # However, if it's just a PNG, maybe we don't strictly need a full WCS?
+    # But our urlCoords.wcslib expects a header.
+    # Let's create a minimal valid header.
+    w = WCS(naxis=2)
+    w.wcs.crpix = [0, 0]
+    w.wcs.cdelt = [1, 1]
+    w.wcs.crval = [0, 0]
+    w.wcs.ctype = ["LINEAR", "LINEAR"]
+    return w.to_header().tostring()
+
+
+def write_header(header: str, out_dir: str) -> None:
+    """Writes the WCS header to a text file in the output directory.
+
+    Args:
+        header: The header string
+        out_dir: The output directory
+    """
+    with open(os.path.join(out_dir, "js", "header.txt"), "w") as f:
+        # Split header string into 80 char lines
+        for i in range(0, len(header), 80):
+            f.write(header[i : i + 80] + "\n")
+
+
+
 def build_path(z, y, x, out_dir) -> str:
     """Maps zoom and coordinate location to a subdir in ``out_dir``
 
@@ -1237,6 +1283,10 @@ def files_to_map(
     print("Building index.html")
 
     cat_wcs = WCS(cat_wcs_fits_file) if cat_wcs_fits_file else None
+
+    # Extract and write header
+    header = get_wcs_header(files, cat_wcs_fits_file)
+    write_header(header, out_dir)
 
     cartographer.chart(
         out_dir,
