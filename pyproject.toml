@@ -82,7 +82,7 @@ prd = [
     "mapbox_vector_tile==2.2.0",
     "matplotlib==3.10.8",
     "numpy==1.26.4",
-    "pillow==12.1.1",
+    "pillow==12.2.0",
     "protobuf==6.33.5",
     "ray==2.53.0",
     "shapely==2.1.2",
