@@ -56,6 +56,7 @@ exclude = ["fitsmap.tests*", "fitsmap/tests*"]
 
 [tool.setuptools_scm]
 write_to = "fitsmap/_version.py"
+fallback_version = "0.0.0"
 
 [tool.bandit]
 exclude_dirs = ["fitsmap/tests"]
