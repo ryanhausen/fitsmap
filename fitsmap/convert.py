@@ -1114,9 +1114,11 @@ def files_to_map(
     # we want to init ray in such a way that it doesn't print any output
     # to the console. These should be changed during development
     debug = os.getenv("FITSMAP_DEBUG", "False").lower() == "true"
+    if ray.is_initialized():
+        ray.shutdown()
     ray.init(
         include_dashboard=debug,  # during dev == True
-        configure_logging=~debug,  # during dev == False
+        configure_logging=not debug,  # during dev == False
         logging_level=(
             logging.INFO if debug else logging.CRITICAL
         ),  # during dev == logging.INFO, test == logging.CRITICAL
