@@ -74,11 +74,10 @@ mpl_f, mpl_img, mpl_alpha_f, mpl_norm = None, None, None, None
 MIXED_WHITESPACE_DELIMITER = "mixed_ws"
 
 
-def get_wcs_header(files: List[str], cat_wcs_fits_file: Optional[str]) -> str:
+def get_wcs_header(cat_wcs_fits_file: Optional[str] = None) -> str:
     """Extracts the header from the first fits file or the cat_wcs_fits_file.
 
     Args:
-        files: List of files being processed
         cat_wcs_fits_file: Explicit WCS file provided by user
 
     Returns:
@@ -87,17 +86,7 @@ def get_wcs_header(files: List[str], cat_wcs_fits_file: Optional[str]) -> str:
     if cat_wcs_fits_file:
         return fits.getheader(cat_wcs_fits_file).tostring()
 
-    fits_files = filter_on_extension(files, [".fits", ".fits.gz"])
-    if fits_files:
-        return fits.getheader(fits_files[0]).tostring()
-
     # If no FITS files, return proper WCS header for simple image
-    # We can create a simple linear WCS
-    # This might need to be more robust, but for now we can rely on
-    # what wcslib needs.
-    # However, if it's just a PNG, maybe we don't strictly need a full WCS?
-    # But our urlCoords.wcslib expects a header.
-    # Let's create a minimal valid header.
     w = WCS(naxis=2)
     w.wcs.crpix = [0, 0]
     w.wcs.cdelt = [1, 1]
@@ -1285,7 +1274,7 @@ def files_to_map(
     cat_wcs = WCS(cat_wcs_fits_file) if cat_wcs_fits_file else None
 
     # Extract and write header
-    header = get_wcs_header(files, cat_wcs_fits_file)
+    header = get_wcs_header(cat_wcs_fits_file)
     write_header(header, out_dir)
 
     cartographer.chart(

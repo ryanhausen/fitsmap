@@ -1070,3 +1070,7 @@ def test_dir_to_map_no_markers():
     helpers.enable_tqdm()
 
     assert dirs_match
+
+
+if __name__=="__main__":
+    test_dir_to_map_no_markers()
