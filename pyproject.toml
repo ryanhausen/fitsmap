@@ -70,7 +70,7 @@ dev = [
     "pytest==9.0.3",
     "pytest-cov==7.1.0",
     "setuptools==80.10.2",
-    "setuptools-scm[toml]==9.2.2",
+    "setuptools-scm[toml]==10.2.0",
     "sphinx==8.1.3",
     "sphinx-automodapi==0.22.0",
     "sphinx-book-theme==1.1.4",
