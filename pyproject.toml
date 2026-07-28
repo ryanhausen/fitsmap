@@ -85,7 +85,7 @@ prd = [
     "numpy==1.26.4",
     "pillow==12.2.0",
     "protobuf==6.33.5",
-    "ray==2.55.1",
+    "ray==2.56.0",
     "shapely==2.1.2",
     "scikit-image==0.25.2",
     "tqdm==4.67.3",
