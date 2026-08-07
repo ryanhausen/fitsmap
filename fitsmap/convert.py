@@ -1117,6 +1117,7 @@ def files_to_map(
     if ray.is_initialized():
         ray.shutdown()
     ray.init(
+        ignore_reinit_error=True,
         include_dashboard=debug,  # during dev == True
         configure_logging=not debug,  # during dev == False
         logging_level=(
