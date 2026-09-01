@@ -64,10 +64,10 @@ exclude_dirs = ["fitsmap/tests"]
 [dependency-groups]
 dev = [
     "bandit==1.9.4",
-    "build==1.5.0",
+    "build==1.6.0",
     "debugpy>=1.8.0",
     "nbsphinx==0.9.8",
-    "pytest==9.0.3",
+    "pytest==9.1.1",
     "pytest-cov==7.1.0",
     "setuptools==80.10.2",
     "setuptools-scm[toml]==9.2.2",
@@ -79,14 +79,14 @@ dev = [
 prd = [
     "astropy==6.1.7",
     "cbor2==5.9.0",
-    "click==8.4.1",
+    "click==8.5.0",
     "mapbox_vector_tile==2.2.0",
     "matplotlib==3.10.9",
     "numpy==1.26.4",
-    "pillow==12.2.0",
+    "pillow==12.3.0",
     "protobuf==6.33.5",
-    "ray==2.55.1",
+    "ray==2.58.0",
     "shapely==2.1.2",
     "scikit-image==0.25.2",
-    "tqdm==4.67.3",
+    "tqdm==4.70.0",
 ]
