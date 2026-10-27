@@ -25,3 +25,10 @@ testing_tmp/
 fitsmap/tests/data/test.columns
 
 fitsmap/_version.py
+
+# Rust build output
+rust/target/
+
+# compiled extension, if it's ever built in place (e.g. once it becomes fitsmap._tiling)
+*.so
+*.pyd

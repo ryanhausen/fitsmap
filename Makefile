@@ -32,6 +32,10 @@ format:
 test:
 	uv run --group prd --locked pytest -v --cov=fitsmap --cov-report=xml --cov-report=html
 
+# builds the Rust extension using maturin
+build-rs:
+	uv run -m maturin develop --manifest-path rust/Cargo.toml
+
 # https://stackoverflow.com/a/77245502/2691018
 ## Print this help
 help:
