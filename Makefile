@@ -15,26 +15,38 @@ check-env:
 	uv lock --check-exists
 	uv lock --check
 
-# Builds the package distribution using build
+## Builds the package distribution using build
 dist:
 	uv build
 
-# Build the documentation using Sphinx
+## Build the documentation using Sphinx
 docs:
 	uv run --directory docs --dev --locked make clean html epub
 
-# Formats the code using ruff according the the `black` style
+## Formats the code using ruff according the the `black` style
 format:
 	uvx ruff format .
 	uvx ruff check --select I --fix .
 
-# Runs the tests using pytest and generates coverage reports
+## Runs the tests using pytest and generates coverage reports
 test:
 	uv run --group prd --locked pytest -v --cov=fitsmap --cov-report=xml --cov-report=html
 
-# builds the Rust extension using maturin
+## builds the Rust extension using maturin
 build-rs:
 	uv run -m maturin develop --manifest-path rust/Cargo.toml
+
+## builds the Rust extension using maturin in release mode
+release-rs:
+	uv run -m maturin develop --release --manifest-path rust/Cargo.toml
+
+## runs the Rust tests using cargo test
+test-rs:
+	cd rust && cargo test
+
+## formats the Rust code using cargo fmt
+format-rs:
+	cd rust && cargo fmt
 
 # https://stackoverflow.com/a/77245502/2691018
 ## Print this help
@@ -45,4 +57,4 @@ help:
         {print $$1, "\t", c; c=0} \
          END { print c }' $(MAKEFILE_LIST)
 
-.PHONY: all check-env check-security check-style dist docs format help test
+.PHONY: all check-env check-security check-style dist docs format help test build-rs release-rs test-rs
