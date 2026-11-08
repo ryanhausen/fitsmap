@@ -17,7 +17,7 @@ Work from the leaf functions up to the orchestrator.
 | # | Function | Rust concepts | Status |
 |---|---|---|---|
 | 0 | `add` (stub) | `#[pyfunction]`, `#[pymodule]`, `#[pymodule_export]` | done |
-| 1 | [`get_total_tiles`](fitsmap/convert.py#L242) | integer types, ranges, `.map().sum()`, `pow`, overflow | |
+| 1 | [`get_total_tiles`](fitsmap/convert.py#L242) | integer types, ranges, `.map().sum()`, `pow`, overflow | done (Rust-internal, returns `Option<u64>`) |
 | 2 | [`get_zoom_range`](fitsmap/convert.py#L222) | tuples, `as f64` casts, `log2`/`ceil`, truncation | |
 | 3 | [`build_path`](fitsmap/convert.py#L77) | `String` vs `&str`, `PathBuf`, `format!` | |
 | 4 | [`slice_idx_generator`](fitsmap/convert.py#L97) | structs, `Vec<T>` vs `impl Iterator`, `PyResult` errors | |
